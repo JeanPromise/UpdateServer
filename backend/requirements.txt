@@ -1,3 +1,8 @@
 flask
 werkzeug
 gunicorn
+Flask==3.1.2
+flask_sockets==0.2.1
+gevent==22.10.2
+gevent-websocket==0.10.1
+gunicorn==23.0.0
