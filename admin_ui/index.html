@@ -3,69 +3,24 @@
 <head>
 <meta charset="UTF-8">
 <title>Admin Dashboard</title>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='admin.js') }}"></script>
 <style>
-body { font-family: Arial; background:#111; color:#eee; margin:0; }
-header { padding:10px; background:#222; text-align:center; font-size:24px; }
-#devices { display:flex; flex-wrap:wrap; padding:10px; }
-.device { background:#333; padding:10px; margin:10px; border-radius:6px; width:220px; }
-.device span { display:block; margin-bottom:5px; }
-button { padding:5px 10px; margin:2px; background:#f90; border:none; color:#111; cursor:pointer; border-radius:4px; }
-button:hover { background:#ffb000; }
-#logs { background:#222; margin:10px; padding:10px; border-radius:6px; height:200px; overflow:auto; font-size:14px; }
+body { font-family: Arial; background:#111; color:#eee; padding:20px; }
+button { padding:10px 20px; margin-top:10px; }
+input { padding:5px; width:300px; }
+#devices { margin-top:20px; }
+.device { padding:5px; border-bottom:1px solid #444; }
 </style>
 </head>
 <body>
-<header>Admin Dashboard</header>
+<h1>Admin Dashboard</h1>
+<label>APK URL: <input type="text" id="apkUrl" placeholder="https://example.com/app.apk"></label>
+<button onclick="sendUpdate()">Send Update</button>
 
-<div id="devices"></div>
-<div id="logs"></div>
-
-<script>
-let ws = new WebSocket("ws://" + location.host + "/ws/admin");
-
-ws.onopen = () => log("[WS] Connected to server");
-ws.onmessage = (evt) => {
-    log(evt.data);
-};
-ws.onclose = () => {
-    log("[WS] Connection closed, retrying in 5s...");
-    setTimeout(()=>location.reload(), 5000);
-};
-
-function log(msg){
-    let logs = document.getElementById("logs");
-    logs.innerHTML += msg + "<br>";
-    logs.scrollTop = logs.scrollHeight;
-}
-
-// Fetch devices every second and update UI
-async function fetchDevices(){
-    let res = await fetch("/");
-    let parser = new DOMParser();
-    let doc = parser.parseFromString(await res.text(), "text/html");
-    let newDevices = [...doc.querySelectorAll(".device span")].map(s=>s.textContent);
-    renderDevices(newDevices);
-    setTimeout(fetchDevices, 1000);
-}
-
-function renderDevices(devices){
-    let container = document.getElementById("devices");
-    container.innerHTML = "";
-    devices.forEach(d=>{
-        let div = document.createElement("div");
-        div.className = "device";
-        div.innerHTML = `<span>${d}</span>
-        <button onclick="sendCmd('${d}','update_apk')">Update APK</button>
-        <button onclick="sendCmd('${d}','get_device_info')">Get Info</button>`;
-        container.appendChild(div);
-    });
-}
-
-function sendCmd(device, cmd){
-    fetch(`/send/${device}/${cmd}`).then(r=>r.text()).then(alert);
-}
-
-fetchDevices();
-</script>
+<div id="devices">
+<h2>Connected Devices:</h2>
+<div id="deviceList"></div>
+</div>
 </body>
 </html>
