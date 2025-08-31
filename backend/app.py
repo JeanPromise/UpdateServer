@@ -1,55 +1,50 @@
-# app.py
-from flask import Flask, render_template, send_from_directory
-from flask_sockets import Sockets
-import threading
+from flask import Flask, render_template, request, send_from_directory
+from flask_socketio import SocketIO, emit
+import os
 
-app = Flask(__name__)
-sockets = Sockets(app)
+app = Flask(__name__, static_folder='admin-ui', template_folder='admin-ui')
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Keep track of connected devices
 connected_devices = {}
 
-# --- WebSocket endpoint for devices ---
-@sockets.route('/ws')
-def device_socket(ws):
-    device_id = None
-    try:
-        while not ws.closed:
-            message = ws.receive()
-            if message:
-                if message.startswith("DEVICE_INFO:"):
-                    device_id = message.split("DEVICE_INFO:")[1]
-                    connected_devices[device_id] = ws
-                    print(f"[+] Device connected: {device_id}")
-                else:
-                    print(f"[Device {device_id}] {message}")
-    finally:
-        if device_id and device_id in connected_devices:
-            del connected_devices[device_id]
-            print(f"[-] Device disconnected: {device_id}")
-
-# --- Admin dashboard ---
 @app.route('/')
 def index():
-    return render_template('index.html', devices=list(connected_devices.keys()))
+    return send_from_directory('admin-ui', 'index.html')
 
-# --- Send command to device ---
-@app.route('/send/<device_id>/<command>')
-def send_command(device_id, command):
-    ws = connected_devices.get(device_id)
-    if ws:
-        ws.send(command)
-        return f"Sent '{command}' to {device_id}"
-    return f"Device {device_id} not connected."
+@app.route('/<path:path>')
+def static_proxy(path):
+    return send_from_directory('admin-ui', path)
 
-# --- Serve APK files ---
-@app.route('/apks/<path:filename>')
-def serve_apk(filename):
-    return send_from_directory('apks', filename)
+# WebSocket events
+@socketio.on('connect')
+def on_connect():
+    print("[+] Device connected")
+    emit('admin_message', {'message': 'Connected to server'})
+
+@socketio.on('device_info')
+def handle_device_info(data):
+    device_id = data.get('device_id')
+    version = data.get('current_version')
+    if device_id:
+        connected_devices[device_id] = {'version': version}
+        print(f"[+] Device registered: {device_id} (version {version})")
+        emit('update_devices', connected_devices, broadcast=True)
+
+@socketio.on('disconnect')
+def on_disconnect():
+    print("[-] Device disconnected")
+    # Optionally remove device
+
+# Admin triggers APK update
+@app.route('/update', methods=['POST'])
+def trigger_update():
+    apk_url = request.form.get('apk_url')
+    if not apk_url:
+        return {'status': 'error', 'message': 'No APK URL provided'}, 400
+    print(f"[+] Sending update command to devices: {apk_url}")
+    socketio.emit('update_apk', {'url': apk_url})
+    return {'status': 'success', 'message': 'Update command sent'}
 
 if __name__ == "__main__":
-    from gevent import pywsgi
-    from geventwebsocket.handler import WebSocketHandler
-    print("[*] Admin server running at http://0.0.0.0:5000")
-    server = pywsgi.WSGIServer(("0.0.0.0", 5000), app, handler_class=WebSocketHandler)
-    server.serve_forever()
+    socketio.run(app, host="0.0.0.0", port=5000)
