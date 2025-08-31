@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Update Server Admin</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Update Server Admin Panel</h1>
+
+    <div class="card">
+      <h2>Upload APK</h2>
+      <input type="file" id="apkFile" accept=".apk">
+      <button onclick="uploadApk()">Upload</button>
+      <p id="uploadStatus"></p>
+    </div>
+
+    <div class="card">
+      <h2>Latest Update</h2>
+      <button onclick="checkUpdate()">Check Latest</button>
+      <p id="latestUpdate">No update uploaded yet.</p>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
