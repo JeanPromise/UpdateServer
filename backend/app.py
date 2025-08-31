@@ -1,59 +1,74 @@
 import os
-from flask import Flask, request, jsonify, send_from_directory
-from werkzeug.utils import secure_filename
+from flask import Flask, request, send_from_directory, jsonify
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="../admin_ui", static_url_path="")
 
-# Configure upload folder
-UPLOAD_FOLDER = "uploads"
+# Ensure upload folder exists
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# Track latest APK info
-latest_apk = {
-    "filename": None,
-    "version": None
-}
 
+# ----------- FRONTEND ROUTES -----------
+@app.route("/")
+def home():
+    """Serve the admin UI (index.html)."""
+    return send_from_directory(app.static_folder, "index.html")
+
+
+@app.route("/<path:filename>")
+def static_files(filename):
+    """Serve static frontend files like CSS/JS."""
+    return send_from_directory(app.static_folder, filename)
+
+
+# ----------- BACKEND ROUTES -----------
 @app.route("/upload", methods=["POST"])
-def upload_file():
-    """Admin uploads APK"""
+def upload_apk():
+    """Admin uploads new APK file."""
     if "file" not in request.files:
-        return jsonify({"error": "No file part"}), 400
+        return jsonify({"error": "No file uploaded"}), 400
 
     file = request.files["file"]
-    version = request.form.get("version", "1.0.0")
-
     if file.filename == "":
         return jsonify({"error": "No selected file"}), 400
 
-    filename = secure_filename(file.filename)
-    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    file.save(filepath)
+    # Save file
+    save_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(save_path)
 
-    # Update latest APK info
-    latest_apk["filename"] = filename
-    latest_apk["version"] = version
+    # Write "latest.txt" to track latest APK
+    with open(os.path.join(UPLOAD_FOLDER, "latest.txt"), "w") as f:
+        f.write(file.filename)
 
-    return jsonify({"message": "File uploaded successfully", "version": version}), 200
+    return jsonify({"message": f"Uploaded {file.filename} successfully"}), 200
+
 
 @app.route("/latest", methods=["GET"])
-def get_latest():
-    """Users check for updates"""
-    if not latest_apk["filename"]:
-        return jsonify({"message": "No update available"}), 404
+def get_latest_apk():
+    """Return latest APK filename."""
+    latest_file = os.path.join(UPLOAD_FOLDER, "latest.txt")
+    if not os.path.exists(latest_file):
+        return jsonify({"error": "No APK uploaded yet"}), 404
 
-    return jsonify({
-        "filename": latest_apk["filename"],
-        "version": latest_apk["version"],
-        "download_url": f"/download/{latest_apk['filename']}"
-    })
+    with open(latest_file, "r") as f:
+        filename = f.read().strip()
 
-@app.route("/download/<filename>", methods=["GET"])
-def download_file(filename):
-    """Users download latest APK"""
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename, as_attachment=True)
+    return jsonify({"latest_apk": filename})
 
+
+@app.route("/download", methods=["GET"])
+def download_apk():
+    """Download the latest APK file."""
+    latest_file = os.path.join(UPLOAD_FOLDER, "latest.txt")
+    if not os.path.exists(latest_file):
+        return jsonify({"error": "No APK uploaded yet"}), 404
+
+    with open(latest_file, "r") as f:
+        filename = f.read().strip()
+
+    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
+
+
+# ----------- DEV MODE ENTRY POINT -----------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+    app.run(debug=True, host="0.0.0.0", port=5000)
