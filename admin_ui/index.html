@@ -2,25 +2,46 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Admin Dashboard</title>
+<title>Admin Update Server</title>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script src="script.js" defer></script>
-<style>
-body { font-family: Arial; background:#111; color:#eee; padding:20px; }
-button { padding:10px 20px; margin-top:10px; }
-input { padding:5px; width:300px; }
-#devices { margin-top:20px; }
-.device { padding:5px; border-bottom:1px solid #444; }
-</style>
 </head>
 <body>
-<h1>Admin Dashboard</h1>
-<label>APK URL: <input type="text" id="apkUrl" placeholder="https://example.com/app.apk"></label>
-<button id="sendUpdate">Send Update</button>
+<h1>Update Server Admin</h1>
 
-<div id="devices">
-<h2>Connected Devices:</h2>
-<div id="deviceList"></div>
-</div>
+<form id="uploadForm" enctype="multipart/form-data">
+  <input type="file" id="apkFile" name="apk" accept=".apk">
+  <button type="submit">Upload APK</button>
+</form>
+
+<ul id="apkList"></ul>
+
+<script>
+const socket = io('https://updateserver-kyj7.onrender.com');
+
+socket.on('connect', () => {
+  console.log('Connected to WebSocket');
+});
+
+socket.on('status', data => {
+  console.log(data.msg);
+});
+
+socket.on('new_apk', data => {
+  const list = document.getElementById('apkList');
+  const item = document.createElement('li');
+  item.innerHTML = `<a href="/apk/${data.filename}" target="_blank">${data.filename}</a>`;
+  list.appendChild(item);
+});
+
+document.getElementById('uploadForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const fileInput = document.getElementById('apkFile');
+  const formData = new FormData();
+  formData.append('apk', fileInput.files[0]);
+  const res = await fetch('/upload', { method: 'POST', body: formData });
+  const data = await res.json();
+  if (data.success) alert('APK uploaded: ' + data.filename);
+});
+</script>
 </body>
 </html>
