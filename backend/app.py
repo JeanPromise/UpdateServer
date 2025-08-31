@@ -1,74 +1,64 @@
 import os
-from flask import Flask, request, send_from_directory, jsonify
+from flask import Flask, request, jsonify, send_from_directory, render_template
+from werkzeug.utils import secure_filename
+from datetime import datetime
 
-app = Flask(__name__, static_folder="../admin_ui", static_url_path="")
+app = Flask(__name__)
 
-# Ensure upload folder exists
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")
+UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+# Fake in-memory DB
+devices = set()       # unique device ids
+users = set()         # admin login names (simulate)
+apk_file = None
+upload_time = None
 
-# ----------- FRONTEND ROUTES -----------
 @app.route("/")
 def home():
-    """Serve the admin UI (index.html)."""
-    return send_from_directory(app.static_folder, "index.html")
+    return "Update Server Running ✅"
 
+# Register device install
+@app.route("/register_device", methods=["POST"])
+def register_device():
+    device_id = request.json.get("device_id")
+    if device_id:
+        devices.add(device_id)
+    return jsonify({"status": "ok", "total_devices": len(devices)})
 
-@app.route("/<path:filename>")
-def static_files(filename):
-    """Serve static frontend files like CSS/JS."""
-    return send_from_directory(app.static_folder, filename)
-
-
-# ----------- BACKEND ROUTES -----------
+# Upload new APK
 @app.route("/upload", methods=["POST"])
 def upload_apk():
-    """Admin uploads new APK file."""
-    if "file" not in request.files:
+    global apk_file, upload_time
+    if "apk" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
-
-    file = request.files["file"]
+    file = request.files["apk"]
     if file.filename == "":
-        return jsonify({"error": "No selected file"}), 400
+        return jsonify({"error": "Empty filename"}), 400
 
-    # Save file
-    save_path = os.path.join(UPLOAD_FOLDER, file.filename)
-    file.save(save_path)
+    filename = secure_filename("app-latest.apk")
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(filepath)
+    apk_file = filename
+    upload_time = datetime.utcnow()
+    return jsonify({"message": "APK uploaded successfully", "time": str(upload_time)})
 
-    # Write "latest.txt" to track latest APK
-    with open(os.path.join(UPLOAD_FOLDER, "latest.txt"), "w") as f:
-        f.write(file.filename)
-
-    return jsonify({"message": f"Uploaded {file.filename} successfully"}), 200
-
-
-@app.route("/latest", methods=["GET"])
-def get_latest_apk():
-    """Return latest APK filename."""
-    latest_file = os.path.join(UPLOAD_FOLDER, "latest.txt")
-    if not os.path.exists(latest_file):
-        return jsonify({"error": "No APK uploaded yet"}), 404
-
-    with open(latest_file, "r") as f:
-        filename = f.read().strip()
-
-    return jsonify({"latest_apk": filename})
-
-
+# Download latest APK
 @app.route("/download", methods=["GET"])
 def download_apk():
-    """Download the latest APK file."""
-    latest_file = os.path.join(UPLOAD_FOLDER, "latest.txt")
-    if not os.path.exists(latest_file):
+    if not apk_file:
         return jsonify({"error": "No APK uploaded yet"}), 404
+    return send_from_directory(UPLOAD_FOLDER, apk_file, as_attachment=True)
 
-    with open(latest_file, "r") as f:
-        filename = f.read().strip()
+# Stats for Admin UI
+@app.route("/stats", methods=["GET"])
+def stats():
+    return jsonify({
+        "users": len(users) if users else 1,   # assume 1 admin logged in
+        "devices": len(devices),
+        "apk_uploaded": bool(apk_file),
+        "last_upload": str(upload_time) if upload_time else "None"
+    })
 
-    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
-
-
-# ----------- DEV MODE ENTRY POINT -----------
 if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=True, port=5000)
