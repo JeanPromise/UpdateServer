@@ -3,19 +3,21 @@ from flask import Flask, send_from_directory, request, jsonify
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 
+# Correct folder name
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-app = Flask(__name__, static_folder='../admin-ui')
+# Match the actual folder name
+app = Flask(__name__, static_folder='../admin_ui')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Serve the admin UI index.html
 @app.route('/')
 def index():
-    return send_from_directory('../admin-ui', 'index.html')
+    return send_from_directory('../admin_ui', 'index.html')
 
-# Endpoint for uploading APKs
+# Upload endpoint
 @app.route('/upload', methods=['POST'])
 def upload_apk():
     if 'apk' not in request.files:
@@ -26,11 +28,10 @@ def upload_apk():
     filename = secure_filename(file.filename)
     path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
     file.save(path)
-    # Notify all connected clients about new APK
     socketio.emit('new_apk', {'filename': filename})
     return jsonify({'success': True, 'filename': filename})
 
-# Endpoint for downloading APKs
+# Serve APKs
 @app.route('/apk/<filename>')
 def get_apk(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
