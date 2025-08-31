@@ -1,13 +1,14 @@
-from flask import Flask, render_template, request, send_from_directory
+from flask import Flask, send_from_directory, request
 from flask_socketio import SocketIO, emit
 import os
+import requests
 
-app = Flask(__name__, static_folder='admin-ui', template_folder='admin-ui')
+app = Flask(__name__, static_folder='admin-ui', static_url_path='/admin-ui')
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Keep track of connected devices
-connected_devices = {}
-
+# ------------------------
+# --- Static Files ---
+# ------------------------
 @app.route('/')
 def index():
     return send_from_directory('admin-ui', 'index.html')
@@ -16,35 +17,54 @@ def index():
 def static_proxy(path):
     return send_from_directory('admin-ui', path)
 
-# WebSocket events
-@socketio.on('connect')
-def on_connect():
-    print("[+] Device connected")
-    emit('admin_message', {'message': 'Connected to server'})
+# ------------------------
+# --- Device Management ---
+# ------------------------
+connected_devices = {}
 
-@socketio.on('device_info')
-def handle_device_info(data):
+@socketio.on('connect')
+def handle_connect():
+    print(f"Device connected: {request.sid}")
+    emit('server_message', {'message': 'Connected to admin server'})
+
+@socketio.on('register_device')
+def handle_register(data):
     device_id = data.get('device_id')
     version = data.get('current_version')
     if device_id:
-        connected_devices[device_id] = {'version': version}
-        print(f"[+] Device registered: {device_id} (version {version})")
-        emit('update_devices', connected_devices, broadcast=True)
+        connected_devices[device_id] = {'sid': request.sid, 'version': version}
+        print(f"Registered device: {device_id} version {version}")
+        emit('server_message', {'message': 'Device registered'})
 
-@socketio.on('disconnect')
-def on_disconnect():
-    print("[-] Device disconnected")
-    # Optionally remove device
+# ------------------------
+# --- Admin Commands ---
+# ------------------------
+@socketio.on('send_command')
+def handle_command(data):
+    target_id = data.get('device_id')
+    command = data.get('command')
+    if target_id in connected_devices:
+        sid = connected_devices[target_id]['sid']
+        emit('command', command, room=sid)
+        emit('server_message', {'message': f'Command sent to {target_id}'})
+    else:
+        emit('server_message', {'message': f'Device {target_id} not found'})
 
-# Admin triggers APK update
-@app.route('/update', methods=['POST'])
-def trigger_update():
-    apk_url = request.form.get('apk_url')
-    if not apk_url:
-        return {'status': 'error', 'message': 'No APK URL provided'}, 400
-    print(f"[+] Sending update command to devices: {apk_url}")
-    socketio.emit('update_apk', {'url': apk_url})
-    return {'status': 'success', 'message': 'Update command sent'}
+# ------------------------
+# --- Optional API for updates ---
+# ------------------------
+@app.route('/update_apk', methods=['POST'])
+def update_apk():
+    apk_url = request.json.get('url')
+    device_id = request.json.get('device_id')
+    if device_id in connected_devices:
+        sid = connected_devices[device_id]['sid']
+        socketio.emit('command', {'action': 'update_apk', 'url': apk_url}, room=sid)
+        return {'status': 'ok', 'message': f'Update sent to {device_id}'}
+    return {'status': 'error', 'message': 'Device not found'}, 404
 
-if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000)
+# ------------------------
+# --- Run ---
+# ------------------------
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
