@@ -1,30 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Admin Dashboard</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<title>Admin Dashboard</title>
+<style>
+body { font-family: Arial; background:#111; color:#eee; margin:0; padding:0;}
+header { padding:10px; background:#222; text-align:center; font-size:24px; }
+.device { background:#333; padding:10px; margin:10px; border-radius:6px; display:flex; justify-content:space-between; }
+button { padding:5px 10px; background:#f90; border:none; color:#111; cursor:pointer; border-radius:4px; }
+button:hover { background:#ffb000; }
+</style>
 </head>
 <body>
-  <h1>📊 Admin Dashboard</h1>
-  <p>Welcome, <span id="admin-name">Admin</span></p>
+<header>Admin Dashboard</header>
+<div id="device-list">
+    {% for device in devices %}
+    <div class="device" id="{{device}}">
+        <span>{{device}}</span>
+        <button onclick="sendUpdate('{{device}}')">Update APK</button>
+        <button onclick="sendInfo('{{device}}')">Get Info</button>
+    </div>
+    {% endfor %}
+</div>
 
-  <div class="stats">
-    <p><b>Total Users:</b> <span id="users">0</span></p>
-    <p><b>Devices Installed:</b> <span id="devices">0</span></p>
-    <p><b>Last APK Upload:</b> <span id="last-upload">None</span></p>
-  </div>
+<script>
+function sendUpdate(device) {
+    fetch(`/send/${device}/update_apk`).then(r=>r.text()).then(alert);
+}
+function sendInfo(device) {
+    fetch(`/send/${device}/get_device_info`).then(r=>r.text()).then(alert);
+}
 
-  <h2>Upload New APK</h2>
-  <form id="upload-form">
-    <input type="file" name="apk" accept=".apk" required />
-    <button type="submit">Upload</button>
-  </form>
-
-  <h2>Growth Report</h2>
-  <canvas id="reportChart"></canvas>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="script.js"></script>
+// Auto-refresh device list every 5 seconds
+setInterval(()=>location.reload(), 5000);
+</script>
 </body>
 </html>
