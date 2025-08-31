@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Admin Dashboard</title>
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script src="{{ url_for('static', filename='admin.js') }}"></script>
+<script src="script.js" defer></script>
 <style>
 body { font-family: Arial; background:#111; color:#eee; padding:20px; }
 button { padding:10px 20px; margin-top:10px; }
@@ -16,7 +16,7 @@ input { padding:5px; width:300px; }
 <body>
 <h1>Admin Dashboard</h1>
 <label>APK URL: <input type="text" id="apkUrl" placeholder="https://example.com/app.apk"></label>
-<button onclick="sendUpdate()">Send Update</button>
+<button id="sendUpdate">Send Update</button>
 
 <div id="devices">
 <h2>Connected Devices:</h2>
