@@ -2,28 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Update Server Admin</title>
+  <title>Admin Dashboard</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>Update Server Admin Panel</h1>
+  <h1>📊 Admin Dashboard</h1>
+  <p>Welcome, <span id="admin-name">Admin</span></p>
 
-    <div class="card">
-      <h2>Upload APK</h2>
-      <input type="file" id="apkFile" accept=".apk">
-      <button onclick="uploadApk()">Upload</button>
-      <p id="uploadStatus"></p>
-    </div>
-
-    <div class="card">
-      <h2>Latest Update</h2>
-      <button onclick="checkUpdate()">Check Latest</button>
-      <p id="latestUpdate">No update uploaded yet.</p>
-    </div>
+  <div class="stats">
+    <p><b>Total Users:</b> <span id="users">0</span></p>
+    <p><b>Devices Installed:</b> <span id="devices">0</span></p>
+    <p><b>Last APK Upload:</b> <span id="last-upload">None</span></p>
   </div>
 
+  <h2>Upload New APK</h2>
+  <form id="upload-form">
+    <input type="file" name="apk" accept=".apk" required />
+    <button type="submit">Upload</button>
+  </form>
+
+  <h2>Growth Report</h2>
+  <canvas id="reportChart"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
