@@ -1,64 +1,60 @@
-import os
-from flask import Flask, request, jsonify, send_from_directory, render_template
-from werkzeug.utils import secure_filename
-from datetime import datetime
+# app.py
+from flask import Flask, render_template, request, send_from_directory
+from flask_sockets import Sockets
+import threading
+import time
 
 app = Flask(__name__)
+sockets = Sockets(app)
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Keep track of connected devices
+connected_devices = {}
 
-# Fake in-memory DB
-devices = set()       # unique device ids
-users = set()         # admin login names (simulate)
-apk_file = None
-upload_time = None
+# --- WebSocket endpoint for devices ---
+@sockets.route('/ws')
+def device_socket(ws):
+    device_id = None
+    try:
+        while not ws.closed:
+            message = ws.receive()
+            if message:
+                if message.startswith("DEVICE_INFO:"):
+                    device_id = message.split("DEVICE_INFO:")[1]
+                    connected_devices[device_id] = ws
+                    print(f"[+] Device connected: {device_id}")
+                else:
+                    print(f"[Device {device_id}] {message}")
+            else:
+                time.sleep(0.1)
+    except Exception as e:
+        print(f"[!] WebSocket error: {e}")
+    finally:
+        if device_id and device_id in connected_devices:
+            del connected_devices[device_id]
+            print(f"[-] Device disconnected: {device_id}")
 
-@app.route("/")
-def home():
-    return "Update Server Running ✅"
+# --- Admin dashboard ---
+@app.route('/')
+def index():
+    return render_template('index.html', devices=list(connected_devices.keys()))
 
-# Register device install
-@app.route("/register_device", methods=["POST"])
-def register_device():
-    device_id = request.json.get("device_id")
-    if device_id:
-        devices.add(device_id)
-    return jsonify({"status": "ok", "total_devices": len(devices)})
+# --- Send command to device ---
+@app.route('/send/<device_id>/<command>')
+def send_command(device_id, command):
+    ws = connected_devices.get(device_id)
+    if ws:
+        ws.send(command)
+        return f"Sent '{command}' to {device_id}"
+    return f"Device {device_id} not connected."
 
-# Upload new APK
-@app.route("/upload", methods=["POST"])
-def upload_apk():
-    global apk_file, upload_time
-    if "apk" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
-    file = request.files["apk"]
-    if file.filename == "":
-        return jsonify({"error": "Empty filename"}), 400
-
-    filename = secure_filename("app-latest.apk")
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
-    apk_file = filename
-    upload_time = datetime.utcnow()
-    return jsonify({"message": "APK uploaded successfully", "time": str(upload_time)})
-
-# Download latest APK
-@app.route("/download", methods=["GET"])
-def download_apk():
-    if not apk_file:
-        return jsonify({"error": "No APK uploaded yet"}), 404
-    return send_from_directory(UPLOAD_FOLDER, apk_file, as_attachment=True)
-
-# Stats for Admin UI
-@app.route("/stats", methods=["GET"])
-def stats():
-    return jsonify({
-        "users": len(users) if users else 1,   # assume 1 admin logged in
-        "devices": len(devices),
-        "apk_uploaded": bool(apk_file),
-        "last_upload": str(upload_time) if upload_time else "None"
-    })
+# --- Serve APK files ---
+@app.route('/apks/<path:filename>')
+def serve_apk(filename):
+    return send_from_directory('apks', filename)
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000)
+    from gevent import pywsgi
+    from geventwebsocket.handler import WebSocketHandler
+    print("[*] Starting admin server on http://0.0.0.0:5000")
+    server = pywsgi.WSGIServer(("0.0.0.0", 5000), app, handler_class=WebSocketHandler)
+    server.serve_forever()
