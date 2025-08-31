@@ -1,8 +1,7 @@
 # app.py
-from flask import Flask, render_template, request, send_from_directory
+from flask import Flask, render_template, send_from_directory
 from flask_sockets import Sockets
 import threading
-import time
 
 app = Flask(__name__)
 sockets = Sockets(app)
@@ -24,10 +23,6 @@ def device_socket(ws):
                     print(f"[+] Device connected: {device_id}")
                 else:
                     print(f"[Device {device_id}] {message}")
-            else:
-                time.sleep(0.1)
-    except Exception as e:
-        print(f"[!] WebSocket error: {e}")
     finally:
         if device_id and device_id in connected_devices:
             del connected_devices[device_id]
@@ -55,6 +50,6 @@ def serve_apk(filename):
 if __name__ == "__main__":
     from gevent import pywsgi
     from geventwebsocket.handler import WebSocketHandler
-    print("[*] Starting admin server on http://0.0.0.0:5000")
+    print("[*] Admin server running at http://0.0.0.0:5000")
     server = pywsgi.WSGIServer(("0.0.0.0", 5000), app, handler_class=WebSocketHandler)
     server.serve_forever()
