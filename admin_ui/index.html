@@ -1,126 +1,189 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Dashboard</title>
-<style>
-    body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 0;}
-    header { background: #1f1f1f; padding: 20px; text-align: center; font-size: 1.5em; }
-    main { padding: 20px; }
-    .section { margin-bottom: 30px; }
-    button { padding: 10px 20px; background: #ff9800; border: none; cursor: pointer; color: #000; font-weight: bold; }
-    input[type="file"] { padding: 5px; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #333; }
-    th { background: #1f1f1f; }
-    tr:hover { background: #333; }
-    .status { font-weight: bold; }
-</style>
+    <meta charset="UTF-8">
+    <title>Admin Panel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e1e1e;
+            color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
+        header {
+            background-color: #2b2b2b;
+            padding: 20px;
+            text-align: center;
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+        section {
+            padding: 20px;
+        }
+        .apk-section, .users-section, .log-section {
+            background-color: #2b2b2b;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            padding: 20px;
+        }
+        button {
+            background-color: #ffcc00;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 5px;
+            color: #000;
+        }
+        button:hover {
+            background-color: #ffaa00;
+        }
+        input[type="file"] {
+            padding: 5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #444;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #333;
+        }
+        #log {
+            height: 200px;
+            overflow-y: scroll;
+            background-color: #121212;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 0.9em;
+            border-radius: 5px;
+        }
+    </style>
 </head>
 <body>
+    <header>Admin Panel</header>
+    <section class="apk-section">
+        <h2>Upload APK</h2>
+        <form id="apkForm">
+            <input type="file" name="apk" id="apkFile" accept=".apk" required>
+            <button type="submit">Upload</button>
+        </form>
+        <p>Current Version: <span id="apkVersion">1</span></p>
+        <p>Current File: <span id="apkFileName">None</span></p>
+    </section>
 
-<header>Admin Dashboard</header>
-<main>
+    <section class="users-section">
+        <h2>Connected Devices / Users</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Device ID</th>
+                    <th>Version</th>
+                    <th>Connected At (UTC)</th>
+                </tr>
+            </thead>
+            <tbody id="usersTable">
+                <!-- Users will populate here -->
+            </tbody>
+        </table>
+    </section>
 
-<div class="section">
-    <h2>Upload APK</h2>
-    <form id="apkForm">
-        <input type="file" id="apkFile" name="apk" accept=".apk">
-        <button type="submit">Upload</button>
-    </form>
-    <p>Current APK Version: <span id="apkVersion">0</span></p>
-    <p>Filename: <span id="apkFilename">None</span></p>
-</div>
+    <section class="log-section">
+        <h2>Live Logs</h2>
+        <div id="log"></div>
+    </section>
 
-<div class="section">
-    <h2>Live Users</h2>
-    <table id="usersTable">
-        <thead>
-            <tr>
-                <th>Device ID</th>
-                <th>Version</th>
-                <th>Connected At (UTC)</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-</div>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const socket = io();
 
-<div class="section">
-    <h2>Live Console</h2>
-    <div id="console" style="background:#000; padding:10px; height:200px; overflow-y:auto;"></div>
-</div>
+        const apkVersionEl = document.getElementById("apkVersion");
+        const apkFileNameEl = document.getElementById("apkFileName");
+        const usersTable = document.getElementById("usersTable");
+        const logEl = document.getElementById("log");
+        const apkForm = document.getElementById("apkForm");
 
-</main>
+        // Live logs helper
+        function log(msg) {
+            const time = new Date().toLocaleTimeString();
+            logEl.innerHTML += `[${time}] ${msg}<br>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
 
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<script>
-const socket = io();
+        // Render users table
+        function renderUsers(users) {
+            usersTable.innerHTML = "";
+            users.forEach(user => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${user.device_id}</td>
+                    <td>${user.version}</td>
+                    <td>${user.connected_at}</td>
+                `;
+                usersTable.appendChild(tr);
+            });
+        }
 
-// Elements
-const apkVersionEl = document.getElementById("apkVersion");
-const apkFilenameEl = document.getElementById("apkFilename");
-const usersTableBody = document.querySelector("#usersTable tbody");
-const consoleEl = document.getElementById("console");
+        // Handle APK updates
+        socket.on("apk_update", data => {
+            apkVersionEl.textContent = data.version;
+            apkFileNameEl.textContent = data.filename || "None";
+            log(`APK Updated: v${data.version} (${data.filename})`);
+        });
 
-// --- Helpers ---
-function logMessage(msg) {
-    const p = document.createElement("p");
-    p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    consoleEl.appendChild(p);
-    consoleEl.scrollTop = consoleEl.scrollHeight;
-}
+        // Handle users updates
+        socket.on("users_update", users => {
+            renderUsers(users);
+            log(`Users list updated (${users.length} devices)`);
+        });
 
-function renderUsers(users) {
-    usersTableBody.innerHTML = "";
-    users.forEach(u => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${u.device_id}</td><td>${u.version}</td><td>${u.connected_at}</td>`;
-        usersTableBody.appendChild(tr);
-    });
-}
+        // Connect / disconnect
+        socket.on("connect", () => log("Connected to server"));
+        socket.on("disconnect", () => log("Disconnected from server"));
 
-// --- Socket Events ---
-socket.on("connect", () => logMessage("Connected to server"));
-socket.on("disconnect", () => logMessage("Disconnected from server"));
+        // Upload APK
+        apkForm.addEventListener("submit", async e => {
+            e.preventDefault();
+            const file = document.getElementById("apkFile").files[0];
+            if (!file) return alert("Select an APK file first");
+            const formData = new FormData();
+            formData.append("apk", file);
 
-socket.on("apk_update", data => {
-    apkVersionEl.textContent = data.version;
-    apkFilenameEl.textContent = data.filename;
-    logMessage(`APK Updated: v${data.version} (${data.filename})`);
-});
+            try {
+                const resp = await fetch("/upload_apk", {
+                    method: "POST",
+                    body: formData
+                });
+                const data = await resp.json();
+                log(`Uploaded APK: v${data.version} (${data.filename})`);
+            } catch (err) {
+                log(`Upload failed: ${err}`);
+            }
+        });
 
-socket.on("users_update", users => {
-    renderUsers(users);
-    logMessage(`Users list updated (${users.length} devices)`);
-});
+        // Load initial users & APK info on page load
+        async function loadInitialData() {
+            try {
+                const usersResp = await fetch("/users");
+                const usersData = await usersResp.json();
+                renderUsers(usersData);
 
-socket.on("user_connected", user => {
-    renderUsers([...usersTableBody.querySelectorAll("tr")].map(r => ({
-        device_id: r.cells[0].textContent,
-        version: r.cells[1].textContent,
-        connected_at: r.cells[2].textContent
-    })).concat(user));
-    logMessage(`Device connected: ${user.device_id}`);
-});
+                const apkResp = await fetch("/apk_info");
+                const apkData = await apkResp.json();
+                apkVersionEl.textContent = apkData.version;
+                apkFileNameEl.textContent = apkData.filename || "None";
+            } catch (err) {
+                log(`Error loading initial data: ${err}`);
+            }
+        }
 
-// --- APK Upload ---
-document.getElementById("apkForm").addEventListener("submit", async e => {
-    e.preventDefault();
-    const fileInput = document.getElementById("apkFile");
-    if (!fileInput.files.length) return alert("Select an APK file first");
-    const formData = new FormData();
-    formData.append("apk", fileInput.files[0]);
-    const res = await fetch("/upload_apk", { method: "POST", body: formData });
-    if (res.ok) {
-        const data = await res.json();
-        logMessage(`APK uploaded: v${data.version} (${data.filename})`);
-    } else {
-        logMessage("APK upload failed");
-    }
-});
-</script>
-
+        loadInitialData();
+    </script>
 </body>
 </html>
