@@ -4,23 +4,25 @@ from flask import Flask, request, send_from_directory, jsonify
 from flask_socketio import SocketIO, emit
 from datetime import datetime
 
-app = Flask(__name__, static_folder="admin_ui", static_url_path="")
+# --- Paths ---
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+ADMIN_UI = os.path.join(ROOT_DIR, "admin_ui")
+UPLOADS = os.path.join(ROOT_DIR, "uploads")
+USERS_FILE = os.path.join(ROOT_DIR, "users.json")
+APK_FILE = os.path.join(ROOT_DIR, "apk_info.json")
+
+# --- Flask App ---
+app = Flask(__name__, static_folder=ADMIN_UI, static_url_path="")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# Files for persistence
-USERS_FILE = "users.json"
-APK_FILE = "apk_info.json"
+# --- Ensure JSON files exist ---
+os.makedirs(UPLOADS, exist_ok=True)
+for f, default in [(USERS_FILE, []), (APK_FILE, {"version": 1, "filename": ""})]:
+    if not os.path.exists(f):
+        with open(f, "w") as fp:
+            json.dump(default, fp, indent=2)
 
-# Ensure JSON files exist
-if not os.path.exists(USERS_FILE):
-    with open(USERS_FILE, "w") as f:
-        json.dump([], f)
-
-if not os.path.exists(APK_FILE):
-    with open(APK_FILE, "w") as f:
-        json.dump({"version": 1, "filename": ""}, f)
-
-# Helper functions
+# --- Helpers ---
 def load_users():
     with open(USERS_FILE, "r") as f:
         return json.load(f)
@@ -37,12 +39,16 @@ def save_apk_info(apk_info):
     with open(APK_FILE, "w") as f:
         json.dump(apk_info, f, indent=2)
 
-# Serve admin UI
+# --- Serve Admin UI ---
 @app.route("/")
 def index():
-    return send_from_directory("admin_ui", "index.html")
+    return send_from_directory(ADMIN_UI, "index.html")
 
-# Upload APK
+@app.route("/apk_info")
+def apk_info():
+    return jsonify(load_apk_info())
+
+# --- Upload APK ---
 @app.route("/upload_apk", methods=["POST"])
 def upload_apk():
     if "apk" not in request.files:
@@ -51,19 +57,18 @@ def upload_apk():
     apk_info = load_apk_info()
     apk_info["version"] += 1
     apk_info["filename"] = apk.filename
-    os.makedirs("uploads", exist_ok=True)
-    apk.save(os.path.join("uploads", apk.filename))
+    apk.save(os.path.join(UPLOADS, apk.filename))
     save_apk_info(apk_info)
 
-    # Notify all admins
     socketio.emit("apk_update", apk_info)
     print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] APK Updated: v{apk_info['version']} ({apk_info['filename']})")
     return jsonify(apk_info)
 
-# WebSocket for devices
+# --- WebSocket for devices ---
 @socketio.on("connect")
 def handle_connect():
     emit("apk_update", load_apk_info())
+    emit("users_update", load_users())
     print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Connected to server")
 
 @socketio.on("disconnect")
@@ -76,7 +81,6 @@ def handle_register(data):
     device_id = None
     version = None
 
-    # Support old-style plain string: "device_id:XYZ;version:1.0"
     if isinstance(data, str):
         parts = data.split(";")
         for p in parts:
@@ -84,30 +88,23 @@ def handle_register(data):
                 device_id = p.replace("device_id:", "").strip()
             elif p.startswith("version:"):
                 version = p.replace("version:", "").strip()
-    # Support proper JSON
     elif isinstance(data, dict):
         device_id = data.get("device_id")
         version = data.get("version")
 
     if device_id:
         timestamp = datetime.utcnow().isoformat()
-        # Avoid duplicates
         if not any(u["device_id"] == device_id for u in users):
-            users.append({
-                "device_id": device_id,
-                "version": version,
-                "connected_at": timestamp
-            })
+            users.append({"device_id": device_id, "version": version, "connected_at": timestamp})
             save_users(users)
-        # Notify all admins
         socketio.emit("users_update", users)
         print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Users list updated ({len(users)} devices)")
 
-# API endpoint for user list
+# --- API endpoint ---
 @app.route("/users")
 def get_users():
     return jsonify(load_users())
 
-# Run server
+# --- Run server ---
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5000)
