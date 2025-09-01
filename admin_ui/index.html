@@ -1,69 +1,85 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Admin Panel</title>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-<style>
-body { font-family: Arial, sans-serif; background:#111; color:#fff; margin:0; padding:20px;}
-h1 { color: #ffcc00; }
-button { padding:10px 15px; margin:5px; background:#222; color:#ffcc00; border:none; cursor:pointer; }
-button:hover { background:#444; }
-table { width:100%; border-collapse: collapse; margin-top:20px; }
-th, td { border:1px solid #555; padding:8px; text-align:left; }
-th { background:#222; }
-td { background:#111; }
-</style>
+    <meta charset="UTF-8">
+    <title>Admin APK Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #111; color: #fff; margin: 0; padding: 0; }
+        h1 { text-align: center; margin: 20px 0; }
+        #container { width: 90%; max-width: 800px; margin: 0 auto; }
+        #apk-info { background: #222; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
+        #users { background: #222; padding: 20px; border-radius: 10px; max-height: 300px; overflow-y: auto; }
+        input[type="file"] { margin-top: 10px; }
+        button { background: #ff9800; border: none; color: #111; padding: 10px 20px; margin-left: 10px; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #ffc107; }
+        ul { list-style: none; padding-left: 0; }
+        li { padding: 5px 0; border-bottom: 1px solid #444; }
+        .connected { color: #4caf50; }
+    </style>
 </head>
 <body>
-<h1>Upload APK</h1>
-<form id="apkForm">
-<input type="file" name="apk" id="apkFile" accept=".apk">
-<button type="submit">Upload</button>
-</form>
-<p>Current Version: <span id="apkVersion">1</span></p>
+    <h1>Admin APK Dashboard</h1>
+    <div id="container">
+        <div id="apk-info">
+            <h2>Current Version: <span id="current-version">0</span></h2>
+            <form id="upload-form">
+                <input type="file" id="apk-file" accept=".apk">
+                <button type="submit">Upload APK</button>
+            </form>
+        </div>
+        <div id="users">
+            <h3>Connected Devices</h3>
+            <ul id="user-list"></ul>
+        </div>
+    </div>
 
-<h2>Connected Users</h2>
-<table>
-<thead>
-<tr><th>Device ID</th><th>Version</th><th>Connected At</th></tr>
-</thead>
-<tbody id="userTable"></tbody>
-</table>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script>
+        const socket = io();
 
-<script>
-const socket = io();
-const apkVersion = document.getElementById("apkVersion");
-const userTable = document.getElementById("userTable");
-const form = document.getElementById("apkForm");
+        const currentVersionEl = document.getElementById("current-version");
+        const userListEl = document.getElementById("user-list");
+        const uploadForm = document.getElementById("upload-form");
+        const apkFileInput = document.getElementById("apk-file");
 
-form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const file = document.getElementById("apkFile").files[0];
-    if(!file) return alert("Select an APK first");
-    const formData = new FormData();
-    formData.append("apk", file);
-    const res = await fetch("/upload_apk", { method:"POST", body: formData });
-    const data = await res.json();
-    apkVersion.textContent = data.version;
-});
+        // --- WebSocket updates ---
+        socket.on("apk_update", data => {
+            currentVersionEl.textContent = data.version;
+            console.log("APK Version updated:", data);
+        });
 
-// Socket events
-socket.on("connect", () => console.log("Connected to server"));
-socket.on("disconnect", () => console.log("Disconnected from server"));
+        socket.on("users_update", users => {
+            userListEl.innerHTML = "";
+            users.forEach(u => {
+                const li = document.createElement("li");
+                li.textContent = `Device: ${u.device_id} | Version: ${u.version} | Connected: ${new Date(u.connected_at).toLocaleString()}`;
+                li.className = "connected";
+                userListEl.appendChild(li);
+            });
+            console.log("Users updated:", users);
+        });
 
-socket.on("apk_update", (data) => {
-    apkVersion.textContent = data.version;
-});
+        // --- Upload APK ---
+        uploadForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const file = apkFileInput.files[0];
+            if (!file) return alert("Select an APK to upload");
+            const formData = new FormData();
+            formData.append("apk", file);
 
-socket.on("users_update", (users) => {
-    userTable.innerHTML = "";
-    users.forEach(u => {
-        const row = document.createElement("tr");
-        row.innerHTML = `<td>${u.device_id}</td><td>${u.version}</td><td>${u.connected_at}</td>`;
-        userTable.appendChild(row);
-    });
-});
-</script>
+            const res = await fetch("/upload_apk", {
+                method: "POST",
+                body: formData
+            });
+            const data = await res.json();
+            console.log("Upload response:", data);
+            apkFileInput.value = "";
+        });
+
+        // --- Initial fetch for users ---
+        fetch("/users").then(r => r.json()).then(users => {
+            socket.emit("users_update", users);
+        });
+    </script>
 </body>
 </html>
