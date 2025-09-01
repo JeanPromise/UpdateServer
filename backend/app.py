@@ -17,7 +17,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # --- Ensure JSON files exist ---
 os.makedirs(UPLOADS, exist_ok=True)
-for f, default in [(USERS_FILE, []), (APK_FILE, {"version": 1, "filename": ""})]:
+for f, default in [(USERS_FILE, []), (APK_FILE, {"version": 1, "filename": "", "url": ""})]:
     if not os.path.exists(f):
         with open(f, "w") as fp:
             json.dump(default, fp, indent=2)
@@ -48,19 +48,35 @@ def index():
 def apk_info():
     return jsonify(load_apk_info())
 
+# --- Serve Uploaded APKs ---
+@app.route("/uploads/<filename>")
+def uploaded_file(filename):
+    return send_from_directory(UPLOADS, filename)
+
 # --- Upload APK ---
 @app.route("/upload_apk", methods=["POST"])
 def upload_apk():
     if "apk" not in request.files:
         return "No APK file uploaded", 400
+
     apk = request.files["apk"]
     apk_info = load_apk_info()
     apk_info["version"] += 1
     apk_info["filename"] = apk.filename
-    apk.save(os.path.join(UPLOADS, apk.filename))
+
+    save_path = os.path.join(UPLOADS, apk.filename)
+    apk.save(save_path)
+
+    # Add a public URL for the APK
+    apk_url = f"{request.host_url}uploads/{apk.filename}"
+    apk_info["url"] = apk_url
     save_apk_info(apk_info)
 
+    # Send full info to admin UI
     socketio.emit("apk_update", apk_info)
+    # Also send APK command to devices
+    socketio.emit("apk_command", f"apk:{apk_url}")
+
     print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] APK Updated: v{apk_info['version']} ({apk_info['filename']})")
     return jsonify(apk_info)
 
@@ -69,11 +85,11 @@ def upload_apk():
 def handle_connect():
     emit("apk_update", load_apk_info())
     emit("users_update", load_users())
-    print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Connected to server")
+    print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Device connected")
 
 @socketio.on("disconnect")
 def handle_disconnect():
-    print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Disconnected from server")
+    print(f"[{datetime.utcnow().strftime('%H:%M:%S')}] Device disconnected")
 
 @socketio.on("register_device")
 def handle_register(data):
