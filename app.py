@@ -1,64 +1,56 @@
-from flask import Flask, render_template, jsonify
-from flask_sockets import Sockets
-import json
-import threading
+from flask import Flask, request, jsonify, send_from_directory
+import os
 
 app = Flask(__name__)
-sockets = Sockets(app)
 
-# Store users
-connected_users = {}  # key: device_id, value: {username, version}
+# Store users in memory for now; could be extended to a file/db
+registered_users = {}
 
-lock = threading.Lock()
-
-# ---------------------------
-# WebSocket endpoint
-# ---------------------------
-@sockets.route('/ws')
-def echo_socket(ws):
-    while not ws.closed:
-        message = ws.receive()
-        if message:
-            # Expecting: "device_id:XXX;username:YYY;version:ZZZ"
-            data = {}
-            try:
-                for part in message.split(";"):
-                    k, v = part.split(":")
-                    data[k] = v
-                device_id = data.get("device_id")
-                username = data.get("username", "unknown")
-                version = data.get("version", "unknown")
-                with lock:
-                    connected_users[device_id] = {"username": username, "version": version}
-                print(f"Registered: {username} ({device_id})")
-            except Exception as e:
-                print("Failed parsing message:", message, e)
-    return ""
-
-# ---------------------------
-# HTTP route to see users
-# ---------------------------
+# Serve index.html from root
 @app.route('/')
 def index():
-    with lock:
-        users = list(connected_users.values())
-    return render_template("index.html", users=users)
+    return send_from_directory('.', 'index.html')
 
-# ---------------------------
-# Serve JSON for programmatic access
-# ---------------------------
-@app.route('/users')
-def users_json():
-    with lock:
-        return jsonify(connected_users)
+# Register a new user
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
 
-# ---------------------------
-# Run server
-# ---------------------------
+    if not username or not password:
+        return jsonify({'status': 'error', 'message': 'Username and password required'}), 400
+
+    if username in registered_users:
+        return jsonify({'status': 'error', 'message': 'Username already exists'}), 400
+
+    registered_users[username] = password
+    return jsonify({'status': 'success', 'message': f'User {username} registered'}), 200
+
+# Login user
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    username = data.get('username')
+    password = data.get('password')
+
+    stored_password = registered_users.get(username)
+    if stored_password and stored_password == password:
+        return jsonify({'status': 'success', 'message': f'Welcome {username}'}), 200
+    return jsonify({'status': 'error', 'message': 'Invalid credentials'}), 401
+
+# List registered users
+@app.route('/users', methods=['GET'])
+def users():
+    return jsonify(list(registered_users.keys()))
+
+# Endpoint for APK info submission
+@app.route('/device', methods=['POST'])
+def device_info():
+    data = request.json
+    print("Received device info:", data)
+    return jsonify({'status': 'ok'}), 200
+
 if __name__ == '__main__':
-    from gevent import pywsgi
-    from geventwebsocket.handler import WebSocketHandler
-
-    server = pywsgi.WSGIServer(("0.0.0.0", 5000), app, handler_class=WebSocketHandler)
-    print("Server started on http://0.0.0.0:5000")
-    server.serve_forever()
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
