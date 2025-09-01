@@ -4,13 +4,14 @@ from flask import Flask, request, send_from_directory, jsonify
 from flask_socketio import SocketIO, emit
 from datetime import datetime
 
-# --- Flask app ---
-app = Flask(__name__, static_folder="admin_ui", static_url_path="")
+# --- Flask App ---
+# admin_ui is one level above backend
+app = Flask(__name__, static_folder="../admin_ui", static_url_path="")
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 # --- Files for persistence ---
-USERS_FILE = "users.json"
-APK_FILE = "apk_info.json"
+USERS_FILE = "../users.json"
+APK_FILE = "../apk_info.json"
 
 # Ensure JSON files exist
 if not os.path.exists(USERS_FILE):
@@ -19,7 +20,7 @@ if not os.path.exists(USERS_FILE):
 
 if not os.path.exists(APK_FILE):
     with open(APK_FILE, "w") as f:
-        json.dump({"version": 1, "filename": ""}, f)
+        json.dump({"version": 0, "filename": ""}, f)
 
 # --- Helper functions ---
 def load_users():
@@ -41,7 +42,7 @@ def save_apk_info(apk_info):
 # --- Routes ---
 @app.route("/")
 def index():
-    return send_from_directory("admin_ui", "index.html")
+    return send_from_directory("../admin_ui", "index.html")
 
 @app.route("/upload_apk", methods=["POST"])
 def upload_apk():
@@ -49,12 +50,14 @@ def upload_apk():
         return "No APK file uploaded", 400
     apk = request.files["apk"]
 
+    # Load & increment version
     apk_info = load_apk_info()
     apk_info["version"] += 1
     apk_info["filename"] = apk.filename
 
-    os.makedirs("uploads", exist_ok=True)
-    apk.save(os.path.join("uploads", apk.filename))
+    # Save APK file
+    os.makedirs("../uploads", exist_ok=True)
+    apk.save(os.path.join("../uploads", apk.filename))
     save_apk_info(apk_info)
 
     # Notify admin UI
@@ -65,7 +68,7 @@ def upload_apk():
 def get_users():
     return jsonify(load_users())
 
-# --- WebSocket ---
+# --- WebSocket for devices ---
 @socketio.on("connect")
 def handle_connect():
     emit("apk_update", load_apk_info())
@@ -92,5 +95,5 @@ def handle_register(data):
 
 # --- Run server ---
 if __name__ == "__main__":
-    os.makedirs("uploads", exist_ok=True)
+    os.makedirs("../uploads", exist_ok=True)
     socketio.run(app, host="0.0.0.0", port=5000)
