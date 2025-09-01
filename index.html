@@ -2,65 +2,60 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Admin Dashboard</title>
+<title>Admin Panel</title>
 <style>
-body { background: #111; color: #fff; font-family: sans-serif; margin: 0; padding: 0;}
-header { padding: 1em; background: #222; text-align:center; font-size:1.5em; }
-section { padding: 1em; }
-button { padding: 0.5em 1em; margin: 0.3em; cursor: pointer; background: orange; border: none; color:#111; font-weight:bold; }
-table { width: 100%; border-collapse: collapse; margin-top: 1em;}
-th, td { padding: 0.5em; border: 1px solid #444; text-align:left;}
-.online { color: #0f0; font-weight: bold; }
-.offline { color: #f00; font-weight: bold; }
+body { font-family: Arial; background: #111; color: #fff; padding: 20px; }
+h1 { color: #ffcc00; }
+button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #222; color: #ffcc00; border: 1px solid #ffcc00; }
+input[type=file] { margin: 10px 0; }
+#users, #online { margin-top: 20px; }
+a.apk-link { color: #00ccff; text-decoration: none; }
 </style>
 </head>
 <body>
-<header>Admin Dashboard - Phase 1</header>
 
-<section>
-<h2>Upload APK</h2>
-<form id="uploadForm">
-  <input type="file" id="apkfile" accept=".apk">
-  <button type="submit">Upload</button>
-</form>
-<div id="uploadMsg"></div>
-<h4>Latest APK:</h4>
-<ul id="apkList">
-  {% for v in versions %}
-    <li>{{v.version}} - <a href="/apks/{{v.filename}}" target="_blank">{{v.filename}}</a></li>
-  {% endfor %}
-</ul>
-</section>
+<h1>Admin Panel</h1>
 
-<section>
-<h2>Registered Users</h2>
-<table>
-<tr><th>Username</th><th>Device ID</th><th>Registered At</th><th>Last Seen</th><th>Status</th></tr>
-{% for u in users %}
-<tr>
-<td>{{u.username}}</td>
-<td>{{u.device_id}}</td>
-<td>{{u.registered_at}}</td>
-<td>{{u.last_seen}}</td>
-<td class="{{'online' if u.online else 'offline'}}">{{'Online' if u.online else 'Offline'}}</td>
-</tr>
-{% endfor %}
-</table>
-</section>
+<h2>1️⃣ Upload APK</h2>
+<input type="file" id="apkInput">
+<button onclick="uploadAPK()">Upload</button>
+<div id="apkResult"></div>
+
+<h2>2️⃣ Registered Users</h2>
+<button onclick="loadUsers()">Refresh Users</button>
+<pre id="users">No data yet</pre>
+
+<h2>3️⃣ Online Users</h2>
+<button onclick="loadOnline()">Refresh Online</button>
+<pre id="online">No data yet</pre>
 
 <script>
-// Handle APK upload
-document.getElementById("uploadForm").addEventListener("submit", async function(e){
-    e.preventDefault();
-    const file = document.getElementById("apkfile").files[0];
-    if(!file){ alert("Select a file"); return; }
+async function uploadAPK() {
+    const fileInput = document.getElementById('apkInput');
+    if (!fileInput.files.length) return alert('Select an APK first!');
     const formData = new FormData();
-    formData.append("apkfile", file);
-    const res = await fetch("/upload", { method:"POST", body:formData });
-    const text = await res.text();
-    document.getElementById("uploadMsg").innerText = text;
-    setTimeout(()=>location.reload(),1000);
-});
+    formData.append('apk', fileInput.files[0]);
+    const res = await fetch('/upload_apk', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.status === 'success') {
+        document.getElementById('apkResult').innerHTML = 
+            `Uploaded! Version: ${data.version} <br> <a class="apk-link" href="${data.url}" target="_blank">Download APK</a>`;
+    } else {
+        document.getElementById('apkResult').innerText = data.message;
+    }
+}
+
+async function loadUsers() {
+    const res = await fetch('/users');
+    const data = await res.json();
+    document.getElementById('users').innerText = JSON.stringify(data, null, 2);
+}
+
+async function loadOnline() {
+    const res = await fetch('/online');
+    const data = await res.json();
+    document.getElementById('online').innerText = JSON.stringify(data, null, 2);
+}
 </script>
 
 </body>
