@@ -1,4 +1,13 @@
+# Web framework
 Flask==2.3.2
+
+# WebSocket support
 Flask-Sockets==0.2.1
 gevent==22.10.2
 gevent-websocket==0.10.1
+
+# HTTP client for testing (optional, if you use requests)
+requests==2.31.0
+
+# For Cython compilation (gevent may need this during build)
+Cython==0.30.2
