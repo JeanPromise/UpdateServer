@@ -2,53 +2,85 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Update Server Dashboard</title>
+    <title>Admin Panel</title>
     <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; background: #111; color: #eee; padding: 20px; }
+        body { font-family: Arial; background:#111; color:#eee; padding:20px; }
         h1 { color: #ffcc00; }
-        #users { margin-top: 20px; }
-        button { margin-top: 10px; padding: 10px 20px; background: #ff4444; border: none; color: #fff; cursor: pointer; }
-        button:hover { background: #ff0000; }
-        ul { list-style: none; padding: 0; }
-        li { padding: 5px 0; }
+        button { margin-top:10px; padding:10px; background:#ff4444; border:none; color:#fff; cursor:pointer; }
+        button:hover { background:#ff0000; }
+        input[type=file] { margin-top:10px; }
+        table { width:100%; margin-top:20px; border-collapse: collapse; }
+        th, td { padding:8px; border-bottom:1px solid #333; text-align:left; }
+        #logs { margin-top:20px; max-height:200px; overflow:auto; background:#222; padding:10px; }
     </style>
 </head>
 <body>
-    <h1>Update Server Dashboard</h1>
-    <p>APK version: <span id="apk-version">loading...</span></p>
-    <button onclick="logoutAll()">Sign Out All Users</button>
+<h1>Admin Panel</h1>
 
-    <div id="users">
-        <h2>Logged-in Users:</h2>
-        <ul id="user-list"></ul>
-    </div>
+<form id="uploadForm" enctype="multipart/form-data">
+    <input type="file" name="apk_file" required>
+    <button type="submit">Upload APK</button>
+</form>
 
-    <script>
-        const socket = io();
+<p>Current Version: <span id="apkVersion">{{ version }}</span></p>
+<p>Current File: <span id="apkFile">{{ filename or 'None' }}</span></p>
 
-        socket.on('connect', () => {
-            console.log('Connected to server');
-        });
+<h2>Connected Users</h2>
+<button onclick="logoutAll()">Sign Out All</button>
+<table>
+    <thead>
+        <tr><th>Username</th></tr>
+    </thead>
+    <tbody id="userList"></tbody>
+</table>
 
-        socket.on('status', (msg) => {
-            console.log(msg);
-            document.getElementById('apk-version').innerText = msg.match(/APK version: (\S+)/)[1];
-        });
+<h2>Live Logs</h2>
+<div id="logs"></div>
 
-        socket.on('users_list', (users) => {
-            const list = document.getElementById('user-list');
-            list.innerHTML = '';
-            users.forEach(u => {
-                const li = document.createElement('li');
-                li.textContent = u;
-                list.appendChild(li);
-            });
-        });
+<script>
+const socket = io();
 
-        function logoutAll() {
-            socket.emit('logout_all');
-        }
-    </script>
+socket.on("connect", () => log("Connected to server"));
+
+socket.on("users_list", (users) => {
+    const tbody = document.getElementById("userList");
+    tbody.innerHTML = "";
+    users.forEach(u => {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.textContent = u;
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    });
+});
+
+socket.on("apk_update", (data) => {
+    document.getElementById("apkVersion").textContent = data.version;
+    document.getElementById("apkFile").textContent = data.filename;
+    log(`APK Updated: ${data.version} (${data.filename})`);
+});
+
+function logoutAll() {
+    socket.emit("logout_all");
+}
+
+function log(msg) {
+    const div = document.getElementById("logs");
+    const now = new Date().toLocaleTimeString();
+    div.innerHTML += `[${now}] ${msg}<br>`;
+    div.scrollTop = div.scrollHeight;
+}
+
+// Upload APK form
+document.getElementById("uploadForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const fd = new FormData(form);
+    const res = await fetch("/upload_apk", { method: "POST", body: fd });
+    const text = await res.text();
+    log(text);
+};
+</script>
 </body>
 </html>
