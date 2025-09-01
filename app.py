@@ -1,127 +1,81 @@
+from flask import Flask, request, jsonify, send_from_directory
+from werkzeug.utils import secure_filename
 import os
 import json
-from flask import Flask, request, send_from_directory, render_template, jsonify
 from datetime import datetime
 
 app = Flask(__name__)
-APK_FOLDER = "apks"
-USERS_FILE = "users.json"
-VERSIONS_FILE = "apk_versions.json"
+UPLOAD_FOLDER = 'uploads'
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+USERS_FILE = 'users.json'
 
-os.makedirs(APK_FOLDER, exist_ok=True)
-
-# -------------------------------
-# Helpers
-# -------------------------------
+# Load or create users.json
+if not os.path.exists(USERS_FILE):
+    with open(USERS_FILE, 'w') as f:
+        json.dump({}, f)
 
 def load_users():
-    if not os.path.exists(USERS_FILE):
-        return []
-    with open(USERS_FILE, "r") as f:
+    with open(USERS_FILE, 'r') as f:
         return json.load(f)
 
 def save_users(users):
-    with open(USERS_FILE, "w") as f:
+    with open(USERS_FILE, 'w') as f:
         json.dump(users, f, indent=2)
 
-def load_versions():
-    if not os.path.exists(VERSIONS_FILE):
-        return []
-    with open(VERSIONS_FILE, "r") as f:
-        return json.load(f)
-
-def save_versions(versions):
-    with open(VERSIONS_FILE, "w") as f:
-        json.dump(versions, f, indent=2)
-
-def next_version():
-    versions = load_versions()
-    if not versions:
-        return "1.0.0"
-    last = versions[-1]["version"]
-    major, minor, patch = map(int, last.split("."))
-    patch += 1
-    return f"{major}.{minor}.{patch}"
-
-# -------------------------------
+# -----------------------
 # Routes
-# -------------------------------
+# -----------------------
 
-@app.route("/")
-def index():
-    users = load_users()
-    versions = load_versions()
-    latest_apk = versions[-1]["filename"] if versions else None
-    return render_template("index.html", users=users, latest_apk=latest_apk, versions=versions)
+@app.route('/')
+def home():
+    return send_from_directory('.', 'index.html')
 
-@app.route("/upload", methods=["POST"])
+# Upload APK
+@app.route('/upload_apk', methods=['POST'])
 def upload_apk():
-    if "apkfile" not in request.files:
-        return "No file uploaded", 400
-    file = request.files["apkfile"]
-    version = next_version()
-    filename = f"{version}_{file.filename}"
-    filepath = os.path.join(APK_FOLDER, filename)
-    file.save(filepath)
+    if 'apk' not in request.files:
+        return jsonify({'status': 'error', 'message': 'No APK file'}), 400
+    file = request.files['apk']
+    if file.filename == '':
+        return jsonify({'status': 'error', 'message': 'No selected file'}), 400
+    filename = secure_filename(file.filename)
+    
+    # Auto-increment version number based on timestamp
+    version = datetime.now().strftime("%Y.%m.%d.%H%M%S")
+    saved_filename = f"{os.path.splitext(filename)[0]}_v{version}.apk"
+    file.save(os.path.join(UPLOAD_FOLDER, saved_filename))
+    
+    apk_url = f"/downloads/{saved_filename}"
+    return jsonify({'status': 'success', 'url': apk_url, 'version': version})
 
-    # Save version info
-    versions = load_versions()
-    versions.append({"version": version, "filename": filename, "uploaded_at": datetime.now().isoformat()})
-    save_versions(versions)
+# Serve APK downloads
+@app.route('/downloads/<path:filename>')
+def download_apk(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
 
-    return f"Uploaded {filename} successfully!"
-
-@app.route("/apks/<filename>")
-def serve_apk(filename):
-    return send_from_directory(APK_FOLDER, filename)
-
-@app.route("/register_device", methods=["POST"])
-def register_device():
-    """
-    Endpoint for APKs to ping the server (simulated online status)
-    Expect JSON: { "device_id": "...", "username": "..." }
-    """
-    data = request.get_json()
-    if not data or "device_id" not in data or "username" not in data:
-        return "Invalid data", 400
-
+# Get all registered users
+@app.route('/users')
+def users():
     users = load_users()
-    # Update existing or add new
-    for u in users:
-        if u["device_id"] == data["device_id"]:
-            u["last_seen"] = datetime.now().isoformat()
-            u["online"] = True
-            save_users(users)
-            return "Updated"
-    # New user
-    users.append({
-        "device_id": data["device_id"],
-        "username": data["username"],
-        "registered_at": datetime.now().isoformat(),
-        "last_seen": datetime.now().isoformat(),
-        "online": True
-    })
-    save_users(users)
-    return "Registered"
-
-@app.route("/users")
-def get_users():
-    """
-    Return JSON list of users with online status
-    """
-    users = load_users()
-    # Mark offline if last_seen > 5 minutes ago (optional)
-    now = datetime.now()
-    for u in users:
-        last_seen = datetime.fromisoformat(u["last_seen"])
-        if (now - last_seen).total_seconds() > 300:
-            u["online"] = False
-    save_users(users)
     return jsonify(users)
 
-# -------------------------------
-# Run
-# -------------------------------
+# Track online users (simplified)
+ONLINE = {}
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+@app.route('/online', methods=['POST'])
+def online():
+    data = request.json
+    user = data.get('user')
+    status = data.get('status', 'offline')
+    ONLINE[user] = status
+    return jsonify({'status': 'ok', 'online_users': ONLINE})
+
+@app.route('/online')
+def get_online():
+    return jsonify(ONLINE)
+
+# -----------------------
+# Run
+# -----------------------
+if __name__ == '__main__':
+    app.run(debug=True)
