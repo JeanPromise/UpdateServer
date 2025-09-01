@@ -1,52 +1,76 @@
-from flask import Flask, request, jsonify
-from flask_socketio import SocketIO, emit
+# app.py
+from flask import Flask, send_from_directory, jsonify, request
+from flask_socketio import SocketIO, emit, join_room, leave_room
+import os
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'supersecretkey'
 
-# Use eventlet for WebSocket support
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+# Use threading to avoid eventlet/ssl issues on Python 3.13
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
-# Store logged-in usernames
-logged_in_users = set()
+# Store users and APK info
+users = {}       # username -> device info
+apk_version = "v1"
+apk_file = "app-release.apk"  # Make sure this exists in the same folder
 
-# ------------------------
+# ----------------------------
 # HTTP routes
-# ------------------------
+# ----------------------------
 @app.route('/')
 def index():
-    return "WebSocket server running. Users will appear in /users."
+    return jsonify({"status": "Update server running"})
+
+
+@app.route('/apk/<filename>')
+def serve_apk(filename):
+    # Serve APK file from the local directory
+    if os.path.exists(filename):
+        return send_from_directory(os.getcwd(), filename)
+    return "APK not found", 404
+
 
 @app.route('/users')
-def get_users():
-    return jsonify(list(logged_in_users))
+def list_users():
+    # Return all logged-in usernames
+    return jsonify(list(users.keys()))
 
-@app.route('/logout_all', methods=['POST'])
-def logout_all():
-    logged_in_users.clear()
-    socketio.emit('force_logout', {'msg': 'All users signed out!'})
-    return jsonify({'status': 'ok', 'message': 'All users signed out'})
 
-# ------------------------
-# WebSocket events
-# ------------------------
+# ----------------------------
+# SocketIO events
+# ----------------------------
 @socketio.on('connect')
 def handle_connect():
-    username = request.args.get('username', 'unknown')
-    logged_in_users.add(username)
-    emit('user_list', list(logged_in_users), broadcast=True)
-    print(f"{username} connected. Total users: {len(logged_in_users)}")
+    emit('status', f'Connected to update server. APK version: {apk_version}')
+
+
+@socketio.on('register')
+def handle_register(data):
+    username = data.get('username', 'unknown')
+    device_id = data.get('device_id', 'unknown')
+    version = data.get('version', 'unknown')
+
+    users[username] = {"device_id": device_id, "version": version}
+    emit('users_list', list(users.keys()), broadcast=True)
+    emit('apk_update', {"version": apk_version, "url": f"/apk/{apk_file}"})
+    print(f"Registered user: {username} -> {users[username]}")
+
+
+@socketio.on('logout_all')
+def handle_logout_all():
+    users.clear()
+    emit('users_list', list(users.keys()), broadcast=True)
+    print("All users signed out.")
+
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    username = request.args.get('username', 'unknown')
-    if username in logged_in_users:
-        logged_in_users.remove(username)
-        emit('user_list', list(logged_in_users), broadcast=True)
-    print(f"{username} disconnected. Total users: {len(logged_in_users)}")
+    print("A client disconnected.")
 
-# ------------------------
-# Run
-# ------------------------
-if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000)
+
+# ----------------------------
+# Run server
+# ----------------------------
+if __name__ == '__main__':
+    # Bind to 0.0.0.0 for Render
+    socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
