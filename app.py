@@ -1,86 +1,47 @@
 import os
-from flask import Flask, request, jsonify, send_from_directory, render_template
+from flask import Flask, render_template, request, send_from_directory
 from flask_socketio import SocketIO, emit
 
-app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = "uploads"
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Set template folder to the same folder as this file
+app = Flask(__name__, template_folder=os.path.dirname(os.path.abspath(__file__)))
+socketio = SocketIO(app)
 
-# Ensure upload folder exists
-os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-# Track connected clients
-connected_clients = {}  # device_id: sid
-registered_users = {}   # device_id: {info}
-
-# APK version tracking
-apk_versions = []
+# Keep track of APK versions and registered users
 latest_apk = None
+registered_users = []
 
-# --------------------------
-# Admin UI
-# --------------------------
-@app.route("/")
+@app.route('/')
 def index():
+    global latest_apk, registered_users
     return render_template("index.html", latest_apk=latest_apk, users=registered_users)
 
-# --------------------------
-# Upload APK
-# --------------------------
-@app.route("/upload", methods=["POST"])
+@app.route('/upload', methods=['POST'])
 def upload_apk():
     global latest_apk
-    if 'apk' not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+    if 'file' not in request.files:
+        return "No file part", 400
+    file = request.files['file']
+    if file.filename == '':
+        return "No selected file", 400
+    filename = file.filename
+    file.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), filename))
+    latest_apk = filename
+    socketio.emit('apk_updated', {'apk': latest_apk})
+    return f"APK {filename} uploaded successfully", 200
 
-    file = request.files['apk']
-    version = request.form.get("version") or f"v{len(apk_versions)+1}"
-    filename = f"{version}_{file.filename}"
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-    file.save(filepath)
+@app.route('/register', methods=['POST'])
+def register_user():
+    data = request.json
+    user_id = data.get('user_id')
+    if user_id and user_id not in registered_users:
+        registered_users.append(user_id)
+        socketio.emit('user_list_updated', {'users': registered_users})
+    return {"status": "registered", "users": registered_users}
 
-    latest_apk = {"version": version, "filename": filename, "url": f"/downloads/{filename}"}
-    apk_versions.append(latest_apk)
+# Serve APK files directly
+@app.route('/apk/<filename>')
+def get_apk(filename):
+    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), filename)
 
-    # Notify all connected clients
-    for device_id, sid in connected_clients.items():
-        socketio.emit("apk_update", {"url": latest_apk["url"], "version": version}, to=sid)
-
-    print(f"[ADMIN] APK Uploaded: {filename}")
-    return jsonify({"success": True, "apk": latest_apk})
-
-# --------------------------
-# Serve APKs
-# --------------------------
-@app.route("/downloads/<path:filename>")
-def downloads(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
-
-# --------------------------
-# WebSocket for clients
-# --------------------------
-@socketio.on("connect")
-def on_connect():
-    device_id = request.args.get("device_id")
-    if device_id:
-        connected_clients[device_id] = request.sid
-        registered_users[device_id] = {"online": True}
-        emit("server_message", {"msg": f"Connected to server"})
-        print(f"[WS] Device {device_id} connected")
-
-@socketio.on("disconnect")
-def on_disconnect():
-    # Remove from connected_clients
-    sid = request.sid
-    for device_id, csid in list(connected_clients.items()):
-        if csid == sid:
-            connected_clients.pop(device_id)
-            registered_users[device_id]["online"] = False
-            print(f"[WS] Device {device_id} disconnected")
-            break
-
-# --------------------------
-# Run server
-# --------------------------
-if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=10000)
