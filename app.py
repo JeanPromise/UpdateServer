@@ -1,81 +1,49 @@
 from flask import Flask, request, jsonify
-from flask_socketio import SocketIO, emit, join_room, leave_room
-import eventlet
-eventlet.monkey_patch()
+from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'supersecretkey'
-socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Use eventlet for WebSocket support
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+
+# Store logged-in usernames
+logged_in_users = set()
 
 # ------------------------
-# In-memory user registry
-# ------------------------
-# username -> websocket session id
-connected_users = {}
-
-# ------------------------
-# Web routes
+# HTTP routes
 # ------------------------
 @app.route('/')
 def index():
-    return "Server is running!"
+    return "WebSocket server running. Users will appear in /users."
 
-@app.route('/users', methods=['GET'])
-def list_users():
-    return jsonify(list(connected_users.keys()))
+@app.route('/users')
+def get_users():
+    return jsonify(list(logged_in_users))
+
+@app.route('/logout_all', methods=['POST'])
+def logout_all():
+    logged_in_users.clear()
+    socketio.emit('force_logout', {'msg': 'All users signed out!'})
+    return jsonify({'status': 'ok', 'message': 'All users signed out'})
 
 # ------------------------
 # WebSocket events
 # ------------------------
 @socketio.on('connect')
 def handle_connect():
-    print(f"New connection: {request.sid}")
-
-@socketio.on('register')
-def handle_register(data):
-    """
-    Client should send:
-    { "username": "user1", "version": "1.0.0" }
-    """
-    username = data.get("username")
-    if username:
-        connected_users[username] = request.sid
-        print(f"{username} registered with sid {request.sid}")
-        emit('status', f"Registered as {username}")
+    username = request.args.get('username', 'unknown')
+    logged_in_users.add(username)
+    emit('user_list', list(logged_in_users), broadcast=True)
+    print(f"{username} connected. Total users: {len(logged_in_users)}")
 
 @socketio.on('disconnect')
 def handle_disconnect():
-    # remove user from registry
-    to_remove = [u for u, sid in connected_users.items() if sid == request.sid]
-    for u in to_remove:
-        del connected_users[u]
-        print(f"{u} disconnected")
-
-# ------------------------
-# Admin commands
-# ------------------------
-@app.route('/logout_all', methods=['POST'])
-def logout_all():
-    """
-    Send logout to all connected users.
-    Optional: provide JSON with "usernames": ["user1", "user2"]
-    If not provided, all users will be logged out.
-    """
-    data = request.get_json() or {}
-    usernames = data.get("usernames")
-    
-    if usernames:
-        # only selected users
-        for u in usernames:
-            sid = connected_users.get(u)
-            if sid:
-                socketio.emit('command', 'logout', to=sid)
-    else:
-        # broadcast to all
-        for sid in connected_users.values():
-            socketio.emit('command', 'logout', to=sid)
-    
-    return jsonify({"status": "ok", "users_targeted": usernames or "all"})
+    username = request.args.get('username', 'unknown')
+    if username in logged_in_users:
+        logged_in_users.remove(username)
+        emit('user_list', list(logged_in_users), broadcast=True)
+    print(f"{username} disconnected. Total users: {len(logged_in_users)}")
 
 # ------------------------
 # Run
