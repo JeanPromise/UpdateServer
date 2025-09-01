@@ -2,34 +2,53 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Registered Users</title>
+    <title>Update Server Dashboard</title>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
     <style>
-        body { font-family: Arial; background: #111; color: #fff; padding: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #555; padding: 10px; text-align: left; }
-        th { background: #222; }
-        tr:nth-child(even) { background: #1a1a1a; }
+        body { font-family: Arial, sans-serif; background: #111; color: #eee; padding: 20px; }
+        h1 { color: #ffcc00; }
+        #users { margin-top: 20px; }
+        button { margin-top: 10px; padding: 10px 20px; background: #ff4444; border: none; color: #fff; cursor: pointer; }
+        button:hover { background: #ff0000; }
+        ul { list-style: none; padding: 0; }
+        li { padding: 5px 0; }
     </style>
 </head>
 <body>
-    <h1>Connected / Registered Users</h1>
-    <table>
-        <thead>
-            <tr>
-                <th>Username</th>
-                <th>Device ID</th>
-                <th>App Version</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for device_id, info in users|dictsort %}
-            <tr>
-                <td>{{ info.username }}</td>
-                <td>{{ device_id }}</td>
-                <td>{{ info.version }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <h1>Update Server Dashboard</h1>
+    <p>APK version: <span id="apk-version">loading...</span></p>
+    <button onclick="logoutAll()">Sign Out All Users</button>
+
+    <div id="users">
+        <h2>Logged-in Users:</h2>
+        <ul id="user-list"></ul>
+    </div>
+
+    <script>
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('status', (msg) => {
+            console.log(msg);
+            document.getElementById('apk-version').innerText = msg.match(/APK version: (\S+)/)[1];
+        });
+
+        socket.on('users_list', (users) => {
+            const list = document.getElementById('user-list');
+            list.innerHTML = '';
+            users.forEach(u => {
+                const li = document.createElement('li');
+                li.textContent = u;
+                list.appendChild(li);
+            });
+        });
+
+        function logoutAll() {
+            socket.emit('logout_all');
+        }
+    </script>
 </body>
 </html>
