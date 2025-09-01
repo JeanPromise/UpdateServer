@@ -4,59 +4,78 @@
 <meta charset="UTF-8">
 <title>Admin Panel</title>
 <style>
-body { font-family: Arial; background: #111; color: #fff; padding: 20px; }
-h1 { color: #ffcc00; }
-button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #222; color: #ffcc00; border: 1px solid #ffcc00; }
-input[type=file] { margin: 10px 0; }
-#users, #online { margin-top: 20px; }
-a.apk-link { color: #00ccff; text-decoration: none; }
+body { font-family: Arial; background:#111; color:#fff; padding:20px;}
+h1 { color: #ff0; }
+button { background: #222; color: #ff0; padding:10px; margin:5px; cursor:pointer;}
+input { padding:5px; margin:5px;}
+table { width:100%; border-collapse: collapse; margin-top:20px;}
+th, td { border: 1px solid #555; padding: 8px; text-align:left;}
+th { background:#333; }
+.online { color: #0f0; }
+.offline { color:#f00; }
 </style>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 </head>
 <body>
 
 <h1>Admin Panel</h1>
 
-<h2>1️⃣ Upload APK</h2>
-<input type="file" id="apkInput">
-<button onclick="uploadAPK()">Upload</button>
-<div id="apkResult"></div>
+<h2>Upload APK</h2>
+<form id="uploadForm">
+<input type="file" id="apkFile" required>
+<input type="text" id="version" placeholder="Version e.g. 1.0.2">
+<button type="submit">Upload</button>
+</form>
 
-<h2>2️⃣ Registered Users</h2>
-<button onclick="loadUsers()">Refresh Users</button>
-<pre id="users">No data yet</pre>
+<h2>Latest APK</h2>
+<div id="latestApk"></div>
 
-<h2>3️⃣ Online Users</h2>
-<button onclick="loadOnline()">Refresh Online</button>
-<pre id="online">No data yet</pre>
+<h2>Registered Users</h2>
+<table>
+<thead>
+<tr><th>Device ID</th><th>Status</th></tr>
+</thead>
+<tbody id="usersTable"></tbody>
+</table>
 
 <script>
-async function uploadAPK() {
-    const fileInput = document.getElementById('apkInput');
-    if (!fileInput.files.length) return alert('Select an APK first!');
-    const formData = new FormData();
-    formData.append('apk', fileInput.files[0]);
-    const res = await fetch('/upload_apk', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.status === 'success') {
-        document.getElementById('apkResult').innerHTML = 
-            `Uploaded! Version: ${data.version} <br> <a class="apk-link" href="${data.url}" target="_blank">Download APK</a>`;
-    } else {
-        document.getElementById('apkResult').innerText = data.message;
+const socket = io({ query: "device_id=admin" });
+
+socket.on("connect", () => {
+    console.log("Connected to server");
+});
+
+socket.on("apk_update", data => {
+    alert(`New APK available: ${data.version}\nURL: ${data.url}`);
+});
+
+function refreshUsers(users) {
+    const tbody = document.getElementById("usersTable");
+    tbody.innerHTML = "";
+    for(const id in users){
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${id}</td><td class="${users[id].online?'online':'offline'}">${users[id].online?'Online':'Offline'}</td>`;
+        tbody.appendChild(tr);
     }
 }
 
-async function loadUsers() {
-    const res = await fetch('/users');
-    const data = await res.json();
-    document.getElementById('users').innerText = JSON.stringify(data, null, 2);
-}
+document.getElementById("uploadForm").addEventListener("submit", e=>{
+    e.preventDefault();
+    const file = document.getElementById("apkFile").files[0];
+    const version = document.getElementById("version").value;
+    const form = new FormData();
+    form.append("apk", file);
+    if(version) form.append("version", version);
 
-async function loadOnline() {
-    const res = await fetch('/online');
-    const data = await res.json();
-    document.getElementById('online').innerText = JSON.stringify(data, null, 2);
-}
+    fetch("/upload", { method:"POST", body: form })
+    .then(res => res.json())
+    .then(data=>{
+        if(data.success){
+            document.getElementById("latestApk").innerText = `${data.apk.version} → ${data.apk.filename}`;
+            refreshUsers(data.users || {});
+        }
+    });
+});
 </script>
-
 </body>
 </html>
