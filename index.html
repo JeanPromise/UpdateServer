@@ -1,86 +1,50 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <title>Admin Panel</title>
-    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
     <style>
-        body { font-family: Arial; background:#111; color:#eee; padding:20px; }
-        h1 { color: #ffcc00; }
-        button { margin-top:10px; padding:10px; background:#ff4444; border:none; color:#fff; cursor:pointer; }
-        button:hover { background:#ff0000; }
-        input[type=file] { margin-top:10px; }
-        table { width:100%; margin-top:20px; border-collapse: collapse; }
-        th, td { padding:8px; border-bottom:1px solid #333; text-align:left; }
-        #logs { margin-top:20px; max-height:200px; overflow:auto; background:#222; padding:10px; }
+        body { font-family: Arial; background:#111; color:#fff; padding:20px; }
+        h1 { color:#ff0; }
+        #users { margin-top:20px; }
+        input, button { padding:8px; margin:5px; }
     </style>
 </head>
 <body>
-<h1>Admin Panel</h1>
+    <h1>Admin Panel</h1>
+    <form id="uploadForm" enctype="multipart/form-data">
+        <input type="file" name="apk" accept=".apk">
+        <button type="submit">Upload APK</button>
+    </form>
+    <div id="users">
+        <h3>Online Users:</h3>
+        <ul id="userList"></ul>
+    </div>
 
-<form id="uploadForm" enctype="multipart/form-data">
-    <input type="file" name="apk_file" required>
-    <button type="submit">Upload APK</button>
-</form>
+    <script>
+        const ws = new WebSocket(`ws://${window.location.host.replace('http://','')}/ws`);
+        ws.onmessage = (e) => {
+            if(e.data.startsWith("users:")) {
+                const users = e.data.replace("users:","").split(",");
+                const ul = document.getElementById("userList");
+                ul.innerHTML = "";
+                users.forEach(u=>{
+                    if(u) {
+                        const li = document.createElement("li");
+                        li.textContent = u;
+                        ul.appendChild(li);
+                    }
+                });
+            }
+        }
 
-<p>Current Version: <span id="apkVersion">{{ version }}</span></p>
-<p>Current File: <span id="apkFile">{{ filename or 'None' }}</span></p>
-
-<h2>Connected Users</h2>
-<button onclick="logoutAll()">Sign Out All</button>
-<table>
-    <thead>
-        <tr><th>Username</th></tr>
-    </thead>
-    <tbody id="userList"></tbody>
-</table>
-
-<h2>Live Logs</h2>
-<div id="logs"></div>
-
-<script>
-const socket = io();
-
-socket.on("connect", () => log("Connected to server"));
-
-socket.on("users_list", (users) => {
-    const tbody = document.getElementById("userList");
-    tbody.innerHTML = "";
-    users.forEach(u => {
-        const tr = document.createElement("tr");
-        const td = document.createElement("td");
-        td.textContent = u;
-        tr.appendChild(td);
-        tbody.appendChild(tr);
-    });
-});
-
-socket.on("apk_update", (data) => {
-    document.getElementById("apkVersion").textContent = data.version;
-    document.getElementById("apkFile").textContent = data.filename;
-    log(`APK Updated: ${data.version} (${data.filename})`);
-});
-
-function logoutAll() {
-    socket.emit("logout_all");
-}
-
-function log(msg) {
-    const div = document.getElementById("logs");
-    const now = new Date().toLocaleTimeString();
-    div.innerHTML += `[${now}] ${msg}<br>`;
-    div.scrollTop = div.scrollHeight;
-}
-
-// Upload APK form
-document.getElementById("uploadForm").onsubmit = async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const fd = new FormData(form);
-    const res = await fetch("/upload_apk", { method: "POST", body: fd });
-    const text = await res.text();
-    log(text);
-};
-</script>
+        document.getElementById("uploadForm").onsubmit = async function(e){
+            e.preventDefault();
+            const formData = new FormData(this);
+            const res = await fetch('/upload_apk', {method:'POST', body:formData});
+            const data = await res.json();
+            alert(data.msg);
+        }
+    </script>
 </body>
 </html>
