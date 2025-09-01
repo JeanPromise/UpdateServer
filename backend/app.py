@@ -1,78 +1,93 @@
 import os
 import json
-from flask import Flask, send_from_directory, jsonify, request
-from flask_socketio import SocketIO
+from flask import Flask, request, send_from_directory, jsonify, redirect
+from flask_socketio import SocketIO, emit
+from datetime import datetime
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ADMIN_UI_DIR = os.path.join(BASE_DIR, "..", "admin_ui")  # matches your GitHub structure
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-VERSION_FILE = os.path.join(UPLOAD_DIR, "version.json")
+app = Flask(__name__, static_folder="admin_ui", static_url_path="")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-app = Flask(__name__, static_folder=None)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+# Files for persistence
+USERS_FILE = "users.json"
+APK_FILE = "apk_info.json"
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# Ensure JSON files exist
+if not os.path.exists(USERS_FILE):
+    with open(USERS_FILE, "w") as f:
+        json.dump([], f)
 
-# Initialize versioning
-if not os.path.exists(VERSION_FILE):
-    with open(VERSION_FILE, "w") as f:
-        json.dump({"version": 1}, f)
+if not os.path.exists(APK_FILE):
+    with open(APK_FILE, "w") as f:
+        json.dump({"version": 1, "filename": ""}, f)
 
-def increment_version():
-    with open(VERSION_FILE, "r") as f:
-        data = json.load(f)
-    data["version"] += 1
-    with open(VERSION_FILE, "w") as f:
-        json.dump(data, f)
-    return data["version"]
+# Helper functions
+def load_users():
+    with open(USERS_FILE, "r") as f:
+        return json.load(f)
 
-def get_current_version():
-    with open(VERSION_FILE, "r") as f:
-        data = json.load(f)
-    return data["version"]
+def save_users(users):
+    with open(USERS_FILE, "w") as f:
+        json.dump(users, f, indent=2)
 
-# Serve the admin UI
+def load_apk_info():
+    with open(APK_FILE, "r") as f:
+        return json.load(f)
+
+def save_apk_info(apk_info):
+    with open(APK_FILE, "w") as f:
+        json.dump(apk_info, f, indent=2)
+
+# Serve admin UI
 @app.route("/")
-def serve_index():
-    index_path = os.path.join(ADMIN_UI_DIR, "index.html")
-    if os.path.exists(index_path):
-        return send_from_directory(ADMIN_UI_DIR, "index.html")
-    return "Admin UI not found", 404
+def index():
+    return send_from_directory("admin_ui", "index.html")
 
-@app.route("/<path:path>")
-def serve_static(path):
-    file_path = os.path.join(ADMIN_UI_DIR, path)
-    if os.path.exists(file_path):
-        return send_from_directory(ADMIN_UI_DIR, path)
-    return "File not found", 404
-
-# Upload APK endpoint with automatic version increment
-@app.route("/upload", methods=["POST"])
+# Upload APK
+@app.route("/upload_apk", methods=["POST"])
 def upload_apk():
     if "apk" not in request.files:
-        return jsonify({"error": "No APK file provided"}), 400
-    apk_file = request.files["apk"]
+        return "No APK file uploaded", 400
+    apk = request.files["apk"]
+    apk_info = load_apk_info()
+    apk_info["version"] += 1
+    apk_info["filename"] = apk.filename
+    apk.save(os.path.join("uploads", apk.filename))
+    save_apk_info(apk_info)
 
-    # Increment version automatically
-    version = increment_version()
-    apk_name = f"{os.path.splitext(apk_file.filename)[0]}_v{version}.apk"
-    save_path = os.path.join(UPLOAD_DIR, apk_name)
-    apk_file.save(save_path)
+    # Notify admin UI
+    socketio.emit("apk_update", apk_info)
+    return jsonify(apk_info)
 
-    # Notify all connected clients
-    socketio.emit("apk_update", {"filename": apk_name, "version": version})
-    return jsonify({"message": "APK uploaded", "version": version, "filename": apk_name}), 200
-
-# WebSocket events
+# WebSocket for devices
 @socketio.on("connect")
 def handle_connect():
-    print("Client connected")
-    # send current version on connect
-    socketio.emit("apk_update", {"version": get_current_version()})
+    emit("apk_update", load_apk_info())
 
-@socketio.on("disconnect")
-def handle_disconnect():
-    print("Client disconnected")
+@socketio.on("register_device")
+def handle_register(data):
+    users = load_users()
+    device_id = data.get("device_id")
+    version = data.get("version")
+    timestamp = datetime.utcnow().isoformat()
+    
+    # Avoid duplicates
+    if not any(u["device_id"] == device_id for u in users):
+        users.append({
+            "device_id": device_id,
+            "version": version,
+            "connected_at": timestamp
+        })
+        save_users(users)
 
+    # Update all admins
+    emit("users_update", users, broadcast=True)
+
+# API endpoint for user list
+@app.route("/users")
+def get_users():
+    return jsonify(load_users())
+
+# Run
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    os.makedirs("uploads", exist_ok=True)
+    socketio.run(app, host="0.0.0.0", port=5000)
