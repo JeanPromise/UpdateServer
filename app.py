@@ -1,73 +1,88 @@
-from flask import Flask, request, send_from_directory, render_template
-from flask_socketio import SocketIO, emit
 import os
-import datetime
+from flask import Flask, request, jsonify, send_from_directory
+from flask_socketio import SocketIO, emit
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# ==== Config ====
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+CURRENT_VERSION_FILE = os.path.join(UPLOAD_FOLDER, 'current_version.txt')
+CURRENT_FILE_NAME = os.path.join(UPLOAD_FOLDER, 'current_file.txt')
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 
-# Store users: just usernames now
-connected_users = set()
-current_apk = {"filename": None, "version": "1"}
+connected_devices = {}
 
-# -----------------------
-# Serve admin panel
-# -----------------------
-@app.route("/")
+# ==== Helpers ====
+def get_current_version():
+    if os.path.exists(CURRENT_VERSION_FILE):
+        with open(CURRENT_VERSION_FILE, 'r') as f:
+            return f.read().strip()
+    return "0"
+
+def set_current_version(version):
+    with open(CURRENT_VERSION_FILE, 'w') as f:
+        f.write(version)
+
+def get_current_file():
+    if os.path.exists(CURRENT_FILE_NAME):
+        with open(CURRENT_FILE_NAME, 'r') as f:
+            return f.read().strip()
+    return None
+
+def set_current_file(filename):
+    with open(CURRENT_FILE_NAME, 'w') as f:
+        f.write(filename)
+
+# ==== Routes ====
+@app.route('/')
 def index():
-    return render_template("index.html", version=current_apk["version"], filename=current_apk["filename"])
+    return "Update Server is Running"
 
-# -----------------------
-# APK upload
-# -----------------------
-@app.route("/upload_apk", methods=["POST"])
+@app.route('/upload', methods=['POST'])
 def upload_apk():
-    if "apk_file" not in request.files:
-        return "No file uploaded", 400
-    f = request.files["apk_file"]
-    filename = f.filename
-    f.save(os.path.join(app.config["UPLOAD_FOLDER"], filename))
-    current_apk["filename"] = filename
-    # bump version (simple)
-    major, minor, patch = map(int, current_apk["version"].split("."))
-    patch += 1
-    current_apk["version"] = f"{major}.{minor}.{patch}"
+    if 'file' not in request.files:
+        return jsonify({"status": "error", "message": "No file part"}), 400
+    file = request.files['file']
+    if file.filename == '':
+        return jsonify({"status": "error", "message": "No selected file"}), 400
+    filename = file.filename
+    version = request.form.get('version', '1')
+    file_path = os.path.join(UPLOAD_FOLDER, filename)
+    file.save(file_path)
+    set_current_version(version)
+    set_current_file(filename)
+    socketio.emit('apk_update', {'version': version, 'filename': filename})
+    print(f"[{socketio.server.manager.clock()}] APK Updated: v{version} ({filename})")
+    return jsonify({"status": "success", "filename": filename, "version": version})
 
-    socketio.emit("apk_update", {"version": current_apk["version"], "filename": filename})
-    return f"Uploaded {filename} successfully"
+@app.route('/download')
+def download_apk():
+    current_file = get_current_file()
+    if current_file:
+        return send_from_directory(UPLOAD_FOLDER, current_file, as_attachment=True)
+    return jsonify({"status": "error", "message": "No APK available"}), 404
 
-# -----------------------
-# WebSocket events
-# -----------------------
-@socketio.on("connect")
+@app.route('/devices', methods=['GET'])
+def get_devices():
+    return jsonify(connected_devices)
+
+# ==== WebSocket events ====
+@socketio.on('connect')
 def handle_connect():
-    emit("users_list", list(connected_users))
-    emit("status", f"APK version: {current_apk['version']}")
+    device_id = request.args.get('device_id', 'unknown')
+    connected_devices[device_id] = get_current_version()
+    emit('connected', {'message': f'Connected as {device_id}'})
+    print(f"[{socketio.server.manager.clock()}] Device connected: {device_id}")
 
-@socketio.on("register")
-def handle_register(data):
-    username = data.get("username", "unknown")
-    connected_users.add(username)
-    emit("users_list", list(connected_users), broadcast=True)
+@socketio.on('disconnect')
+def handle_disconnect():
+    device_id = request.args.get('device_id', 'unknown')
+    connected_devices.pop(device_id, None)
+    print(f"[{socketio.server.manager.clock()}] Device disconnected: {device_id}")
 
-@socketio.on("logout_all")
-def handle_logout_all():
-    connected_users.clear()
-    emit("users_list", list(connected_users), broadcast=True)
-
-# -----------------------
-# Serve uploaded APKs
-# -----------------------
-@app.route("/apk/<filename>")
-def serve_apk(filename):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
-
-# -----------------------
-# Run server
-# -----------------------
-if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+# ==== Main ====
+if __name__ == '__main__':
+    socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
