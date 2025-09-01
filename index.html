@@ -1,81 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Admin Panel</title>
-<style>
-body { font-family: Arial; background:#111; color:#fff; padding:20px;}
-h1 { color: #ff0; }
-button { background: #222; color: #ff0; padding:10px; margin:5px; cursor:pointer;}
-input { padding:5px; margin:5px;}
-table { width:100%; border-collapse: collapse; margin-top:20px;}
-th, td { border: 1px solid #555; padding: 8px; text-align:left;}
-th { background:#333; }
-.online { color: #0f0; }
-.offline { color:#f00; }
-</style>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <meta charset="UTF-8">
+    <title>Registered Users</title>
+    <style>
+        body { font-family: Arial; background: #111; color: #fff; padding: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #555; padding: 10px; text-align: left; }
+        th { background: #222; }
+        tr:nth-child(even) { background: #1a1a1a; }
+    </style>
 </head>
 <body>
-
-<h1>Admin Panel</h1>
-
-<h2>Upload APK</h2>
-<form id="uploadForm">
-<input type="file" id="apkFile" required>
-<input type="text" id="version" placeholder="Version e.g. 1.0.2">
-<button type="submit">Upload</button>
-</form>
-
-<h2>Latest APK</h2>
-<div id="latestApk"></div>
-
-<h2>Registered Users</h2>
-<table>
-<thead>
-<tr><th>Device ID</th><th>Status</th></tr>
-</thead>
-<tbody id="usersTable"></tbody>
-</table>
-
-<script>
-const socket = io({ query: "device_id=admin" });
-
-socket.on("connect", () => {
-    console.log("Connected to server");
-});
-
-socket.on("apk_update", data => {
-    alert(`New APK available: ${data.version}\nURL: ${data.url}`);
-});
-
-function refreshUsers(users) {
-    const tbody = document.getElementById("usersTable");
-    tbody.innerHTML = "";
-    for(const id in users){
-        const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${id}</td><td class="${users[id].online?'online':'offline'}">${users[id].online?'Online':'Offline'}</td>`;
-        tbody.appendChild(tr);
-    }
-}
-
-document.getElementById("uploadForm").addEventListener("submit", e=>{
-    e.preventDefault();
-    const file = document.getElementById("apkFile").files[0];
-    const version = document.getElementById("version").value;
-    const form = new FormData();
-    form.append("apk", file);
-    if(version) form.append("version", version);
-
-    fetch("/upload", { method:"POST", body: form })
-    .then(res => res.json())
-    .then(data=>{
-        if(data.success){
-            document.getElementById("latestApk").innerText = `${data.apk.version} → ${data.apk.filename}`;
-            refreshUsers(data.users || {});
-        }
-    });
-});
-</script>
+    <h1>Connected / Registered Users</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Device ID</th>
+                <th>App Version</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device_id, info in users|dictsort %}
+            <tr>
+                <td>{{ info.username }}</td>
+                <td>{{ device_id }}</td>
+                <td>{{ info.version }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 </body>
 </html>
