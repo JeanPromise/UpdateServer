@@ -1,47 +1,64 @@
-import os
-from flask import Flask, render_template, request, send_from_directory
-from flask_socketio import SocketIO, emit
+from flask import Flask, render_template, jsonify
+from flask_sockets import Sockets
+import json
+import threading
 
-# Set template folder to the same folder as this file
-app = Flask(__name__, template_folder=os.path.dirname(os.path.abspath(__file__)))
-socketio = SocketIO(app)
+app = Flask(__name__)
+sockets = Sockets(app)
 
-# Keep track of APK versions and registered users
-latest_apk = None
-registered_users = []
+# Store users
+connected_users = {}  # key: device_id, value: {username, version}
 
+lock = threading.Lock()
+
+# ---------------------------
+# WebSocket endpoint
+# ---------------------------
+@sockets.route('/ws')
+def echo_socket(ws):
+    while not ws.closed:
+        message = ws.receive()
+        if message:
+            # Expecting: "device_id:XXX;username:YYY;version:ZZZ"
+            data = {}
+            try:
+                for part in message.split(";"):
+                    k, v = part.split(":")
+                    data[k] = v
+                device_id = data.get("device_id")
+                username = data.get("username", "unknown")
+                version = data.get("version", "unknown")
+                with lock:
+                    connected_users[device_id] = {"username": username, "version": version}
+                print(f"Registered: {username} ({device_id})")
+            except Exception as e:
+                print("Failed parsing message:", message, e)
+    return ""
+
+# ---------------------------
+# HTTP route to see users
+# ---------------------------
 @app.route('/')
 def index():
-    global latest_apk, registered_users
-    return render_template("index.html", latest_apk=latest_apk, users=registered_users)
+    with lock:
+        users = list(connected_users.values())
+    return render_template("index.html", users=users)
 
-@app.route('/upload', methods=['POST'])
-def upload_apk():
-    global latest_apk
-    if 'file' not in request.files:
-        return "No file part", 400
-    file = request.files['file']
-    if file.filename == '':
-        return "No selected file", 400
-    filename = file.filename
-    file.save(os.path.join(os.path.dirname(os.path.abspath(__file__)), filename))
-    latest_apk = filename
-    socketio.emit('apk_updated', {'apk': latest_apk})
-    return f"APK {filename} uploaded successfully", 200
+# ---------------------------
+# Serve JSON for programmatic access
+# ---------------------------
+@app.route('/users')
+def users_json():
+    with lock:
+        return jsonify(connected_users)
 
-@app.route('/register', methods=['POST'])
-def register_user():
-    data = request.json
-    user_id = data.get('user_id')
-    if user_id and user_id not in registered_users:
-        registered_users.append(user_id)
-        socketio.emit('user_list_updated', {'users': registered_users})
-    return {"status": "registered", "users": registered_users}
-
-# Serve APK files directly
-@app.route('/apk/<filename>')
-def get_apk(filename):
-    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), filename)
-
+# ---------------------------
+# Run server
+# ---------------------------
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=10000)
+    from gevent import pywsgi
+    from geventwebsocket.handler import WebSocketHandler
+
+    server = pywsgi.WSGIServer(("0.0.0.0", 5000), app, handler_class=WebSocketHandler)
+    print("Server started on http://0.0.0.0:5000")
+    server.serve_forever()
