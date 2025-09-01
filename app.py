@@ -1,81 +1,86 @@
-from flask import Flask, request, jsonify, send_from_directory
-from werkzeug.utils import secure_filename
 import os
-import json
-from datetime import datetime
+from flask import Flask, request, jsonify, send_from_directory, render_template
+from flask_socketio import SocketIO, emit
 
 app = Flask(__name__)
-UPLOAD_FOLDER = 'uploads'
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-USERS_FILE = 'users.json'
+app.config['UPLOAD_FOLDER'] = "uploads"
+socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Load or create users.json
-if not os.path.exists(USERS_FILE):
-    with open(USERS_FILE, 'w') as f:
-        json.dump({}, f)
+# Ensure upload folder exists
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-def load_users():
-    with open(USERS_FILE, 'r') as f:
-        return json.load(f)
+# Track connected clients
+connected_clients = {}  # device_id: sid
+registered_users = {}   # device_id: {info}
 
-def save_users(users):
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f, indent=2)
+# APK version tracking
+apk_versions = []
+latest_apk = None
 
-# -----------------------
-# Routes
-# -----------------------
+# --------------------------
+# Admin UI
+# --------------------------
+@app.route("/")
+def index():
+    return render_template("index.html", latest_apk=latest_apk, users=registered_users)
 
-@app.route('/')
-def home():
-    return send_from_directory('.', 'index.html')
-
+# --------------------------
 # Upload APK
-@app.route('/upload_apk', methods=['POST'])
+# --------------------------
+@app.route("/upload", methods=["POST"])
 def upload_apk():
+    global latest_apk
     if 'apk' not in request.files:
-        return jsonify({'status': 'error', 'message': 'No APK file'}), 400
+        return jsonify({"error": "No file uploaded"}), 400
+
     file = request.files['apk']
-    if file.filename == '':
-        return jsonify({'status': 'error', 'message': 'No selected file'}), 400
-    filename = secure_filename(file.filename)
-    
-    # Auto-increment version number based on timestamp
-    version = datetime.now().strftime("%Y.%m.%d.%H%M%S")
-    saved_filename = f"{os.path.splitext(filename)[0]}_v{version}.apk"
-    file.save(os.path.join(UPLOAD_FOLDER, saved_filename))
-    
-    apk_url = f"/downloads/{saved_filename}"
-    return jsonify({'status': 'success', 'url': apk_url, 'version': version})
+    version = request.form.get("version") or f"v{len(apk_versions)+1}"
+    filename = f"{version}_{file.filename}"
+    filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    file.save(filepath)
 
-# Serve APK downloads
-@app.route('/downloads/<path:filename>')
-def download_apk(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
+    latest_apk = {"version": version, "filename": filename, "url": f"/downloads/{filename}"}
+    apk_versions.append(latest_apk)
 
-# Get all registered users
-@app.route('/users')
-def users():
-    users = load_users()
-    return jsonify(users)
+    # Notify all connected clients
+    for device_id, sid in connected_clients.items():
+        socketio.emit("apk_update", {"url": latest_apk["url"], "version": version}, to=sid)
 
-# Track online users (simplified)
-ONLINE = {}
+    print(f"[ADMIN] APK Uploaded: {filename}")
+    return jsonify({"success": True, "apk": latest_apk})
 
-@app.route('/online', methods=['POST'])
-def online():
-    data = request.json
-    user = data.get('user')
-    status = data.get('status', 'offline')
-    ONLINE[user] = status
-    return jsonify({'status': 'ok', 'online_users': ONLINE})
+# --------------------------
+# Serve APKs
+# --------------------------
+@app.route("/downloads/<path:filename>")
+def downloads(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-@app.route('/online')
-def get_online():
-    return jsonify(ONLINE)
+# --------------------------
+# WebSocket for clients
+# --------------------------
+@socketio.on("connect")
+def on_connect():
+    device_id = request.args.get("device_id")
+    if device_id:
+        connected_clients[device_id] = request.sid
+        registered_users[device_id] = {"online": True}
+        emit("server_message", {"msg": f"Connected to server"})
+        print(f"[WS] Device {device_id} connected")
 
-# -----------------------
-# Run
-# -----------------------
-if __name__ == '__main__':
-    app.run(debug=True)
+@socketio.on("disconnect")
+def on_disconnect():
+    # Remove from connected_clients
+    sid = request.sid
+    for device_id, csid in list(connected_clients.items()):
+        if csid == sid:
+            connected_clients.pop(device_id)
+            registered_users[device_id]["online"] = False
+            print(f"[WS] Device {device_id} disconnected")
+            break
+
+# --------------------------
+# Run server
+# --------------------------
+if __name__ == "__main__":
+    socketio.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
