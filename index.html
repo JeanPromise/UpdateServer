@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Admin Dashboard</title>
+<style>
+body { background: #111; color: #fff; font-family: sans-serif; margin: 0; padding: 0;}
+header { padding: 1em; background: #222; text-align:center; font-size:1.5em; }
+section { padding: 1em; }
+button { padding: 0.5em 1em; margin: 0.3em; cursor: pointer; background: orange; border: none; color:#111; font-weight:bold; }
+table { width: 100%; border-collapse: collapse; margin-top: 1em;}
+th, td { padding: 0.5em; border: 1px solid #444; text-align:left;}
+.online { color: #0f0; font-weight: bold; }
+.offline { color: #f00; font-weight: bold; }
+</style>
+</head>
+<body>
+<header>Admin Dashboard - Phase 1</header>
+
+<section>
+<h2>Upload APK</h2>
+<form id="uploadForm">
+  <input type="file" id="apkfile" accept=".apk">
+  <button type="submit">Upload</button>
+</form>
+<div id="uploadMsg"></div>
+<h4>Latest APK:</h4>
+<ul id="apkList">
+  {% for v in versions %}
+    <li>{{v.version}} - <a href="/apks/{{v.filename}}" target="_blank">{{v.filename}}</a></li>
+  {% endfor %}
+</ul>
+</section>
+
+<section>
+<h2>Registered Users</h2>
+<table>
+<tr><th>Username</th><th>Device ID</th><th>Registered At</th><th>Last Seen</th><th>Status</th></tr>
+{% for u in users %}
+<tr>
+<td>{{u.username}}</td>
+<td>{{u.device_id}}</td>
+<td>{{u.registered_at}}</td>
+<td>{{u.last_seen}}</td>
+<td class="{{'online' if u.online else 'offline'}}">{{'Online' if u.online else 'Offline'}}</td>
+</tr>
+{% endfor %}
+</table>
+</section>
+
+<script>
+// Handle APK upload
+document.getElementById("uploadForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    const file = document.getElementById("apkfile").files[0];
+    if(!file){ alert("Select a file"); return; }
+    const formData = new FormData();
+    formData.append("apkfile", file);
+    const res = await fetch("/upload", { method:"POST", body:formData });
+    const text = await res.text();
+    document.getElementById("uploadMsg").innerText = text;
+    setTimeout(()=>location.reload(),1000);
+});
+</script>
+
+</body>
+</html>
