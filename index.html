@@ -1,16 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Latest APK</title>
-</head>
-<body style="background:#fff; color:#000; font-family:sans-serif; text-align:center; margin-top:20%;">
-  {% if latest_apk %}
-    <a href="/uploads/{{ latest_apk }}" style="font-size:20px; text-decoration:none; color:blue;">
-      Download Latest APK
-    </a>
-  {% else %}
-    <p>No APK available yet</p>
-  {% endif %}
-</body>
+<html>
+  <head>
+    <title>Latest APK</title>
+  </head>
+  <body style="background-color:white; font-size:20px; text-align:center; margin-top:50px;">
+    <div>
+      <!-- The actual link will be served by app.py -->
+      <p>Go to <a href="/">/</a> to see the latest APK.</p>
+    </div>
+  </body>
 </html>
