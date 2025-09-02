@@ -2,44 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>App Updates</title>
-  <style>
-    body {
-      background: #111;
-      color: #eee;
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding: 50px;
-    }
-    h1 { color: #ffcc00; }
-    a {
-      display: inline-block;
-      padding: 10px 20px;
-      margin-top: 20px;
-      background: #ffcc00;
-      color: #111;
-      text-decoration: none;
-      border-radius: 8px;
-      font-weight: bold;
-    }
-    a:hover { background: #ffaa00; }
-  </style>
+  <title>Latest APK</title>
 </head>
-<body>
-  <h1>Latest App Update</h1>
-  <p>Click below to download the latest version of the app:</p>
-  <a id="download" href="#">Download APK</a>
-
-  <script>
-    // Fetch the latest APK link dynamically
-    fetch("/update.json")
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById("download").href = data.latest_apk;
-      })
-      .catch(err => {
-        console.error("Failed to fetch update link", err);
-      });
-  </script>
+<body style="background:#fff; color:#000; font-family:sans-serif; text-align:center; margin-top:20%;">
+  {% if latest_apk %}
+    <a href="/uploads/{{ latest_apk }}" style="font-size:20px; text-decoration:none; color:blue;">
+      Download Latest APK
+    </a>
+  {% else %}
+    <p>No APK available yet</p>
+  {% endif %}
 </body>
 </html>
