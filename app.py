@@ -1,56 +1,51 @@
+from flask import Flask, request, jsonify, send_from_directory
 import os
 import time
-from flask import Flask, request, send_from_directory, jsonify
 
 app = Flask(__name__)
+
 UPLOAD_FOLDER = "uploads"
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# keep track of latest uploaded file
-latest_file = None
+# 🚨 Change this to your own long random string!
+SECRET_KEY = "YOUAREBEAUTIFUL"
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-
-@app.route("/")
-def index():
-    global latest_file
-    if latest_file:
-        return f"<a href='/uploads/{latest_file}'>{latest_file}</a>"
-    return "No APK uploaded yet."
-
-
-@app.route("/upload", methods=["POST"])
+@app.route('/upload', methods=['POST'])
 def upload_file():
-    global latest_file
-    if "apk" not in request.files:
-        return jsonify({"error": "No file part"}), 400
+    # 🔑 Check API Key
+    key = request.headers.get("X-API-KEY")
+    if key != SECRET_KEY:
+        return jsonify({"error": "Unauthorized"}), 401
 
-    file = request.files["apk"]
-    if file.filename == "":
+    # ✅ Validate file
+    if 'apk' not in request.files:
+        return jsonify({"error": "No file part"}), 400
+    file = request.files['apk']
+    if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
 
-    # delete old apk if exists
-    if latest_file:
-        old_path = os.path.join(app.config["UPLOAD_FOLDER"], latest_file)
-        if os.path.exists(old_path):
-            os.remove(old_path)
-
-    # generate unique name with timestamp
+    # 🕒 Save with timestamp (unique filename)
     timestamp = int(time.time())
     filename = f"app-{timestamp}.apk"
-    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
     file.save(filepath)
 
-    latest_file = filename
-    return jsonify({"message": "File uploaded", "url": f"/uploads/{filename}"})
+    # 🧹 Delete old files, keep only the latest
+    for f in os.listdir(UPLOAD_FOLDER):
+        if f != filename:
+            os.remove(os.path.join(UPLOAD_FOLDER, f))
 
+    url = f"/uploads/{filename}"
+    return jsonify({"message": "File uploaded", "url": url})
 
-@app.route("/uploads/<path:filename>")
-def download_file(filename):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename, as_attachment=True)
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
 
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+@app.route('/')
+def index():
+    files = os.listdir(UPLOAD_FOLDER)
+    if not files:
+        return "No APK uploaded yet."
+    latest = max(files, key=lambda f: os.path.getctime(os.path.join(UPLOAD_FOLDER, f)))
+    return f'<a href="/uploads/{latest}">Download Latest APK</a>'
