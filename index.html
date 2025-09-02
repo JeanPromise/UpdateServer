@@ -1,50 +1,45 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Admin Panel</title>
-    <style>
-        body { font-family: Arial; background:#111; color:#fff; padding:20px; }
-        h1 { color:#ff0; }
-        #users { margin-top:20px; }
-        input, button { padding:8px; margin:5px; }
-    </style>
+  <meta charset="UTF-8">
+  <title>App Updates</title>
+  <style>
+    body {
+      background: #111;
+      color: #eee;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 50px;
+    }
+    h1 { color: #ffcc00; }
+    a {
+      display: inline-block;
+      padding: 10px 20px;
+      margin-top: 20px;
+      background: #ffcc00;
+      color: #111;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+    a:hover { background: #ffaa00; }
+  </style>
 </head>
 <body>
-    <h1>Admin Panel</h1>
-    <form id="uploadForm" enctype="multipart/form-data">
-        <input type="file" name="apk" accept=".apk">
-        <button type="submit">Upload APK</button>
-    </form>
-    <div id="users">
-        <h3>Online Users:</h3>
-        <ul id="userList"></ul>
-    </div>
+  <h1>Latest App Update</h1>
+  <p>Click below to download the latest version of the app:</p>
+  <a id="download" href="#">Download APK</a>
 
-    <script>
-        const ws = new WebSocket(`ws://${window.location.host.replace('http://','')}/ws`);
-        ws.onmessage = (e) => {
-            if(e.data.startsWith("users:")) {
-                const users = e.data.replace("users:","").split(",");
-                const ul = document.getElementById("userList");
-                ul.innerHTML = "";
-                users.forEach(u=>{
-                    if(u) {
-                        const li = document.createElement("li");
-                        li.textContent = u;
-                        ul.appendChild(li);
-                    }
-                });
-            }
-        }
-
-        document.getElementById("uploadForm").onsubmit = async function(e){
-            e.preventDefault();
-            const formData = new FormData(this);
-            const res = await fetch('/upload_apk', {method:'POST', body:formData});
-            const data = await res.json();
-            alert(data.msg);
-        }
-    </script>
+  <script>
+    // Fetch the latest APK link dynamically
+    fetch("/update.json")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("download").href = data.latest_apk;
+      })
+      .catch(err => {
+        console.error("Failed to fetch update link", err);
+      });
+  </script>
 </body>
 </html>
