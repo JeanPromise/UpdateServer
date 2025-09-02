@@ -1,49 +1,55 @@
 import os
-from flask import Flask, request, send_from_directory, render_template
+import time
+from flask import Flask, request, send_from_directory, jsonify
 
-app = Flask(__name__, template_folder=".")  # look for index.html in root
-
+app = Flask(__name__)
 UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
+# keep track of latest uploaded file
+latest_file = None
 
-@app.route("/", methods=["GET"])
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+
+@app.route("/")
 def index():
-    files = os.listdir(app.config["UPLOAD_FOLDER"])
-    latest_apk = files[0] if files else None
-    return render_template("index.html", latest_apk=latest_apk)
+    global latest_file
+    if latest_file:
+        return f"<a href='/uploads/{latest_file}'>{latest_file}</a>"
+    return "No APK uploaded yet."
 
 
 @app.route("/upload", methods=["POST"])
-def upload():
-    files = os.listdir(app.config["UPLOAD_FOLDER"])
-
+def upload_file():
+    global latest_file
     if "apk" not in request.files:
-        return "No file part", 400
+        return jsonify({"error": "No file part"}), 400
+
     file = request.files["apk"]
     if file.filename == "":
-        return "No selected file", 400
-    if file and file.filename.endswith(".apk"):
-        # delete old APKs
-        for f in files:
-            os.remove(os.path.join(app.config["UPLOAD_FOLDER"], f))
+        return jsonify({"error": "No selected file"}), 400
 
-        filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
-        file.save(filepath)
-        return f"Uploaded {file.filename} successfully!"
+    # delete old apk if exists
+    if latest_file:
+        old_path = os.path.join(app.config["UPLOAD_FOLDER"], latest_file)
+        if os.path.exists(old_path):
+            os.remove(old_path)
 
-    return "Invalid file type", 400
+    # generate unique name with timestamp
+    timestamp = int(time.time())
+    filename = f"app-{timestamp}.apk"
+    filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
+    file.save(filepath)
+
+    latest_file = filename
+    return jsonify({"message": "File uploaded", "url": f"/uploads/{filename}"})
 
 
-@app.route("/uploads/<filename>")
-def uploaded_file(filename):
+@app.route("/uploads/<path:filename>")
+def download_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename, as_attachment=True)
-
-
-@app.route("/healthz")
-def healthz():
-    return "OK", 200
 
 
 if __name__ == "__main__":
