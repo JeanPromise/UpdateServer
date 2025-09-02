@@ -1,54 +1,46 @@
 import os
-from flask import Flask, request, send_from_directory, render_template_string
+from flask import Flask, request, send_from_directory, render_template
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=".")  # look for index.html in root
 
-# Folder to store uploaded APKs
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-# Homepage: upload form + latest APK link
-@app.route("/", methods=["GET", "POST"])
+
+@app.route("/", methods=["GET"])
 def index():
-    latest_apk = None
-    files = sorted(os.listdir(app.config["UPLOAD_FOLDER"]), reverse=True)
-    if files:
-        latest_apk = files[0]
-
-    if request.method == "POST":
-        if "apk" not in request.files:
-            return "No file part", 400
-        file = request.files["apk"]
-        if file.filename == "":
-            return "No selected file", 400
-        if file and file.filename.endswith(".apk"):
-            filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
-            file.save(filepath)
-            return f"Uploaded successfully! <a href='/{app.config['UPLOAD_FOLDER']}/{file.filename}'>Download here</a>"
-
-    html = """
-    <h2>Upload APK</h2>
-    <form method="post" enctype="multipart/form-data">
-      <input type="file" name="apk" accept=".apk" required>
-      <input type="submit" value="Upload">
-    </form>
-    {% if latest_apk %}
-      <h3>Latest APK:</h3>
-      <a href="/uploads/{{ latest_apk }}">{{ latest_apk }}</a>
-    {% else %}
-      <p>No APK uploaded yet.</p>
-    {% endif %}
-    """
-    return render_template_string(html, latest_apk=latest_apk)
+    files = os.listdir(app.config["UPLOAD_FOLDER"])
+    latest_apk = files[0] if files else None
+    return render_template("index.html", latest_apk=latest_apk)
 
 
-# Route to serve uploaded files
+@app.route("/upload", methods=["POST"])
+def upload():
+    files = os.listdir(app.config["UPLOAD_FOLDER"])
+
+    if "apk" not in request.files:
+        return "No file part", 400
+    file = request.files["apk"]
+    if file.filename == "":
+        return "No selected file", 400
+    if file and file.filename.endswith(".apk"):
+        # delete old APKs
+        for f in files:
+            os.remove(os.path.join(app.config["UPLOAD_FOLDER"], f))
+
+        filepath = os.path.join(app.config["UPLOAD_FOLDER"], file.filename)
+        file.save(filepath)
+        return f"Uploaded {file.filename} successfully!"
+
+    return "Invalid file type", 400
+
+
 @app.route("/uploads/<filename>")
 def uploaded_file(filename):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename, as_attachment=True)
 
-# Health check
+
 @app.route("/healthz")
 def healthz():
     return "OK", 200
