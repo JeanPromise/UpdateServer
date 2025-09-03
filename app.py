@@ -54,8 +54,21 @@ def index():
           <head>
             <title>Latest APK</title>
             <style>
-              body { background-color: #141414; color: white; font-family: Arial, sans-serif; text-align: center; margin-top: 100px; }
-              .msg { font-size: 22px; opacity: 0.8; }
+              body {
+                background-color: #141414;
+                color: white;
+                font-family: Arial, sans-serif;
+                margin: 0;
+                height: 100vh;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+              }
+              .msg {
+                font-size: 22px;
+                opacity: 0.8;
+                text-align: center;
+              }
             </style>
           </head>
           <body>
@@ -69,8 +82,23 @@ def index():
       <head>
         <title>Download Latest APK</title>
         <style>
-          body {{ background-color: #141414; color: white; font-family: Arial, sans-serif; text-align: center; margin-top: 100px; }}
-          h1 {{ font-size: 28px; margin-bottom: 30px; }}
+          body {{
+            background-color: #141414;
+            color: white;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }}
+          .container {{
+            text-align: center;
+          }}
+          h1 {{
+            font-size: 28px;
+            margin-bottom: 30px;
+          }}
           a.download {{
             display: inline-block;
             padding: 15px 30px;
@@ -88,8 +116,10 @@ def index():
         </style>
       </head>
       <body>
-        <h1>📲 Download Latest APK</h1>
-        <a class="download" href="/uploads/{latest}">Download Now</a>
+        <div class="container">
+          <h1>📲 Download Latest APK</h1>
+          <a class="download" href="/uploads/{latest}">Download Now</a>
+        </div>
       </body>
     </html>
     """
