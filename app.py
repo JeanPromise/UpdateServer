@@ -8,7 +8,7 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # 🚨 Change this to your own long random string!
-SECRET_KEY = "YOUAREBEAUTIFUL"
+SECRET_KEY = "290"
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
