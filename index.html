@@ -1,12 +1,63 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <title>Latest APK</title>
-  </head>
-  <body style="background-color:white; font-size:20px; text-align:center; margin-top:50px;">
-    <div>
-      <!-- The actual link will be served by app.py -->
-      <p>Go to <a href="/">/</a> to see the latest APK.</p>
-    </div>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Latest APK</title>
+  <style>
+    body {
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #141414; /* Netflix black */
+      color: #fff;
+      font-family: Arial, Helvetica, sans-serif;
+      text-align: center;
+    }
+
+    .container {
+      background: rgba(20, 20, 20, 0.9);
+      padding: 40px 60px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.7);
+    }
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 20px;
+      color: #e50914; /* Netflix red */
+    }
+
+    a {
+      display: inline-block;
+      background-color: #e50914;
+      color: #fff;
+      padding: 14px 28px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-size: 18px;
+      font-weight: bold;
+      transition: background-color 0.3s;
+    }
+
+    a:hover {
+      background-color: #f40612;
+    }
+
+    p {
+      margin-top: 20px;
+      font-size: 16px;
+      color: #ccc;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Latest APK</h1>
+    <!-- The actual link will be served by app.py -->
+    <a href="/">Download Now</a>
+    <p>Tap to get the most recent version of the app.</p>
+  </div>
+</body>
 </html>
