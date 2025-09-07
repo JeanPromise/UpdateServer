@@ -41,20 +41,11 @@
       cursor: pointer;
     }
     button:hover { background: #ffdb70; }
-    .msg { color: #f88; text-align: center; }
   </style>
 </head>
 <body>
   <div class="container">
     <h2>Welcome</h2>
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <p class="msg">{{ message }}</p>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
 
     <form method="POST" action="/login">
       <input type="text" name="username" placeholder="Username" required>
