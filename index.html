@@ -4,117 +4,90 @@
   <meta charset="UTF-8">
   <title>Tomorrow Movies</title>
   <style>
-    body {
-      margin: 0; font-family: Arial, sans-serif;
-      background: black; color: white;
+    body { margin:0; font-family: Arial, sans-serif; background: black; color: white; }
+    .screen { display:none; height:100vh; justify-content:center; align-items:center; flex-direction:column; }
+    .active { display:flex; }
+    h1 { font-size:36px; margin-bottom:20px; }
+    button {
+      padding:10px 20px; margin:8px;
+      border:none; border-radius:5px;
+      background:#e50914; color:white; font-size:16px;
     }
-    .screen { display: none; height: 100vh; justify-content: center; align-items: center; flex-direction: column; }
-    .active { display: flex; }
-    h1 { font-size: 40px; margin-bottom: 20px; }
-    button, input {
-      padding: 10px 20px; margin: 5px;
-      border: none; border-radius: 5px;
-      font-size: 16px;
-    }
-    .btn-red { background: #e50914; color: white; }
-    .btn-dark { background: #444; color: white; }
-    .sidebar {
-      position: fixed; top: 0; left: -250px; width: 250px; height: 100%;
-      background: #111; transition: left 0.3s; padding-top: 60px;
-    }
-    .sidebar a {
-      display: block; padding: 15px; color: white; text-decoration: none;
-    }
-    .sidebar a:hover { background: #333; }
-    .sidebar.active { left: 0; }
-    #menuBtn {
-      position: fixed; top: 15px; left: 15px;
-      background: #e50914; color: white; border: none;
-      padding: 10px 15px; cursor: pointer;
-    }
+    .btn-alt { background:#444; }
   </style>
 </head>
 <body>
 
-  <!-- Splash -->
-  <div id="splash" class="screen active">
-    <h1>Tomorrow Movies</h1>
-    <p>Unlimited shows and movies, anytime.</p>
-    <button class="btn-red" onclick="showScreen('login')">Login</button>
-    <button class="btn-dark" onclick="showScreen('register')">Register</button>
+  <!-- Admin Page -->
+  <div id="admin" class="screen">
+    <h1>Admin Panel</h1>
+    <p>Coming Soon...</p>
   </div>
 
-  <!-- Login -->
-  <div id="login" class="screen">
-    <h1>Login</h1>
-    <input id="loginUser" placeholder="Username"><br>
-    <input id="loginPass" type="password" placeholder="Password"><br>
-    <button class="btn-red" onclick="doLogin()">Login</button>
-    <button class="btn-dark" onclick="showScreen('splash')">Back</button>
-  </div>
-
-  <!-- Register -->
-  <div id="register" class="screen">
-    <h1>Register</h1>
-    <input id="regUser" placeholder="Username"><br>
-    <input id="regPass" type="password" placeholder="Password"><br>
-    <button class="btn-red" onclick="doRegister()">Register</button>
-    <button class="btn-dark" onclick="showScreen('splash')">Back</button>
+  <!-- Version Page -->
+  <div id="version" class="screen active">
+    <h1>App Update</h1>
+    <p id="versionInfo">Checking version...</p>
+    <button id="downloadBtn" style="display:none;" onclick="downloadApk()">Download</button>
+    <button id="proceedBtn" class="btn-alt" style="display:none;" onclick="showScreen('hub')">Proceed</button>
   </div>
 
   <!-- Hub -->
   <div id="hub" class="screen">
     <h1>Welcome to the Hub</h1>
-    <button class="btn-red" onclick="showScreen('watch')">Go to Watch</button>
+    <button onclick="showScreen('watch')">Go to Watch</button>
   </div>
 
   <!-- Watch -->
   <div id="watch" class="screen">
-    <button id="menuBtn" onclick="toggleSidebar()">☰</button>
     <h1>Watch Page</h1>
-    <p>🎬 Movies show here...</p>
-  </div>
-
-  <!-- Sidebar -->
-  <div id="sidebar" class="sidebar">
-    <a href="#" onclick="alert('Downloads Page')">📂 Downloads</a>
-    <a href="#" onclick="alert('History Page')">⏱ Last Watched</a>
-    <a href="#" onclick="alert('Delete Page')">🗑 Delete</a>
-    <a href="#" onclick="showScreen('hub')">⬅ Back to Hub</a>
+    <iframe src="https://www.goojara.to/" width="100%" height="90%" style="border:none;"></iframe>
+    <button class="btn-alt" onclick="showScreen('hub')">⬅ Back</button>
   </div>
 
   <script>
+    const currentVersion = "1.0"; // APK version hardcoded here
+
+    // Normally Render backend sets user role on login
+    // Example mock:
+    const user = { username: "demo", role: "user" }; // role can be 'admin' or 'user'
+
+    window.onload = () => {
+      if (user.role === "admin") {
+        showScreen("admin");
+      } else {
+        checkVersion();
+      }
+    };
+
     function showScreen(id) {
       document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
       document.getElementById(id).classList.add('active');
     }
 
-    async function doRegister() {
-      let u = document.getElementById("regUser").value;
-      let p = document.getElementById("regPass").value;
-      let res = await fetch("/api/register", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: u, password: p })
-      });
-      let data = await res.json();
-      alert(data.message || data.error);
-      if (res.ok) showScreen('login');
+    async function checkVersion() {
+      try {
+        let res = await fetch("/version"); // Render endpoint
+        let data = await res.json();
+        let latest = data.version || currentVersion;
+        let apkUrl = data.apkUrl;
+
+        document.getElementById("versionInfo").innerText =
+          "Current: " + currentVersion + " | Latest: " + latest;
+
+        if (latest !== currentVersion && apkUrl) {
+          document.getElementById("downloadBtn").style.display = "inline-block";
+        } else {
+          document.getElementById("proceedBtn").style.display = "inline-block";
+        }
+      } catch (e) {
+        document.getElementById("versionInfo").innerText = "Version check failed";
+        document.getElementById("proceedBtn").style.display = "inline-block";
+      }
     }
 
-    async function doLogin() {
-      let u = document.getElementById("loginUser").value;
-      let p = document.getElementById("loginPass").value;
-      let res = await fetch("/api/login", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: u, password: p })
-      });
-      let data = await res.json();
-      alert(data.message || data.error);
-      if (res.ok) showScreen('hub');
-    }
-
-    function toggleSidebar() {
-      document.getElementById("sidebar").classList.toggle("active");
+    function downloadApk() {
+      window.location.href = "/latest.apk"; // points to uploaded APK on Render
     }
   </script>
 </body>
