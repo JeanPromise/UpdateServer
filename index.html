@@ -2,93 +2,71 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tomorrow Movies</title>
+  <title>Login & Registration</title>
   <style>
-    body { margin:0; font-family: Arial, sans-serif; background: black; color: white; }
-    .screen { display:none; height:100vh; justify-content:center; align-items:center; flex-direction:column; }
-    .active { display:flex; }
-    h1 { font-size:36px; margin-bottom:20px; }
-    button {
-      padding:10px 20px; margin:8px;
-      border:none; border-radius:5px;
-      background:#e50914; color:white; font-size:16px;
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
     }
-    .btn-alt { background:#444; }
+    .container {
+      background: #222;
+      padding: 20px;
+      border-radius: 12px;
+      width: 320px;
+      box-shadow: 0 0 12px rgba(0,0,0,0.6);
+    }
+    h2 { text-align: center; }
+    form { margin: 15px 0; }
+    input {
+      width: 100%;
+      padding: 10px;
+      margin: 6px 0;
+      border: none;
+      border-radius: 6px;
+    }
+    button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 8px;
+      border: none;
+      border-radius: 6px;
+      background: #f0c040;
+      color: #000;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    button:hover { background: #ffdb70; }
+    .msg { color: #f88; text-align: center; }
   </style>
 </head>
 <body>
+  <div class="container">
+    <h2>Welcome</h2>
 
-  <!-- Admin Page -->
-  <div id="admin" class="screen">
-    <h1>Admin Panel</h1>
-    <p>Coming Soon...</p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <p class="msg">{{ message }}</p>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" action="/login">
+      <input type="text" name="username" placeholder="Username" required>
+      <input type="password" name="password" placeholder="Password" required>
+      <button type="submit">Login</button>
+    </form>
+
+    <form method="POST" action="/register">
+      <input type="text" name="username" placeholder="New Username" required>
+      <input type="password" name="password" placeholder="New Password" required>
+      <button type="submit">Register</button>
+    </form>
   </div>
-
-  <!-- Version Page -->
-  <div id="version" class="screen active">
-    <h1>App Update</h1>
-    <p id="versionInfo">Checking version...</p>
-    <button id="downloadBtn" style="display:none;" onclick="downloadApk()">Download</button>
-    <button id="proceedBtn" class="btn-alt" style="display:none;" onclick="showScreen('hub')">Proceed</button>
-  </div>
-
-  <!-- Hub -->
-  <div id="hub" class="screen">
-    <h1>Welcome to the Hub</h1>
-    <button onclick="showScreen('watch')">Go to Watch</button>
-  </div>
-
-  <!-- Watch -->
-  <div id="watch" class="screen">
-    <h1>Watch Page</h1>
-    <iframe src="https://www.goojara.to/" width="100%" height="90%" style="border:none;"></iframe>
-    <button class="btn-alt" onclick="showScreen('hub')">⬅ Back</button>
-  </div>
-
-  <script>
-    const currentVersion = "1.0"; // APK version hardcoded here
-
-    // Normally Render backend sets user role on login
-    // Example mock:
-    const user = { username: "demo", role: "user" }; // role can be 'admin' or 'user'
-
-    window.onload = () => {
-      if (user.role === "admin") {
-        showScreen("admin");
-      } else {
-        checkVersion();
-      }
-    };
-
-    function showScreen(id) {
-      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-      document.getElementById(id).classList.add('active');
-    }
-
-    async function checkVersion() {
-      try {
-        let res = await fetch("/version"); // Render endpoint
-        let data = await res.json();
-        let latest = data.version || currentVersion;
-        let apkUrl = data.apkUrl;
-
-        document.getElementById("versionInfo").innerText =
-          "Current: " + currentVersion + " | Latest: " + latest;
-
-        if (latest !== currentVersion && apkUrl) {
-          document.getElementById("downloadBtn").style.display = "inline-block";
-        } else {
-          document.getElementById("proceedBtn").style.display = "inline-block";
-        }
-      } catch (e) {
-        document.getElementById("versionInfo").innerText = "Version check failed";
-        document.getElementById("proceedBtn").style.display = "inline-block";
-      }
-    }
-
-    function downloadApk() {
-      window.location.href = "/latest.apk"; // points to uploaded APK on Render
-    }
-  </script>
 </body>
 </html>
