@@ -1,82 +1,48 @@
-from flask import Flask, request, jsonify, send_from_directory
-import os, time, hashlib
+from flask import Flask, request, session, redirect
 
 app = Flask(__name__)
+app.secret_key = "supersecretkey"
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-API_KEY = "290"
+# simple in-memory store
 users = {}
-LATEST_VERSION = "1.0.0"
 
-def hash_password(pw: str) -> str:
-    return hashlib.sha256(pw.encode()).hexdigest()
-
-@app.route('/')
+@app.route("/", methods=["GET"])
 def index():
     return open("index.html").read()
 
-@app.route('/upload', methods=['POST'])
-def upload_file():
-    key = request.headers.get("X-API-KEY")
-    if key != API_KEY:
-        return jsonify({"error": "Unauthorized"}), 401
-    file = request.files.get('apk')
-    if not file:
-        return jsonify({"error": "No file"}), 400
+@app.route("/register", methods=["POST"])
+def register():
+    username = request.form.get("username")
+    password = request.form.get("password")
 
-    timestamp = int(time.time())
-    filename = f"app-{timestamp}.apk"
-    filepath = os.path.join(UPLOAD_FOLDER, filename)
-    file.save(filepath)
+    if not username or not password:
+        return "REGISTRATION_FAILED: Missing fields"
 
-    # keep only latest
-    for f in os.listdir(UPLOAD_FOLDER):
-        if f != filename:
-            os.remove(os.path.join(UPLOAD_FOLDER, f))
-
-    global LATEST_VERSION
-    LATEST_VERSION = f"1.{timestamp}"
-    return jsonify({
-        "message": "Uploaded",
-        "url": f"/uploads/{filename}",
-        "version": LATEST_VERSION
-    })
-
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
-@app.route('/version')
-def version_check():
-    files = os.listdir(UPLOAD_FOLDER)
-    if not files:
-        return jsonify({"latest_version": None, "download_url": None})
-    latest = max(files, key=lambda f: os.path.getctime(os.path.join(UPLOAD_FOLDER, f)))
-    return jsonify({
-        "latest_version": LATEST_VERSION,
-        "download_url": f"/uploads/{latest}"
-    })
-
-@app.route('/api/register', methods=['POST'])
-def api_register():
-    data = request.json
-    username = data.get("username")
-    password = data.get("password")
     if username in users:
-        return jsonify({"error": "User exists"}), 400
-    users[username] = hash_password(password)
-    return jsonify({"message": "Registered"})
+        return "REGISTRATION_FAILED: User exists"
 
-@app.route('/api/login', methods=['POST'])
-def api_login():
-    data = request.json
-    username = data.get("username")
-    password = data.get("password")
-    if users.get(username) == hash_password(password):
-        return jsonify({"message": "Login success"})
-    return jsonify({"error": "Invalid login"}), 401
+    users[username] = password
+    return "REGISTRATION_SUCCESS"
+
+@app.route("/login", methods=["POST"])
+def login():
+    username = request.form.get("username")
+    password = request.form.get("password")
+
+    if username in users and users[username] == password:
+        session["username"] = username
+        return "LOGIN_SUCCESS"
+    else:
+        return "LOGIN_FAILED"
+
+@app.route("/logout")
+def logout():
+    session.pop("username", None)
+    return redirect("/")
+
+@app.route("/apk")
+def apk():
+    return "<h3>APK Download</h3><p><a href='/static/myapp.apk'>Download Here</a></p>"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=False)
+    app.run(host="0.0.0.0", port=5000, debug=True)
