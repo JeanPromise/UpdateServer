@@ -1,63 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Login & Registration</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #fff;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    .container {
-      background: #222;
-      padding: 20px;
-      border-radius: 12px;
-      width: 320px;
-      box-shadow: 0 0 12px rgba(0,0,0,0.6);
-    }
-    h2 { text-align: center; }
-    form { margin: 15px 0; }
-    input {
-      width: 100%;
-      padding: 10px;
-      margin: 6px 0;
-      border: none;
-      border-radius: 6px;
-    }
-    button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 8px;
-      border: none;
-      border-radius: 6px;
-      background: #f0c040;
-      color: #000;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:hover { background: #ffdb70; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Tomorrow Movies</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #2b0059;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        #splash {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #splash h1 {
+            color: orange;
+            font-size: 48px;
+            opacity: 0;
+            animation: fadeIn 2s forwards;
+        }
+
+        #update-frame {
+            display: none;
+            width: 90%;
+            height: 60vh;
+            border: none;
+            margin: 20px 0;
+        }
+
+        #hub {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        button {
+            padding: 12px 24px;
+            margin: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            background: orange;
+            color: #000;
+            font-weight: bold;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <h2>Welcome</h2>
 
-    <form method="POST" action="/login">
-      <input type="text" name="username" placeholder="Username" required>
-      <input type="password" name="password" placeholder="Password" required>
-      <button type="submit">Login</button>
-    </form>
+<div id="splash">
+    <h1>Tomorrow Movies</h1>
+    <button id="btnWatchShows">Watch Shows</button>
+</div>
 
-    <form method="POST" action="/register">
-      <input type="text" name="username" placeholder="New Username" required>
-      <input type="password" name="password" placeholder="New Password" required>
-      <button type="submit">Register</button>
-    </form>
-  </div>
+<iframe id="update-frame" src=""></iframe>
+
+<div id="hub">
+    <h2>Movie Hub</h2>
+    <button onclick="watchMovie('Movie A')">Watch Movie A</button>
+    <button onclick="watchMovie('Movie B')">Watch Movie B</button>
+</div>
+
+<script>
+    const btn = document.getElementById('btnWatchShows');
+    const splash = document.getElementById('splash');
+    const updateFrame = document.getElementById('update-frame');
+    const hub = document.getElementById('hub');
+
+    const UPDATE_SERVER = "https://updateserver-4d6w.onrender.com";
+
+    btn.addEventListener('click', () => {
+        splash.style.display = 'none';
+        updateFrame.style.display = 'block';
+        updateFrame.src = UPDATE_SERVER;
+
+        // Wait 3s then show hub
+        setTimeout(() => {
+            updateFrame.style.display = 'none';
+            hub.style.display = 'flex';
+        }, 3000);
+    });
+
+    function watchMovie(name) {
+        alert("Now playing: " + name);
+    }
+</script>
+
 </body>
 </html>
