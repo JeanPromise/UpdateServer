@@ -2,62 +2,120 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Latest APK</title>
+  <title>Tomorrow Movies</title>
   <style>
     body {
-      margin: 0;
-      height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background-color: #141414; /* Netflix black */
-      color: #fff;
-      font-family: Arial, Helvetica, sans-serif;
-      text-align: center;
+      margin: 0; font-family: Arial, sans-serif;
+      background: black; color: white;
     }
-
-    .container {
-      background: rgba(20, 20, 20, 0.9);
-      padding: 40px 60px;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.7);
-    }
-
-    h1 {
-      font-size: 28px;
-      margin-bottom: 20px;
-      color: #e50914; /* Netflix red */
-    }
-
-    a {
-      display: inline-block;
-      background-color: #e50914;
-      color: #fff;
-      padding: 14px 28px;
-      border-radius: 6px;
-      text-decoration: none;
-      font-size: 18px;
-      font-weight: bold;
-      transition: background-color 0.3s;
-    }
-
-    a:hover {
-      background-color: #f40612;
-    }
-
-    p {
-      margin-top: 20px;
+    .screen { display: none; height: 100vh; justify-content: center; align-items: center; flex-direction: column; }
+    .active { display: flex; }
+    h1 { font-size: 40px; margin-bottom: 20px; }
+    button, input {
+      padding: 10px 20px; margin: 5px;
+      border: none; border-radius: 5px;
       font-size: 16px;
-      color: #ccc;
+    }
+    .btn-red { background: #e50914; color: white; }
+    .btn-dark { background: #444; color: white; }
+    .sidebar {
+      position: fixed; top: 0; left: -250px; width: 250px; height: 100%;
+      background: #111; transition: left 0.3s; padding-top: 60px;
+    }
+    .sidebar a {
+      display: block; padding: 15px; color: white; text-decoration: none;
+    }
+    .sidebar a:hover { background: #333; }
+    .sidebar.active { left: 0; }
+    #menuBtn {
+      position: fixed; top: 15px; left: 15px;
+      background: #e50914; color: white; border: none;
+      padding: 10px 15px; cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Latest APK</h1>
-    <!-- The actual link will be served by app.py -->
-    <a href="/">Download Now</a>
-    <p>Tap to get the most recent version of the app.</p>
+
+  <!-- Splash -->
+  <div id="splash" class="screen active">
+    <h1>Tomorrow Movies</h1>
+    <p>Unlimited shows and movies, anytime.</p>
+    <button class="btn-red" onclick="showScreen('login')">Login</button>
+    <button class="btn-dark" onclick="showScreen('register')">Register</button>
   </div>
+
+  <!-- Login -->
+  <div id="login" class="screen">
+    <h1>Login</h1>
+    <input id="loginUser" placeholder="Username"><br>
+    <input id="loginPass" type="password" placeholder="Password"><br>
+    <button class="btn-red" onclick="doLogin()">Login</button>
+    <button class="btn-dark" onclick="showScreen('splash')">Back</button>
+  </div>
+
+  <!-- Register -->
+  <div id="register" class="screen">
+    <h1>Register</h1>
+    <input id="regUser" placeholder="Username"><br>
+    <input id="regPass" type="password" placeholder="Password"><br>
+    <button class="btn-red" onclick="doRegister()">Register</button>
+    <button class="btn-dark" onclick="showScreen('splash')">Back</button>
+  </div>
+
+  <!-- Hub -->
+  <div id="hub" class="screen">
+    <h1>Welcome to the Hub</h1>
+    <button class="btn-red" onclick="showScreen('watch')">Go to Watch</button>
+  </div>
+
+  <!-- Watch -->
+  <div id="watch" class="screen">
+    <button id="menuBtn" onclick="toggleSidebar()">☰</button>
+    <h1>Watch Page</h1>
+    <p>🎬 Movies show here...</p>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar" class="sidebar">
+    <a href="#" onclick="alert('Downloads Page')">📂 Downloads</a>
+    <a href="#" onclick="alert('History Page')">⏱ Last Watched</a>
+    <a href="#" onclick="alert('Delete Page')">🗑 Delete</a>
+    <a href="#" onclick="showScreen('hub')">⬅ Back to Hub</a>
+  </div>
+
+  <script>
+    function showScreen(id) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById(id).classList.add('active');
+    }
+
+    async function doRegister() {
+      let u = document.getElementById("regUser").value;
+      let p = document.getElementById("regPass").value;
+      let res = await fetch("/api/register", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: u, password: p })
+      });
+      let data = await res.json();
+      alert(data.message || data.error);
+      if (res.ok) showScreen('login');
+    }
+
+    async function doLogin() {
+      let u = document.getElementById("loginUser").value;
+      let p = document.getElementById("loginPass").value;
+      let res = await fetch("/api/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: u, password: p })
+      });
+      let data = await res.json();
+      alert(data.message || data.error);
+      if (res.ok) showScreen('hub');
+    }
+
+    function toggleSidebar() {
+      document.getElementById("sidebar").classList.toggle("active");
+    }
+  </script>
 </body>
 </html>
