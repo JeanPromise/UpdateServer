@@ -3,161 +3,73 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tomorrow Movies</title>
+<title>Login & Registration</title>
 <style>
-  /* ===== Reset & Base ===== */
   * {margin:0; padding:0; box-sizing:border-box;}
-  body {background:#000; color:#fff; font-family:'Arial', sans-serif; overflow-x:hidden;}
-  a {text-decoration:none; color:inherit;}
-  button {cursor:pointer;}
-
-  /* ===== Header ===== */
-  header {
-    position: fixed; top:0; left:0; width:100%; height:60px;
-    background: rgba(0,0,0,0.85); display:flex; justify-content:space-between; align-items:center;
-    padding:0 30px; z-index:1000;
-  }
-  header h1 {color:#E50914; font-size:28px;}
-  header nav a {margin-left:20px; font-weight:bold; transition:0.2s;}
-  header nav a:hover {color:#E50914;}
-
-  /* ===== Hero ===== */
-  .hero {
-    margin-top:60px; height:70vh; position:relative;
-    background-image:url('https://picsum.photos/1600/900?blur=3');
-    background-size:cover; background-position:center;
-    display:flex; align-items:flex-end; padding:40px;
-  }
-  .hero h2 {font-size:56px; text-shadow:3px 3px 12px #000;}
-
-  /* ===== Sections ===== */
-  .section {padding:20px 30px;}
-  .section h3 {font-size:24px; margin-bottom:10px;}
-
-  /* ===== Movies Row ===== */
-  .movies-row {display:flex; overflow-x:auto; gap:12px; padding-bottom:10px;}
-  .movies-row::-webkit-scrollbar {height:8px;}
-  .movies-row::-webkit-scrollbar-thumb {background:#E50914; border-radius:4px;}
-
-  .movie-card {
-    min-width:200px; height:300px; background-size:cover; background-position:center;
-    border-radius:8px; flex-shrink:0; position:relative; transition: transform 0.3s;
-  }
-  .movie-card:hover {transform: scale(1.1);}
-
-  .movie-overlay {
-    position:absolute; bottom:0; width:100%; padding:10px;
-    background:linear-gradient(to top, rgba(0,0,0,0.9), rgba(0,0,0,0));
-    border-radius:0 0 8px 8px; display:flex; justify-content:center;
-  }
-  .watch-btn {
-    background:#E50914; border:none; padding:6px 12px; font-weight:bold; border-radius:4px;
-    color:#fff; transition:0.2s;
-  }
-  .watch-btn:hover {background:#ff1a2c;}
-
-  /* ===== Footer ===== */
-  footer {
-    text-align:center; padding:30px; color:#888; background:#111; margin-top:20px;
-  }
-
-  /* ===== Hover Effects ===== */
-  .movie-card::after {
-    content:''; position:absolute; top:0; left:0; width:100%; height:100%;
-    border-radius:8px; background:rgba(0,0,0,0.1); opacity:0; transition:opacity 0.3s;
-  }
-  .movie-card:hover::after {opacity:0.3;}
+  body {font-family: Arial, sans-serif; background:#121212; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh;}
+  .container {background:#1e1e1e; padding:40px; border-radius:10px; width:350px; box-shadow: 0 0 20px rgba(0,0,0,0.7);}
+  h2 {text-align:center; margin-bottom:20px; color:#E50914;}
+  form {display:flex; flex-direction:column;}
+  input {margin-bottom:15px; padding:10px; border:none; border-radius:5px; font-size:16px;}
+  input:focus {outline:none; border:2px solid #E50914;}
+  button {padding:10px; border:none; border-radius:5px; background:#E50914; color:#fff; font-weight:bold; cursor:pointer; transition:0.2s;}
+  button:hover {background:#ff1a2c;}
+  .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
+  .toggle:hover {color:#fff;}
 </style>
 </head>
 <body>
 
-<header>
-  <h1>Tomorrow Movies</h1>
-  <nav>
-    <a href="#">Home</a>
-    <a href="#">TV Shows</a>
-    <a href="#">Movies</a>
-    <a href="#">My List</a>
-  </nav>
-</header>
+<div class="container">
+  <h2 id="form-title">Login</h2>
+  
+  <form id="login-form">
+    <input type="email" placeholder="Email" required>
+    <input type="password" placeholder="Password" required>
+    <button type="submit">Login</button>
+  </form>
 
-<div class="hero">
-  <h2>Featured Movie</h2>
+  <form id="register-form" style="display:none;">
+    <input type="text" placeholder="Full Name" required>
+    <input type="email" placeholder="Email" required>
+    <input type="password" placeholder="Password" required>
+    <input type="password" placeholder="Confirm Password" required>
+    <button type="submit">Register</button>
+  </form>
+
+  <div class="toggle" id="toggle-form">Don't have an account? Register</div>
 </div>
 
-<!-- ===== Multiple Sections ===== -->
-<div class="section">
-  <h3>Trending Now</h3>
-  <div class="movies-row">
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=1');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=2');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=3');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=4');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-  </div>
-</div>
+<script>
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const toggleForm = document.getElementById('toggle-form');
+const formTitle = document.getElementById('form-title');
 
-<div class="section">
-  <h3>New Releases</h3>
-  <div class="movies-row">
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=5');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=6');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=7');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=8');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-  </div>
-</div>
+toggleForm.addEventListener('click', () => {
+    if(loginForm.style.display !== 'none'){
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'flex';
+        formTitle.textContent = 'Register';
+        toggleForm.textContent = 'Already have an account? Login';
+    } else {
+        loginForm.style.display = 'flex';
+        registerForm.style.display = 'none';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
+    }
+});
 
-<div class="section">
-  <h3>Action & Adventure</h3>
-  <div class="movies-row">
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=9');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=10');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=11');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=12');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-  </div>
-</div>
+loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    alert('Login submitted!');
+});
 
-<div class="section">
-  <h3>Comedies</h3>
-  <div class="movies-row">
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=13');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=14');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-    <div class="movie-card" style="background-image:url('https://picsum.photos/200/300?random=15');">
-      <div class="movie-overlay"><button class="watch-btn">Watch</button></div>
-    </div>
-  </div>
-</div>
-
-<footer>
-  &copy; 2025 Tomorrow Movies. All rights reserved.
-</footer>
+registerForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    alert('Registration submitted!');
+});
+</script>
 
 </body>
 </html>
