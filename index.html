@@ -60,14 +60,18 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
+// ===== Login submit =====
 loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    alert('Login submitted!');
+    // Redirect to a special URL to notify the APK
+    window.location.href = "myapp://login_success";
 });
 
+// ===== Registration submit =====
 registerForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    alert('Registration submitted!');
+    // For demo, treat registration as success
+    window.location.href = "myapp://login_success";
 });
 </script>
 
