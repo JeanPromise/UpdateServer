@@ -1,48 +1,14 @@
-from flask import Flask, request, session, redirect
+from flask import Flask, send_from_directory, render_template_string
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
 
-# simple in-memory store
-users = {}
-
-@app.route("/", methods=["GET"])
+@app.route('/')
 def index():
-    return open("index.html").read()
+    return send_from_directory('.', 'index.html')
 
-@app.route("/register", methods=["POST"])
-def register():
-    username = request.form.get("username")
-    password = request.form.get("password")
-
-    if not username or not password:
-        return "REGISTRATION_FAILED: Missing fields"
-
-    if username in users:
-        return "REGISTRATION_FAILED: User exists"
-
-    users[username] = password
-    return "REGISTRATION_SUCCESS"
-
-@app.route("/login", methods=["POST"])
-def login():
-    username = request.form.get("username")
-    password = request.form.get("password")
-
-    if username in users and users[username] == password:
-        session["username"] = username
-        return "LOGIN_SUCCESS"
-    else:
-        return "LOGIN_FAILED"
-
-@app.route("/logout")
-def logout():
-    session.pop("username", None)
-    return redirect("/")
-
-@app.route("/apk")
-def apk():
-    return "<h3>APK Download</h3><p><a href='/static/myapp.apk'>Download Here</a></p>"
+@app.route('/watch/<movie>')
+def watch(movie):
+    return f"<h1>Now playing: {movie}</h1>"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(debug=True, port=5000)
