@@ -3,207 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tomorrow Movies</title>
+<title>Login & Registration</title>
 <style>
-    body {
-        margin: 0;
-        font-family: 'Helvetica Neue', sans-serif;
-        background-color: #000;
-        color: #fff;
-        overflow-x: hidden;
-    }
-
-    header {
-        background-color: #111;
-        padding: 16px 24px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.8);
-    }
-
-    header h1 {
-        font-size: 1.5em;
-        color: #ffdd00;
-        margin: 0;
-    }
-
-    nav a {
-        color: #fff;
-        text-decoration: none;
-        margin-left: 24px;
-        font-weight: bold;
-        transition: 0.3s;
-    }
-
-    nav a:hover {
-        color: #ffdd00;
-    }
-
-    .hero {
-        position: relative;
-        width: 100%;
-        height: 60vh;
-        background: url('https://images.unsplash.com/photo-1581905764498-d1aa26f4b57c') center/cover no-repeat;
-        display: flex;
-        align-items: flex-end;
-        justify-content: left;
-        padding: 24px;
-        box-sizing: border-box;
-    }
-
-    .hero h2 {
-        font-size: 2.5em;
-        margin: 0;
-        color: #fff;
-        text-shadow: 2px 2px 12px rgba(0,0,0,0.7);
-    }
-
-    .hero button {
-        margin-top: 16px;
-        padding: 12px 28px;
-        font-size: 1em;
-        background: #ffdd00;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: bold;
-        transition: 0.3s;
-    }
-
-    .hero button:hover {
-        background: #ffc500;
-    }
-
-    section {
-        padding: 24px;
-    }
-
-    h3 {
-        font-size: 1.4em;
-        margin-bottom: 12px;
-        color: #ffdd00;
-    }
-
-    .movie-row {
-        display: flex;
-        overflow-x: auto;
-        gap: 12px;
-        padding-bottom: 16px;
-    }
-
-    .movie-card {
-        min-width: 160px;
-        background-color: #111;
-        border-radius: 8px;
-        overflow: hidden;
-        cursor: pointer;
-        transition: transform 0.3s;
-        flex-shrink: 0;
-    }
-
-    .movie-card:hover {
-        transform: scale(1.08);
-    }
-
-    .movie-card img {
-        width: 100%;
-        display: block;
-    }
-
-    .movie-card p {
-        margin: 8px;
-        font-size: 0.9em;
-        color: #fff;
-    }
-
-    footer {
-        background: #111;
-        text-align: center;
-        padding: 16px;
-        font-size: 0.8em;
-        color: #888;
-    }
-
-    /* Scrollbar for rows */
-    .movie-row::-webkit-scrollbar {
-        height: 8px;
-    }
-
-    .movie-row::-webkit-scrollbar-thumb {
-        background: #ffdd00;
-        border-radius: 4px;
-    }
+  * {margin:0; padding:0; box-sizing:border-box;}
+  body {font-family: Arial, sans-serif; background:#121212; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh;}
+  .container {background:#1e1e1e; padding:40px; border-radius:10px; width:350px; box-shadow: 0 0 20px rgba(0,0,0,0.7);}
+  h2 {text-align:center; margin-bottom:20px; color:#E50914;}
+  form {display:flex; flex-direction:column;}
+  input {margin-bottom:15px; padding:10px; border:none; border-radius:5px; font-size:16px;}
+  input:focus {outline:none; border:2px solid #E50914;}
+  button {padding:10px; border:none; border-radius:5px; background:#E50914; color:#fff; font-weight:bold; cursor:pointer; transition:0.2s;}
+  button:hover {background:#ff1a2c;}
+  .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
+  .toggle:hover {color:#fff;}
 </style>
 </head>
 <body>
 
-<header>
-    <h1>Tomorrow Movies</h1>
-    <nav>
-        <a href="#trending">Trending</a>
-        <a href="#new">New</a>
-        <a href="#action">Action</a>
-        <a href="#comedy">Comedy</a>
-    </nav>
-</header>
+<div class="container">
+  <h2 id="form-title">Login</h2>
+  
+  <form id="login-form">
+    <input type="email" placeholder="Email" required>
+    <input type="password" placeholder="Password" required>
+    <button type="submit">Login</button>
+  </form>
 
-<div class="hero">
-    <div>
-        <h2>Watch Your Favorite Shows</h2>
-        <button onclick="watchShows()">Watch Now</button>
-    </div>
+  <form id="register-form" style="display:none;">
+    <input type="text" placeholder="Full Name" required>
+    <input type="email" placeholder="Email" required>
+    <input type="password" placeholder="Password" required>
+    <input type="password" placeholder="Confirm Password" required>
+    <button type="submit">Register</button>
+  </form>
+
+  <div class="toggle" id="toggle-form">Don't have an account? Register</div>
 </div>
 
-<section id="trending">
-    <h3>Trending Now</h3>
-    <div class="movie-row">
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1581905764498-d1aa26f4b57c" alt="Movie 1"><p>Movie 1</p></div>
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1572374454762-48a1d4a3c0d1" alt="Movie 2"><p>Movie 2</p></div>
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1567306226416-28f0efdc88ce" alt="Movie 3"><p>Movie 3</p></div>
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1581905764498-d1aa26f4b57c" alt="Movie 4"><p>Movie 4</p></div>
-    </div>
-</section>
-
-<section id="new">
-    <h3>New Releases</h3>
-    <div class="movie-row">
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1542206395-9feb3edaa68c" alt="Movie 5"><p>Movie 5</p></div>
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f" alt="Movie 6"><p>Movie 6</p></div>
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1542206395-9feb3edaa68c" alt="Movie 7"><p>Movie 7</p></div>
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f" alt="Movie 8"><p>Movie 8</p></div>
-    </div>
-</section>
-
-<section id="action">
-    <h3>Action</h3>
-    <div class="movie-row">
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1542206395-9feb3edaa68c" alt="Movie 9"><p>Movie 9</p></div>
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f" alt="Movie 10"><p>Movie 10</p></div>
-    </div>
-</section>
-
-<section id="comedy">
-    <h3>Comedy</h3>
-    <div class="movie-row">
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1542206395-9feb3edaa68c" alt="Movie 11"><p>Movie 11</p></div>
-        <div class="movie-card"><img src="https://images.unsplash.com/photo-1522202176988-66273c2fd55f" alt="Movie 12"><p>Movie 12</p></div>
-    </div>
-</section>
-
-<footer>
-    &copy; 2025 Tomorrow Movies. All Rights Reserved.
-</footer>
-
 <script>
-function watchShows() {
-    // Notify APK hub that "Watch Now" was clicked
-    if (window.AndroidInterface) {
-        window.AndroidInterface.showWatchHub();  // implement in your APK MainActivity
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const toggleForm = document.getElementById('toggle-form');
+const formTitle = document.getElementById('form-title');
+
+toggleForm.addEventListener('click', () => {
+    if(loginForm.style.display !== 'none'){
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'flex';
+        formTitle.textContent = 'Register';
+        toggleForm.textContent = 'Already have an account? Login';
     } else {
-        alert('Watch hub triggered!');
+        loginForm.style.display = 'flex';
+        registerForm.style.display = 'none';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
     }
-}
+});
+
+loginForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    alert('Login submitted!');
+});
+
+registerForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    alert('Registration submitted!');
+});
 </script>
 
 </body>
