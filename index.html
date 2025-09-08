@@ -81,22 +81,21 @@ toggleForm.addEventListener('click', () => {
 // ===== Login submit =====
 loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    animateAndNotify();
+    animateAndDisappear();
 });
 
 // ===== Registration submit =====
 registerForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    animateAndNotify();
+    animateAndDisappear();
 });
 
-function animateAndNotify() {
-    // Add explode class
+function animateAndDisappear() {
     container.classList.add('explode');
 
-    // After animation ends, notify APK
     container.addEventListener('animationend', () => {
-        window.location.href = "myapp://login_success";
+        // Just hide the container completely
+        container.style.display = 'none';
     }, {once:true});
 }
 </script>
