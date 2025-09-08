@@ -6,8 +6,14 @@
 <title>Login & Registration</title>
 <style>
   * {margin:0; padding:0; box-sizing:border-box;}
-  body {font-family: Arial, sans-serif; background:#121212; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh;}
-  .container {background:#1e1e1e; padding:40px; border-radius:10px; width:350px; box-shadow: 0 0 20px rgba(0,0,0,0.7);}
+  body {font-family: Arial, sans-serif; background:#121212; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden;}
+  
+  .container {
+    background:#1e1e1e; padding:40px; border-radius:10px; width:350px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.7); position:relative;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+  }
+
   h2 {text-align:center; margin-bottom:20px; color:#E50914;}
   form {display:flex; flex-direction:column;}
   input {margin-bottom:15px; padding:10px; border:none; border-radius:5px; font-size:16px;}
@@ -16,11 +22,22 @@
   button:hover {background:#ff1a2c;}
   .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
   .toggle:hover {color:#fff;}
+
+  /* Shrink/fade/explode animation */
+  .explode {
+    animation: explode 0.6s forwards;
+  }
+
+  @keyframes explode {
+    0% {transform: scale(1) rotate(0deg); opacity:1;}
+    50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
+    100% {transform: scale(0) rotate(30deg); opacity:0;}
+  }
 </style>
 </head>
 <body>
 
-<div class="container">
+<div class="container" id="container">
   <h2 id="form-title">Login</h2>
   
   <form id="login-form">
@@ -45,6 +62,7 @@ const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
+const container = document.getElementById('container');
 
 toggleForm.addEventListener('click', () => {
     if(loginForm.style.display !== 'none'){
@@ -63,16 +81,24 @@ toggleForm.addEventListener('click', () => {
 // ===== Login submit =====
 loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    // Notify APK of login success
-    window.location.href = "myapp://login_success";
+    animateAndNotify();
 });
 
 // ===== Registration submit =====
 registerForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    // Notify APK of registration success
-    window.location.href = "myapp://login_success";
+    animateAndNotify();
 });
+
+function animateAndNotify() {
+    // Add explode class
+    container.classList.add('explode');
+
+    // After animation ends, notify APK
+    container.addEventListener('animationend', () => {
+        window.location.href = "myapp://login_success";
+    }, {once:true});
+}
 </script>
 
 </body>
