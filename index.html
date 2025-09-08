@@ -6,21 +6,54 @@
 <title>Login & Registration</title>
 <style>
   * {margin:0; padding:0; box-sizing:border-box;}
-  body {font-family: Arial, sans-serif; background:#121212; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden;}
+  body {
+    font-family: Arial, sans-serif;
+    background:#121212;
+    color:#fff;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    overflow:hidden;
+  }
   
   .container {
-    background:#1e1e1e; padding:40px; border-radius:10px; width:350px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.7); position:relative;
+    background:#1e1e1e;
+    padding:40px;
+    border-radius:10px;
+    width:350px;
+    box-shadow: 0 0 20px rgba(0,0,0,0.7);
+    position:relative;
     transition: transform 0.6s ease, opacity 0.6s ease;
   }
 
   h2 {text-align:center; margin-bottom:20px; color:#E50914;}
   form {display:flex; flex-direction:column;}
-  input {margin-bottom:15px; padding:10px; border:none; border-radius:5px; font-size:16px;}
+  input {
+    margin-bottom:15px;
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    font-size:16px;
+  }
   input:focus {outline:none; border:2px solid #E50914;}
-  button {padding:10px; border:none; border-radius:5px; background:#E50914; color:#fff; font-weight:bold; cursor:pointer; transition:0.2s;}
+  button {
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    background:#E50914;
+    color:#fff;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.2s;
+  }
   button:hover {background:#ff1a2c;}
-  .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
+  .toggle {
+    text-align:center;
+    margin-top:10px;
+    cursor:pointer;
+    color:#aaa;
+  }
   .toggle:hover {color:#fff;}
 
   /* Shrink/fade/explode animation */
@@ -65,7 +98,7 @@ const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
 
 toggleForm.addEventListener('click', () => {
-    if(loginForm.style.display !== 'none'){
+    if (loginForm.style.display !== 'none') {
         loginForm.style.display = 'none';
         registerForm.style.display = 'flex';
         formTitle.textContent = 'Register';
@@ -94,8 +127,13 @@ function animateAndDisappear() {
     container.classList.add('explode');
 
     container.addEventListener('animationend', () => {
-        // Just hide the container completely
+        // Hide the container completely
         container.style.display = 'none';
+
+        // 🔑 Tell Android the login was successful
+        if (window.AndroidBridge) {
+            window.AndroidBridge.loginSuccess();
+        }
     }, {once:true});
 }
 </script>
