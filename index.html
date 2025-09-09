@@ -16,7 +16,6 @@
     height:100vh;
     overflow:hidden;
   }
-
   .container {
     background:#1e1e1e;
     padding:40px;
@@ -26,7 +25,6 @@
     position:relative;
     transition: transform 0.6s ease, opacity 0.6s ease;
   }
-
   h2 {text-align:center; margin-bottom:20px; color:#E50914;}
   form {display:flex; flex-direction:column;}
   input {
@@ -55,21 +53,15 @@
     color:#aaa;
   }
   .toggle:hover {color:#fff;}
-
-  .disabled {
-    pointer-events: none;
-    opacity: 0.5;
-  }
-
-  /* Shrink/fade/explode animation */
-  .explode {
-    animation: explode 0.6s forwards;
-  }
-
+  .explode {animation: explode 0.6s forwards;}
   @keyframes explode {
     0% {transform: scale(1) rotate(0deg); opacity:1;}
     50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
     100% {transform: scale(0) rotate(30deg); opacity:0;}
+  }
+  .disabled {
+    opacity:0.5;
+    pointer-events:none;
   }
 </style>
 </head>
@@ -77,141 +69,122 @@
 
 <div class="container" id="container">
   <h2 id="form-title">Login</h2>
-  
+
   <form id="login-form">
-    <input type="email" placeholder="Email" required>
-    <input type="password" placeholder="Password" required>
+    <input type="email" id="login-email" placeholder="Email" required>
+    <input type="password" id="login-password" placeholder="Password" required>
     <button type="submit">Login</button>
   </form>
 
   <form id="register-form" style="display:none;">
-    <input type="text" placeholder="Full Name" required>
-    <input type="email" placeholder="Email" required>
-    <input type="password" placeholder="Password" required>
-    <input type="password" placeholder="Confirm Password" required>
+    <input type="text" id="register-name" placeholder="Full Name" required>
+    <input type="email" id="register-email" placeholder="Email" required>
+    <input type="password" id="register-password" placeholder="Password" required>
+    <input type="password" id="register-confirm" placeholder="Confirm Password" required>
     <button type="submit">Register</button>
   </form>
 
   <div class="toggle" id="toggle-form">Don't have an account? Register</div>
+
+  <div id="update-message" style="display:none; margin-top:20px; text-align:center; color:#ff4c4c;">
+    A new app version is available. Please download and install to continue.
+    <br><a id="apk-link" href="#" style="color:#ff9999;">Download APK</a>
+  </div>
 </div>
 
 <script>
-// Elements
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
+const updateMessage = document.getElementById('update-message');
+const apkLink = document.getElementById('apk-link');
 
-// Toggle between login and register
+let apkRequired = false;
+
+// Toggle between login and registration
 toggleForm.addEventListener('click', () => {
-  if (loginForm.style.display !== 'none') {
-      loginForm.style.display = 'none';
-      registerForm.style.display = 'flex';
-      formTitle.textContent = 'Register';
-      toggleForm.textContent = 'Already have an account? Login';
-  } else {
-      loginForm.style.display = 'flex';
-      registerForm.style.display = 'none';
-      formTitle.textContent = 'Login';
-      toggleForm.textContent = "Don't have an account? Register";
-  }
+    if (loginForm.style.display !== 'none') {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'flex';
+        formTitle.textContent = 'Register';
+        toggleForm.textContent = 'Already have an account? Login';
+    } else {
+        loginForm.style.display = 'flex';
+        registerForm.style.display = 'none';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
+    }
 });
 
-// -------- Helper: disable forms --------
-function disableForms(message, apkUrl) {
-  container.classList.add('disabled');
-  container.innerHTML = `
-    <h2 style="text-align:center; color:#ff3e3e">${message}</h2>
-    <a href="${apkUrl}" style="display:block; margin-top:20px; text-align:center; color:#fff; text-decoration:none; font-weight:bold; border:2px solid #fff; padding:10px; border-radius:5px;">Download APK</a>
-  `;
-}
-
-// -------- Check latest APK --------
-async function checkApkVersion() {
-  try {
-    const res = await fetch('/apk/latest');
-    const data = await res.json();
-
-    if (!data.version) return; // no APK uploaded yet
-
-    const userVersion = localStorage.getItem('apkVersion');
-    if (userVersion !== data.version) {
-      // User must update
-      disableForms('New APK available!', `/apk/${data.filename}`);
+// Check for new APK version from server
+fetch('/latest_apk')
+.then(res => res.json())
+.then(data => {
+    if(data.version && data.url){
+        const currentVersion = localStorage.getItem('apk_version');
+        if(currentVersion !== data.version){
+            apkRequired = true;
+            container.classList.add('disabled');
+            updateMessage.style.display = 'block';
+            apkLink.href = data.url;
+        }
     }
-  } catch(err) {
-    console.error('Failed to check APK version', err);
-  }
-}
+});
 
-// -------- Handle login --------
-loginForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  const email = loginForm.querySelector('input[type="email"]').value;
-  const password = loginForm.querySelector('input[type="password"]').value;
+// Login submit
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if(apkRequired) return;
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
 
-  try {
     const res = await fetch('/login', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({email, password})
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({email,password})
     });
-    const data = await res.json();
-    if (data.success) {
-      animateAndDisappear();
+    const result = await res.json();
+    if(result.success){
+        animateAndDisappear();
     } else {
-      alert(data.error);
+        alert(result.message);
     }
-  } catch(err) {
-    console.error(err);
-    alert('Login failed');
-  }
 });
 
-// -------- Handle registration --------
-registerForm.addEventListener('submit', async e => {
-  e.preventDefault();
-  const name = registerForm.querySelector('input[placeholder="Full Name"]').value;
-  const email = registerForm.querySelector('input[type="email"]').value;
-  const password = registerForm.querySelector('input[placeholder="Password"]').value;
-  const confirm = registerForm.querySelector('input[placeholder="Confirm Password"]').value;
+// Registration submit
+registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if(apkRequired) return;
+    const name = document.getElementById('register-name').value;
+    const email = document.getElementById('register-email').value;
+    const password = document.getElementById('register-password').value;
+    const confirm = document.getElementById('register-confirm').value;
 
-  if (password !== confirm) {
-    alert('Passwords do not match!');
-    return;
-  }
+    if(password !== confirm){ alert('Passwords do not match'); return; }
 
-  try {
     const res = await fetch('/register', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({name, email, password})
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name,email,password})
     });
-    const data = await res.json();
-    if (data.success) {
-      animateAndDisappear();
+    const result = await res.json();
+    if(result.success){
+        animateAndDisappear();
     } else {
-      alert(data.error);
+        alert(result.message);
     }
-  } catch(err) {
-    console.error(err);
-    alert('Registration failed');
-  }
 });
 
-// -------- Animation --------
 function animateAndDisappear() {
-  container.classList.add('explode');
-  container.addEventListener('animationend', () => {
-    container.style.display = 'none';
-    if (window.AndroidBridge) window.AndroidBridge.loginSuccess();
-  }, {once:true});
+    container.classList.add('explode');
+    container.addEventListener('animationend', () => {
+        container.style.display = 'none';
+        if (window.AndroidBridge) window.AndroidBridge.loginSuccess();
+    }, {once:true});
 }
-
-// -------- Init --------
-checkApkVersion();
-
 </script>
+
 </body>
 </html>
