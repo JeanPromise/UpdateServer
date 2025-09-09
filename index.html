@@ -16,17 +16,15 @@
     height:100vh;
     overflow:hidden;
   }
-
   .container {
     background:#1e1e1e;
     padding:40px;
     border-radius:10px;
     width:350px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.7);
+    box-shadow:0 0 20px rgba(0,0,0,0.7);
     position:relative;
     transition: transform 0.6s ease, opacity 0.6s ease;
   }
-
   h2 {text-align:center; margin-bottom:20px; color:#E50914;}
   form {display:flex; flex-direction:column;}
   input {
@@ -48,33 +46,27 @@
     transition:0.2s;
   }
   button:hover {background:#ff1a2c;}
-  .toggle {
-    text-align:center;
-    margin-top:10px;
-    cursor:pointer;
-    color:#aaa;
-  }
+  .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
   .toggle:hover {color:#fff;}
-  .disabled-overlay {
-    position:absolute;
-    top:0; left:0; width:100%; height:100%;
-    background:rgba(0,0,0,0.7);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    text-align:center;
-    color:#fff;
-    font-size:16px;
-    border-radius:10px;
-    padding:20px;
-  }
-
-  /* Shrink/fade/explode animation */
   .explode {animation: explode 0.6s forwards;}
   @keyframes explode {
     0% {transform: scale(1) rotate(0deg); opacity:1;}
     50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
     100% {transform: scale(0) rotate(30deg); opacity:0;}
+  }
+  .disabled-overlay {
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.8);
+    display:flex; justify-content:center; align-items:center;
+    flex-direction:column;
+    text-align:center; color:#ff5555; font-size:18px;
+    z-index:10;
+    border-radius:10px;
+  }
+  .disabled-overlay button {
+    margin-top:15px;
+    background:#4CAF50;
   }
 </style>
 </head>
@@ -82,7 +74,7 @@
 
 <div class="container" id="container">
   <h2 id="form-title">Login</h2>
-
+  
   <form id="login-form">
     <input type="email" placeholder="Email" required>
     <input type="password" placeholder="Password" required>
@@ -106,42 +98,9 @@ const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
+let currentUserApkVersion = '0.0.0';
 
-let apkRequiredVersion = null;
-
-// ===== Check for APK version on load =====
-async function checkApkVersion() {
-    try {
-        const res = await fetch('/apk_info');
-        const data = await res.json();
-        if(data.exists && data.version) {
-            apkRequiredVersion = data.version;
-            // Ask user to update if window.AndroidBridge reports different version
-            if(window.AndroidBridge && typeof window.AndroidBridge.getApkVersion === 'function') {
-                const currentVersion = window.AndroidBridge.getApkVersion();
-                if(currentVersion !== apkRequiredVersion) {
-                    showUpdateOverlay(apkRequiredVersion);
-                }
-            }
-        }
-    } catch(err){ console.log(err); }
-}
-
-function showUpdateOverlay(version){
-    const overlay = document.createElement('div');
-    overlay.classList.add('disabled-overlay');
-    overlay.innerHTML = `A new app update (v${version}) is available.<br>Please download and install to continue.<br>
-    <a href="/download_apk" style="color:#E50914;">Download APK</a>`;
-    container.appendChild(overlay);
-
-    loginForm.querySelectorAll('input,button').forEach(el=>el.disabled=true);
-    registerForm.querySelectorAll('input,button').forEach(el=>el.disabled=true);
-    toggleForm.style.pointerEvents = 'none';
-}
-
-checkApkVersion();
-
-// ===== Toggle between login & register =====
+// ----- Toggle forms -----
 toggleForm.addEventListener('click', () => {
     if (loginForm.style.display !== 'none') {
         loginForm.style.display = 'none';
@@ -156,56 +115,76 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// ===== Login submit =====
+// ----- Check for APK update -----
+async function checkUpdate() {
+    const res = await fetch('/check_update');
+    const data = await res.json();
+    if (data.apk_version && data.apk_version !== currentUserApkVersion) {
+        const overlay = document.createElement('div');
+        overlay.className = 'disabled-overlay';
+        overlay.innerHTML = `
+            <div>New APK version ${data.apk_version} is available.<br>
+            Please download and install it to continue.</div>
+            <button onclick="window.location='/download_apk'">Download APK</button>
+        `;
+        container.appendChild(overlay);
+    }
+}
+
+// ----- Animate container -----
+function animateAndDisappear(callback) {
+    container.classList.add('explode');
+    container.addEventListener('animationend', () => {
+        container.style.display = 'none';
+        if (callback) callback();
+    }, {once:true});
+}
+
+// ----- Login submit -----
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = loginForm[0].value;
-    const password = loginForm[1].value;
+    const email = loginForm[0].value.trim();
+    const password = loginForm[1].value.trim();
     const res = await fetch('/login', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email,password})
+        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
     });
     const data = await res.json();
-    if(data.status==='success'){
-        animateAndDisappear();
+    if (data.success) {
+        animateAndDisappear(() => {
+            if (window.AndroidBridge) window.AndroidBridge.loginSuccess();
+        });
     } else {
-        alert(data.msg);
+        alert(data.message);
     }
 });
 
-// ===== Registration submit =====
+// ----- Registration submit -----
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = registerForm[0].value;
-    const email = registerForm[1].value;
-    const password = registerForm[2].value;
-    const confirm = registerForm[3].value;
-    if(password!==confirm){ alert("Passwords do not match"); return; }
-
+    const name = registerForm[0].value.trim();
+    const email = registerForm[1].value.trim();
+    const password = registerForm[2].value.trim();
+    const confirm = registerForm[3].value.trim();
+    if (password !== confirm) return alert('Passwords do not match!');
     const res = await fetch('/register', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({name,email,password})
     });
     const data = await res.json();
-    if(data.status==='success'){
-        animateAndDisappear();
+    if (data.success) {
+        animateAndDisappear(() => {
+            if (window.AndroidBridge) window.AndroidBridge.loginSuccess();
+        });
     } else {
-        alert(data.msg);
+        alert(data.message);
     }
 });
 
-// ===== Animate container disappear =====
-function animateAndDisappear() {
-    container.classList.add('explode');
-    container.addEventListener('animationend', () => {
-        container.style.display = 'none';
-        if (window.AndroidBridge && typeof window.AndroidBridge.loginSuccess === 'function') {
-            window.AndroidBridge.loginSuccess();
-        }
-    }, {once:true});
-}
+// ----- Initial check -----
+checkUpdate();
 </script>
 
 </body>
