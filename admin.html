@@ -3,190 +3,135 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login & Registration</title>
+<title>Admin Dashboard</title>
 <style>
-  * {margin:0; padding:0; box-sizing:border-box;}
   body {
     font-family: Arial, sans-serif;
     background:#121212;
     color:#fff;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-    overflow:hidden;
+    padding:20px;
   }
-  
-  .container {
-    background:#1e1e1e;
-    padding:40px;
-    border-radius:10px;
-    width:350px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.7);
-    position:relative;
-    transition: transform 0.6s ease, opacity 0.6s ease;
+  h1, h2 {color:#E50914;}
+  table {
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
   }
-
-  h2 {text-align:center; margin-bottom:20px; color:#E50914;}
-  form {display:flex; flex-direction:column;}
-  input {
-    margin-bottom:15px;
+  th, td {
     padding:10px;
-    border:none;
-    border-radius:5px;
-    font-size:16px;
+    border:1px solid #333;
+    text-align:left;
   }
-  input:focus {outline:none; border:2px solid #E50914;}
+  th {background:#1e1e1e;}
+  tr:nth-child(even){background:#1a1a1a;}
   button {
-    padding:10px;
+    padding:5px 10px;
     border:none;
     border-radius:5px;
-    background:#E50914;
-    color:#fff;
+    cursor:pointer;
     font-weight:bold;
-    cursor:pointer;
-    transition:0.2s;
+    margin:2px;
   }
-  button:hover {background:#ff1a2c;}
-  .toggle {
-    text-align:center;
-    margin-top:10px;
-    cursor:pointer;
-    color:#aaa;
-  }
-  .toggle:hover {color:#fff;}
-  .disabled-overlay {
-    position:absolute;
-    top:0; left:0; right:0; bottom:0;
-    background: rgba(0,0,0,0.8);
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    color:#fff;
-    font-size:16px;
-    text-align:center;
-    border-radius:10px;
-    z-index:10;
-  }
-
-  .explode {
-    animation: explode 0.6s forwards;
-  }
-
-  @keyframes explode {
-    0% {transform: scale(1) rotate(0deg); opacity:1;}
-    50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
-    100% {transform: scale(0) rotate(30deg); opacity:0;}
-  }
+  .enable {background:#4CAF50; color:#fff;}
+  .disable {background:#f44336; color:#fff;}
+  .all-btn {margin:10px 5px; padding:10px 20px;}
+  input[type="file"], input[type="text"] {margin:5px 0; padding:5px;}
 </style>
 </head>
 <body>
 
-<div class="container" id="container">
-  <h2 id="form-title">Login</h2>
-  
-  <form id="login-form">
-    <input type="email" placeholder="Email" required>
-    <input type="password" placeholder="Password" required>
-    <button type="submit">Login</button>
-  </form>
+<h1>Admin Dashboard</h1>
 
-  <form id="register-form" style="display:none;">
-    <input type="text" placeholder="Full Name" required>
-    <input type="email" placeholder="Email" required>
-    <input type="password" placeholder="Password" required>
-    <input type="password" placeholder="Confirm Password" required>
-    <button type="submit">Register</button>
-  </form>
+<h2>Upload New APK</h2>
+<form id="upload-apk-form">
+  <input type="file" id="apk-file" required>
+  <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required>
+  <button type="submit">Upload APK</button>
+</form>
 
-  <div class="toggle" id="toggle-form">Don't have an account? Register</div>
-  <div class="disabled-overlay" id="update-overlay" style="display:none;">
-    A new APK is available. Please download and install it to continue.
-  </div>
-</div>
+<h2>Users Management</h2>
+<button class="all-btn enable" id="enable-all">Enable All Users</button>
+<button class="all-btn disable" id="disable-all">Disable All Users</button>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="users-tbody">
+    <!-- Users will populate here -->
+  </tbody>
+</table>
 
 <script>
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const toggleForm = document.getElementById('toggle-form');
-const formTitle = document.getElementById('form-title');
-const container = document.getElementById('container');
-const updateOverlay = document.getElementById('update-overlay');
-
-// Toggle Login/Register
-toggleForm.addEventListener('click', () => {
-    if (loginForm.style.display !== 'none') {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'flex';
-        formTitle.textContent = 'Register';
-        toggleForm.textContent = 'Already have an account? Login';
-    } else {
-        loginForm.style.display = 'flex';
-        registerForm.style.display = 'none';
-        formTitle.textContent = 'Login';
-        toggleForm.textContent = "Don't have an account? Register";
-    }
-});
-
-// Check for update from server
-fetch('/check_update')
-  .then(res => res.json())
-  .then(data => {
-    if(data.update_required){
-      updateOverlay.style.display = 'flex';
-      loginForm.querySelector('button').disabled = true;
-      registerForm.querySelector('button').disabled = true;
-    }
+// ----- Fetch and display users -----
+async function loadUsers() {
+  const res = await fetch('/get_users');
+  const users = await res.json();
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '';
+  users.forEach(u => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td>${u.enabled ? 'Enabled' : 'Disabled'}</td>
+      <td>
+        <button class="${u.enabled ? 'disable' : 'enable'}" onclick="toggleUser('${u.email}', ${!u.enabled})">
+          ${u.enabled ? 'Disable' : 'Enable'}
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
   });
-
-// Login
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = loginForm[0].value;
-    const password = loginForm[1].value;
-
-    const res = await fetch('/login', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email, password})
-    });
-    const data = await res.json();
-    if(data.success){
-        animateAndDisappear();
-    } else {
-        alert(data.message);
-    }
-});
-
-// Register
-registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = registerForm[0].value;
-    const email = registerForm[1].value;
-    const password = registerForm[2].value;
-    const confirm = registerForm[3].value;
-    if(password !== confirm){ alert("Passwords do not match"); return; }
-
-    const res = await fetch('/register', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({name, email, password})
-    });
-    const data = await res.json();
-    if(data.success){
-        animateAndDisappear();
-    } else {
-        alert(data.message);
-    }
-});
-
-function animateAndDisappear() {
-    container.classList.add('explode');
-    container.addEventListener('animationend', () => {
-        container.style.display = 'none';
-        if (window.AndroidBridge) window.AndroidBridge.loginSuccess();
-    }, {once:true});
 }
+
+// ----- Toggle individual user -----
+async function toggleUser(email, enable) {
+  await fetch('/toggle_user', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({email, enable})
+  });
+  loadUsers();
+}
+
+// ----- Enable all / Disable all -----
+document.getElementById('enable-all').addEventListener('click', async () => {
+  await fetch('/enable_all', {method:'POST'});
+  loadUsers();
+});
+document.getElementById('disable-all').addEventListener('click', async () => {
+  await fetch('/disable_all', {method:'POST'});
+  loadUsers();
+});
+
+// ----- Upload APK -----
+document.getElementById('upload-apk-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fileInput = document.getElementById('apk-file');
+  const versionInput = document.getElementById('apk-version');
+  const file = fileInput.files[0];
+  const version = versionInput.value.trim();
+  if(!file || !version) return alert('File and version required.');
+
+  const formData = new FormData();
+  formData.append('apk', file);
+  formData.append('version', version);
+
+  const res = await fetch('/upload_apk', {method:'POST', body: formData});
+  const data = await res.json();
+  alert(data.message);
+  fileInput.value = '';
+  versionInput.value = '';
+});
+
+// Initial load
+loadUsers();
 </script>
 
 </body>
