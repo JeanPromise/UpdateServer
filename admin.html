@@ -3,93 +3,111 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Dashboard - Upload APK</title>
+<title>Admin Dashboard</title>
 <style>
-  * {margin:0; padding:0; box-sizing:border-box;}
-  body {
-    font-family: Arial, sans-serif;
-    background:#121212;
-    color:#fff;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    height:100vh;
-    overflow:hidden;
-  }
-  .container {
-    background:#1e1e1e;
-    padding:40px;
-    border-radius:10px;
-    width:400px;
-    box-shadow: 0 0 20px rgba(0,0,0,0.7);
-  }
-  h2 {text-align:center; margin-bottom:20px; color:#E50914;}
-  input, button {
-    margin-bottom:15px;
-    padding:10px;
-    border-radius:5px;
-    font-size:16px;
-  }
-  input, button {border:none;}
-  input[type="file"] {color:#fff;}
-  button {
-    background:#E50914;
-    color:#fff;
-    font-weight:bold;
-    cursor:pointer;
-    transition:0.2s;
-  }
-  button:hover {background:#ff1a2c;}
-  .status {margin-top:15px; text-align:center;}
+body {
+  font-family: Arial, sans-serif;
+  background:#121212;
+  color:#fff;
+  margin:0; padding:0;
+}
+.container {
+  max-width:800px;
+  margin:20px auto;
+  background:#1e1e1e;
+  padding:20px;
+  border-radius:10px;
+}
+h2 {color:#E50914;}
+input, button, select {
+  padding:10px;
+  margin:5px 0;
+  border-radius:5px;
+  border:none;
+  font-size:16px;
+}
+button {background:#E50914; color:#fff; cursor:pointer;}
+button:hover {background:#ff1a2c;}
+table {width:100%; border-collapse:collapse; margin-top:20px;}
+th, td {padding:10px; border-bottom:1px solid #333; text-align:left;}
+.toggle-btn {cursor:pointer; padding:5px 10px; border-radius:5px; background:#555;}
+.toggle-btn.enabled {background:green;}
+.toggle-btn.disabled {background:red;}
 </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>Admin - Upload APK</h2>
+  <h2>Upload New APK</h2>
   <form id="apk-form">
-    <input type="file" id="apk-file" accept=".apk" required>
-    <input type="text" id="apk-version" placeholder="APK Version (e.g., 1.0.0)" required>
+    <input type="file" name="apk" accept=".apk" required>
+    <input type="text" name="version" placeholder="Version e.g. 1.0.2" required>
     <button type="submit">Upload APK</button>
   </form>
-  <div class="status" id="status"></div>
+
+  <h2>Users</h2>
+  <button id="enable-all">Enable All</button>
+  <button id="disable-all">Disable All</button>
+  <table id="users-table">
+    <thead>
+      <tr><th>Name</th><th>Email</th><th>Status</th><th>Action</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 </div>
 
 <script>
-const form = document.getElementById('apk-form');
-const fileInput = document.getElementById('apk-file');
-const versionInput = document.getElementById('apk-version');
-const statusDiv = document.getElementById('status');
-
-form.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const file = fileInput.files[0];
-  const version = versionInput.value.trim();
-  if (!file || !version) return;
-
-  const formData = new FormData();
-  formData.append('apk', file);
-  formData.append('version', version);
-
-  statusDiv.textContent = 'Uploading...';
-
-  try {
-    const res = await fetch('/admin/upload', {
-      method: 'POST',
-      body: formData
+// Load users from server
+async function loadUsers() {
+    const res = await fetch('/users');
+    const users = await res.json();
+    const tbody = document.querySelector('#users-table tbody');
+    tbody.innerHTML = '';
+    users.forEach((u,i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${u.name}</td>
+            <td>${u.email}</td>
+            <td>${u.enabled ? 'Enabled' : 'Disabled'}</td>
+            <td><button class="toggle-btn ${u.enabled ? 'enabled':'disabled'}" data-index="${i}">
+                ${u.enabled ? 'Disable' : 'Enable'}
+            </button></td>
+        `;
+        tbody.appendChild(tr);
     });
-    const data = await res.json();
-    if (data.success) {
-      statusDiv.textContent = `APK uploaded successfully! Version: ${version}`;
-    } else {
-      statusDiv.textContent = `Error: ${data.error}`;
-    }
-  } catch (err) {
-    console.error(err);
-    statusDiv.textContent = 'Upload failed';
-  }
-});
-</script>
+    attachToggleButtons();
+}
 
+function attachToggleButtons() {
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+        btn.onclick = async () => {
+            const index = btn.dataset.index;
+            await fetch(`/toggle_user/${index}`, {method:'POST'});
+            loadUsers();
+        };
+    });
+}
+
+document.getElementById('enable-all').onclick = async () => {
+    await fetch('/enable_all', {method:'POST'});
+    loadUsers();
+};
+
+document.getElementById('disable-all').onclick = async () => {
+    await fetch('/disable_all', {method:'POST'});
+    loadUsers();
+};
+
+// APK upload
+document.getElementById('apk-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const res = await fetch('/upload_apk', {method:'POST', body: formData});
+    const data = await res.json();
+    alert(data.msg);
+});
+
+loadUsers();
+</script>
 </body>
 </html>
