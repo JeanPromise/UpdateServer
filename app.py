@@ -1,169 +1,131 @@
-from flask import Flask, request, jsonify, send_from_directory
-import os, json
-from werkzeug.utils import secure_filename
+from flask import Flask, request, jsonify, send_file
+import os
+import json
+import requests
+import base64
+from datetime import datetime
+from io import BytesIO
 
-app = Flask(__name__, static_url_path='', static_folder='.')
+app = Flask(__name__)
 
-USERS_FILE = 'users.json'
-APK_FILE = 'apk.json'
+# GitHub config
+GITHUB_REPO = "JeanPromise/UpdateServer"
+BRANCH = "main"
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
-# ------------------- ENSURE FILES EXIST -------------------
-def ensure_files():
-    if not os.path.exists(USERS_FILE):
-        with open(USERS_FILE, 'w') as f:
-            json.dump([], f)
-    if not os.path.exists(APK_FILE):
-        with open(APK_FILE, 'w') as f:
-            json.dump({"version": None, "filename": None}, f)
-
-ensure_files()
-
-# ------------------- INDEX ENDPOINTS -------------------
-@app.route('/')
-def index():
-    return send_from_directory('.', 'index.html')
+USERS_FILE = "users.json"
+APK_FILE = "apk.json"
 
 
-@app.route('/check_update')
-def check_update():
-    with open(APK_FILE, 'r') as f:
-        apk = json.load(f)
-    update_required = apk['version'] is not None
-    return jsonify({"update_required": update_required, "apk_version": apk['version']})
+# ---------------- GitHub Helpers ---------------- #
+def github_get_file(filename):
+    """Fetch file content from GitHub"""
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
+    r = requests.get(url, headers={"Authorization": f"token {GITHUB_TOKEN}"})
+    if r.status_code == 200:
+        content = base64.b64decode(r.json()["content"]).decode()
+        return json.loads(content)
+    else:
+        print(f"⚠️ Could not fetch {filename}, using default.")
+        if filename == USERS_FILE:
+            return []
+        if filename == APK_FILE:
+            return {"version": None, "filename": None}
+        return {}
 
 
-# ------------------- USER ENDPOINTS -------------------
-@app.route('/register', methods=['POST'])
+def github_push_file(filename, content):
+    """Push file content back to GitHub"""
+    url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{filename}"
+    # Get current file SHA
+    r = requests.get(url, headers={"Authorization": f"token {GITHUB_TOKEN}"})
+    sha = r.json()["sha"] if r.status_code == 200 else None
+
+    encoded = base64.b64encode(content.encode()).decode()
+    data = {
+        "message": f"Update {filename} at {datetime.utcnow()}",
+        "content": encoded,
+        "branch": BRANCH,
+    }
+    if sha:
+        data["sha"] = sha
+
+    res = requests.put(url, headers={"Authorization": f"token {GITHUB_TOKEN}"}, json=data)
+    if res.status_code in [200, 201]:
+        print(f"✅ {filename} pushed to GitHub")
+    else:
+        print(f"❌ Failed to push {filename}: {res.text}")
+
+
+# ---------------- Data Load ---------------- #
+users = github_get_file(USERS_FILE)
+apk_data = github_get_file(APK_FILE)
+
+
+# ---------------- Routes ---------------- #
+@app.route("/register", methods=["POST"])
 def register():
-    data = request.get_json()
-    name = data.get('name')
-    email = data.get('email')
-    password = data.get('password')
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
 
-    with open(USERS_FILE, 'r') as f:
-        users = json.load(f)
+    if any(u["username"] == username for u in users):
+        return jsonify({"error": "User already exists"}), 400
 
-    if any(u['email'] == email for u in users):
-        return jsonify({"success": False, "message": "Email already registered."})
+    users.append({"username": username, "password": password})
 
-    users.append({
-        "name": name,
-        "email": email,
-        "password": password,
-        "enabled": True
-    })
+    # Save to GitHub
+    github_push_file(USERS_FILE, json.dumps(users, indent=2))
 
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f, indent=2)
-
-    return jsonify({"success": True})
+    return jsonify({"message": "User registered"})
 
 
-@app.route('/login', methods=['POST'])
+@app.route("/login", methods=["POST"])
 def login():
-    data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
+    data = request.json
+    username = data.get("username")
+    password = data.get("password")
 
-    with open(USERS_FILE, 'r') as f:
-        users = json.load(f)
-
-    for user in users:
-        if user['email'] == email:
-            if not user.get('enabled', True):
-                return jsonify({"success": False, "message": "User is disabled."})
-            if user['password'] == password:
-                return jsonify({"success": True})
-            else:
-                return jsonify({"success": False, "message": "Incorrect password."})
-    return jsonify({"success": False, "message": "Email not registered."})
+    for u in users:
+        if u["username"] == username and u["password"] == password:
+            return jsonify({"message": "Login successful"})
+    return jsonify({"error": "Invalid credentials"}), 401
 
 
-# ------------------- APK ENDPOINTS -------------------
-@app.route('/upload_apk', methods=['POST'])
+@app.route("/upload_apk", methods=["POST"])
 def upload_apk():
-    if 'apk' not in request.files or 'version' not in request.form:
-        return jsonify({"success": False, "message": "APK file and version required."})
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
 
-    apk_file = request.files['apk']
-    version = request.form['version']
-    filename = secure_filename(apk_file.filename)
+    file = request.files["file"]
+    version = request.form.get("version")
 
-    apk_file.save(filename)
+    save_path = os.path.join("uploads", file.filename)
+    os.makedirs("uploads", exist_ok=True)
+    file.save(save_path)
 
-    with open(APK_FILE, 'w') as f:
-        json.dump({"version": version, "filename": filename}, f, indent=2)
+    apk_data["version"] = version
+    apk_data["filename"] = file.filename
 
-    return jsonify({"success": True, "message": "APK uploaded."})
+    # Save metadata to GitHub
+    github_push_file(APK_FILE, json.dumps(apk_data, indent=2))
+
+    return jsonify({"message": "APK uploaded", "version": version})
 
 
-@app.route('/download_apk')
+@app.route("/download_apk", methods=["GET"])
 def download_apk():
-    with open(APK_FILE, 'r') as f:
-        apk = json.load(f)
-
-    if not apk.get("filename") or not os.path.exists(apk["filename"]):
-        return jsonify({"success": False, "message": "No APK available."}), 404
-
-    return send_from_directory('.', apk["filename"], as_attachment=True)
+    if not apk_data.get("filename"):
+        return jsonify({"error": "No APK available"}), 404
+    path = os.path.join("uploads", apk_data["filename"])
+    return send_file(path, as_attachment=True)
 
 
-# ------------------- ADMIN ENDPOINTS -------------------
-@app.route('/get_users')
-def get_users():
-    with open(USERS_FILE, 'r') as f:
-        users = json.load(f)
-    return jsonify(users)
+@app.route("/latest_version", methods=["GET"])
+def latest_version():
+    return jsonify(apk_data)
 
 
-@app.route('/toggle_user', methods=['POST'])
-def toggle_user():
-    data = request.get_json()
-    email = data.get('email')
-    enable = data.get('enable', True)
-
-    with open(USERS_FILE, 'r') as f:
-        users = json.load(f)
-
-    for user in users:
-        if user['email'] == email:
-            user['enabled'] = enable
-            break
-
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f, indent=2)
-
-    return jsonify({"success": True})
-
-
-@app.route('/enable_all', methods=['POST'])
-def enable_all():
-    with open(USERS_FILE, 'r') as f:
-        users = json.load(f)
-
-    for user in users:
-        user['enabled'] = True
-
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f, indent=2)
-
-    return jsonify({"success": True})
-
-
-@app.route('/disable_all', methods=['POST'])
-def disable_all():
-    with open(USERS_FILE, 'r') as f:
-        users = json.load(f)
-
-    for user in users:
-        user['enabled'] = False
-
-    with open(USERS_FILE, 'w') as f:
-        json.dump(users, f, indent=2)
-
-    return jsonify({"success": True})
-
-
-# ------------------- RUN -------------------
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+# ---------------- Main ---------------- #
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
