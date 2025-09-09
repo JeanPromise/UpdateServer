@@ -16,6 +16,7 @@
     height:100vh;
     overflow:hidden;
   }
+
   .container {
     background:#1e1e1e;
     padding:40px;
@@ -25,6 +26,7 @@
     position:relative;
     transition: transform 0.6s ease, opacity 0.6s ease;
   }
+
   h2 {text-align:center; margin-bottom:20px; color:#E50914;}
   form {display:flex; flex-direction:column;}
   input {
@@ -53,15 +55,26 @@
     color:#aaa;
   }
   .toggle:hover {color:#fff;}
+  .disabled-overlay {
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.7);
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    color:#fff;
+    font-size:16px;
+    border-radius:10px;
+    padding:20px;
+  }
+
+  /* Shrink/fade/explode animation */
   .explode {animation: explode 0.6s forwards;}
   @keyframes explode {
     0% {transform: scale(1) rotate(0deg); opacity:1;}
     50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
     100% {transform: scale(0) rotate(30deg); opacity:0;}
-  }
-  .disabled {
-    opacity:0.5;
-    pointer-events:none;
   }
 </style>
 </head>
@@ -71,25 +84,20 @@
   <h2 id="form-title">Login</h2>
 
   <form id="login-form">
-    <input type="email" id="login-email" placeholder="Email" required>
-    <input type="password" id="login-password" placeholder="Password" required>
+    <input type="email" placeholder="Email" required>
+    <input type="password" placeholder="Password" required>
     <button type="submit">Login</button>
   </form>
 
   <form id="register-form" style="display:none;">
-    <input type="text" id="register-name" placeholder="Full Name" required>
-    <input type="email" id="register-email" placeholder="Email" required>
-    <input type="password" id="register-password" placeholder="Password" required>
-    <input type="password" id="register-confirm" placeholder="Confirm Password" required>
+    <input type="text" placeholder="Full Name" required>
+    <input type="email" placeholder="Email" required>
+    <input type="password" placeholder="Password" required>
+    <input type="password" placeholder="Confirm Password" required>
     <button type="submit">Register</button>
   </form>
 
   <div class="toggle" id="toggle-form">Don't have an account? Register</div>
-
-  <div id="update-message" style="display:none; margin-top:20px; text-align:center; color:#ff4c4c;">
-    A new app version is available. Please download and install to continue.
-    <br><a id="apk-link" href="#" style="color:#ff9999;">Download APK</a>
-  </div>
 </div>
 
 <script>
@@ -98,12 +106,42 @@ const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
-const updateMessage = document.getElementById('update-message');
-const apkLink = document.getElementById('apk-link');
 
-let apkRequired = false;
+let apkRequiredVersion = null;
 
-// Toggle between login and registration
+// ===== Check for APK version on load =====
+async function checkApkVersion() {
+    try {
+        const res = await fetch('/apk_info');
+        const data = await res.json();
+        if(data.exists && data.version) {
+            apkRequiredVersion = data.version;
+            // Ask user to update if window.AndroidBridge reports different version
+            if(window.AndroidBridge && typeof window.AndroidBridge.getApkVersion === 'function') {
+                const currentVersion = window.AndroidBridge.getApkVersion();
+                if(currentVersion !== apkRequiredVersion) {
+                    showUpdateOverlay(apkRequiredVersion);
+                }
+            }
+        }
+    } catch(err){ console.log(err); }
+}
+
+function showUpdateOverlay(version){
+    const overlay = document.createElement('div');
+    overlay.classList.add('disabled-overlay');
+    overlay.innerHTML = `A new app update (v${version}) is available.<br>Please download and install to continue.<br>
+    <a href="/download_apk" style="color:#E50914;">Download APK</a>`;
+    container.appendChild(overlay);
+
+    loginForm.querySelectorAll('input,button').forEach(el=>el.disabled=true);
+    registerForm.querySelectorAll('input,button').forEach(el=>el.disabled=true);
+    toggleForm.style.pointerEvents = 'none';
+}
+
+checkApkVersion();
+
+// ===== Toggle between login & register =====
 toggleForm.addEventListener('click', () => {
     if (loginForm.style.display !== 'none') {
         loginForm.style.display = 'none';
@@ -118,70 +156,54 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// Check for new APK version from server
-fetch('/latest_apk')
-.then(res => res.json())
-.then(data => {
-    if(data.version && data.url){
-        const currentVersion = localStorage.getItem('apk_version');
-        if(currentVersion !== data.version){
-            apkRequired = true;
-            container.classList.add('disabled');
-            updateMessage.style.display = 'block';
-            apkLink.href = data.url;
-        }
-    }
-});
-
-// Login submit
+// ===== Login submit =====
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if(apkRequired) return;
-    const email = document.getElementById('login-email').value;
-    const password = document.getElementById('login-password').value;
-
+    const email = loginForm[0].value;
+    const password = loginForm[1].value;
     const res = await fetch('/login', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({email,password})
     });
-    const result = await res.json();
-    if(result.success){
+    const data = await res.json();
+    if(data.status==='success'){
         animateAndDisappear();
     } else {
-        alert(result.message);
+        alert(data.msg);
     }
 });
 
-// Registration submit
+// ===== Registration submit =====
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if(apkRequired) return;
-    const name = document.getElementById('register-name').value;
-    const email = document.getElementById('register-email').value;
-    const password = document.getElementById('register-password').value;
-    const confirm = document.getElementById('register-confirm').value;
-
-    if(password !== confirm){ alert('Passwords do not match'); return; }
+    const name = registerForm[0].value;
+    const email = registerForm[1].value;
+    const password = registerForm[2].value;
+    const confirm = registerForm[3].value;
+    if(password!==confirm){ alert("Passwords do not match"); return; }
 
     const res = await fetch('/register', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({name,email,password})
     });
-    const result = await res.json();
-    if(result.success){
+    const data = await res.json();
+    if(data.status==='success'){
         animateAndDisappear();
     } else {
-        alert(result.message);
+        alert(data.msg);
     }
 });
 
+// ===== Animate container disappear =====
 function animateAndDisappear() {
     container.classList.add('explode');
     container.addEventListener('animationend', () => {
         container.style.display = 'none';
-        if (window.AndroidBridge) window.AndroidBridge.loginSuccess();
+        if (window.AndroidBridge && typeof window.AndroidBridge.loginSuccess === 'function') {
+            window.AndroidBridge.loginSuccess();
+        }
     }, {once:true});
 }
 </script>
