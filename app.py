@@ -4,8 +4,14 @@ from werkzeug.utils import secure_filename
 
 app = Flask(__name__, static_url_path='', static_folder='.')
 
-USERS_FILE = 'users.json'
-APK_FILE = 'apk.json'
+# ------------------- PERSISTENT STORAGE -------------------
+DATA_DIR = "/data"  # Render persistent disk mount point
+os.makedirs(DATA_DIR, exist_ok=True)
+
+USERS_FILE = os.path.join(DATA_DIR, "users.json")
+APK_FILE = os.path.join(DATA_DIR, "apk.json")
+UPLOAD_DIR = os.path.join(DATA_DIR, "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # ------------------- ENSURE FILES EXIST -------------------
 if not os.path.exists(USERS_FILE):
@@ -31,6 +37,7 @@ def check_update():
     return jsonify({"update_required": update_required, "apk_version": apk['version']})
 
 
+# ------------------- AUTH -------------------
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -86,13 +93,9 @@ def download_apk():
     if not apk.get("filename") or not os.path.exists(apk["filename"]):
         return jsonify({"success": False, "message": "No APK available."}), 404
 
-    return send_from_directory('.', apk["filename"], as_attachment=True)
-
-
-# ------------------- ADMIN ENDPOINTS -------------------
-@app.route('/admin')
-def admin_dashboard():
-    return send_from_directory('.', 'admin.html')
+    return send_from_directory(os.path.dirname(apk["filename"]),
+                               os.path.basename(apk["filename"]),
+                               as_attachment=True)
 
 
 @app.route('/upload_apk', methods=['POST'])
@@ -104,14 +107,20 @@ def upload_apk():
     version = request.form['version']
     filename = secure_filename(apk_file.filename)
 
-    # Save APK to root folder
-    apk_file.save(filename)
+    save_path = os.path.join(UPLOAD_DIR, filename)
+    apk_file.save(save_path)
 
     # Update apk.json
     with open(APK_FILE, 'w') as f:
-        json.dump({"version": version, "filename": filename}, f, indent=2)
+        json.dump({"version": version, "filename": save_path}, f, indent=2)
 
     return jsonify({"success": True, "message": "APK uploaded."})
+
+
+# ------------------- ADMIN ENDPOINTS -------------------
+@app.route('/admin')
+def admin_dashboard():
+    return send_from_directory('.', 'admin.html')
 
 
 @app.route('/get_users')
