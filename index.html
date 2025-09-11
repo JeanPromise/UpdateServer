@@ -125,9 +125,24 @@ async function checkUpdate() {
         overlay.innerHTML = `
             <div>New APK version ${data.apk_version} is available.<br>
             Please download and install it to continue.</div>
-            <button onclick="window.location='/download_apk'">Download APK</button>
+            <button id="downloadBtn">Download APK</button>
         `;
         container.appendChild(overlay);
+
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            const res = await fetch('/download_apk');
+            const result = await res.json();
+            if (result.success && result.url) {
+                const a = document.createElement('a');
+                a.href = result.url;
+                a.download = 'app-debug.apk';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } else {
+                alert('Download failed');
+            }
+        });
     }
 }
 
@@ -178,7 +193,6 @@ registerForm.addEventListener('submit', async (e) => {
 
     if (data.success) {
         alert('Registration successful! Please log in.');
-        // switch to login form
         registerForm.style.display = 'none';
         loginForm.style.display = 'flex';
         formTitle.textContent = 'Login';
