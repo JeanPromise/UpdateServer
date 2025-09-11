@@ -1,5 +1,5 @@
+import base64, json, requests, os
 from flask import Flask, request, jsonify, send_from_directory
-import os, json, base64, requests
 from werkzeug.utils import secure_filename
 from datetime import datetime
 
@@ -14,6 +14,37 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 USERS_FILE = "users.json"
 APK_FILE = "apk.json"
 APK_FOLDER = "apks"
+
+# ---------------- Simple Push Helper ----------------
+def push_users(data):
+    """Push users.json data to GitHub repo"""
+    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{USERS_FILE}"
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github+json"
+    }
+
+    # Get the current file SHA (required for updates)
+    get_res = requests.get(url, headers=headers)
+    sha = None
+    if get_res.status_code == 200:
+        sha = get_res.json().get("sha")
+
+    content = base64.b64encode(json.dumps(data, indent=2).encode()).decode()
+
+    payload = {
+        "message": "Update users.json",
+        "content": content,
+        "branch": BRANCH
+    }
+    if sha:
+        payload["sha"] = sha
+
+    res = requests.put(url, headers=headers, json=payload)
+    if res.status_code not in (200, 201):
+        raise Exception(f"Failed to push: {res.status_code} {res.text}")
+
+    return res.json()
 
 # ---------------- GitHub Helpers ----------------
 def github_get_file(filename, default):
@@ -210,13 +241,15 @@ def update_apk():
     }
     save_apk(apk_data)
     return jsonify({"success": True})
+
+# ---------------- Test GitHub Push ----------------
 @app.route("/test_push")
 def test_push():
-    import traceback, json
+    import traceback
     try:
         test_data = {"hello": "world"}
         result = push_users(test_data)
-        return f"Push result: {result}"
+        return jsonify(result)
     except Exception as e:
         return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>"
 
