@@ -45,11 +45,24 @@ def github_push_file(filename, content, message=None):
     else:
         print(f"✅ {filename} pushed to GitHub")
 
-# ---------------- Data Load ----------------
-users = github_get_file(USERS_FILE, [])
-apk_data = github_get_file(APK_FILE, {"version": None, "filename": None, "url": None})
+# ---------------- Data Helpers ----------------
+def load_users():
+    return github_get_file(USERS_FILE, [])
 
-# ---------------- Index ----------------
+def save_users(users_list):
+    github_push_file(USERS_FILE, json.dumps(users_list, indent=2), "Update users")
+
+def load_apk():
+    return github_get_file(APK_FILE, {
+        "version": "1.0.0",
+        "changelog": "Initial release",
+        "download_url": ""
+    })
+
+def save_apk(apk_obj):
+    github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
+
+# ---------------- Index Pages ----------------
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
@@ -66,11 +79,12 @@ def register():
     email = data.get('email')
     password = data.get('password')
 
+    users = load_users()
     if any(u['email'] == email for u in users):
         return jsonify({"success": False, "message": "Email already registered."})
 
     users.append({"name": name, "email": email, "password": password, "enabled": True})
-    github_push_file(USERS_FILE, json.dumps(users, indent=2), "Add new user")
+    save_users(users)
     return jsonify({"success": True})
 
 @app.route('/login', methods=['POST'])
@@ -79,6 +93,7 @@ def login():
     email = data.get('email')
     password = data.get('password')
 
+    users = load_users()
     for user in users:
         if user['email'] == email:
             if not user.get('enabled', True):
@@ -90,41 +105,46 @@ def login():
 
 @app.route('/get_users')
 def get_users():
-    return jsonify(users)
+    return jsonify(load_users())
 
 @app.route('/toggle_user', methods=['POST'])
 def toggle_user():
     data = request.get_json()
     email = data.get('email')
     enable = data.get('enable', True)
+
+    users = load_users()
     for user in users:
         if user['email'] == email:
             user['enabled'] = enable
             break
-    github_push_file(USERS_FILE, json.dumps(users, indent=2), "Toggle user status")
+    save_users(users)
     return jsonify({"success": True})
 
 @app.route('/enable_all', methods=['POST'])
 def enable_all():
+    users = load_users()
     for u in users:
         u['enabled'] = True
-    github_push_file(USERS_FILE, json.dumps(users, indent=2), "Enable all users")
+    save_users(users)
     return jsonify({"success": True})
 
 @app.route('/disable_all', methods=['POST'])
 def disable_all():
+    users = load_users()
     for u in users:
         u['enabled'] = False
-    github_push_file(USERS_FILE, json.dumps(users, indent=2), "Disable all users")
+    save_users(users)
     return jsonify({"success": True})
 
 # ---------------- APK Endpoints ----------------
 @app.route('/check_update')
 def check_update():
+    apk_data = load_apk()
     return jsonify({
         "update_required": apk_data["version"] is not None,
         "apk_version": apk_data["version"],
-        "url": apk_data.get("url")
+        "url": apk_data.get("download_url")
     })
 
 @app.route('/upload_apk', methods=['POST'])
@@ -148,15 +168,39 @@ def upload_apk():
         return jsonify({"success": False, "message": f"GitHub upload failed: {r.text}"}), 500
 
     download_url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/main/{APK_FOLDER}/{filename}"
-    apk_data.update({"version": version, "filename": filename, "url": download_url})
-    github_push_file(APK_FILE, json.dumps(apk_data, indent=2), "Update APK metadata")
+    apk_data = {
+        "version": version,
+        "changelog": f"Uploaded version {version}",
+        "download_url": download_url
+    }
+    save_apk(apk_data)
     return jsonify({"success": True, "message": "APK uploaded.", "url": download_url})
 
 @app.route('/download_apk')
 def download_apk():
-    if not apk_data.get("url"):
+    apk_data = load_apk()
+    if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK available."}), 404
-    return jsonify({"success": True, "url": apk_data["url"]})
+    return jsonify({"success": True, "url": apk_data["download_url"]})
+
+@app.route('/get_apk')
+def get_apk():
+    return jsonify(load_apk())
+
+@app.route('/update_apk', methods=['POST'])
+def update_apk():
+    data = request.get_json()
+    new_version = data.get('version')
+    new_changelog = data.get('changelog')
+    new_download_url = data.get('download_url')
+
+    apk_data = {
+        "version": new_version,
+        "changelog": new_changelog,
+        "download_url": new_download_url
+    }
+    save_apk(apk_data)
+    return jsonify({"success": True})
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
