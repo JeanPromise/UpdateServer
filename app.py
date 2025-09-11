@@ -29,7 +29,6 @@ def github_get_file(filename, default):
 def github_push_file(filename, content, message=None):
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
-    # get SHA if file exists
     r = requests.get(url, headers=headers)
     sha = r.json().get("sha") if r.status_code == 200 else None
     data = {
@@ -54,8 +53,8 @@ def save_users(users_list):
 
 def load_apk():
     return github_get_file(APK_FILE, {
-        "version": "1.0.0",
-        "changelog": "Initial release",
+        "version": None,
+        "changelog": "",
         "download_url": ""
     })
 
@@ -141,10 +140,11 @@ def disable_all():
 @app.route('/check_update')
 def check_update():
     apk_data = load_apk()
+    has_apk = bool(apk_data.get("download_url"))
     return jsonify({
-        "update_required": apk_data["version"] is not None,
-        "apk_version": apk_data["version"],
-        "url": apk_data.get("download_url")
+        "update_required": has_apk,
+        "apk_version": apk_data.get("version") if has_apk else None,
+        "url": apk_data.get("download_url") if has_apk else None
     })
 
 @app.route('/upload_apk', methods=['POST'])
