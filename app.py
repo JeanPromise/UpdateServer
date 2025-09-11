@@ -210,6 +210,10 @@ def update_apk():
     }
     save_apk(apk_data)
     return jsonify({"success": True})
+@app.route("/test_push")
+def test_push():
+    return push_users({"hello": "world"})
+
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
