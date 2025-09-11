@@ -21,16 +21,24 @@ def github_get_file(filename, default):
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
-        content = base64.b64decode(r.json()["content"]).decode()
-        return json.loads(content)
+        try:
+            content = base64.b64decode(r.json()["content"]).decode()
+            return json.loads(content)
+        except Exception as e:
+            print(f"⚠️ Failed to parse {filename}: {e}")
+            return default
     else:
+        print(f"ℹ️ {filename} not found, returning default.")
         return default
 
 def github_push_file(filename, content, message=None):
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
+
+    # check if file exists to get its sha
     r = requests.get(url, headers=headers)
     sha = r.json().get("sha") if r.status_code == 200 else None
+
     data = {
         "message": message or f"Update {filename} at {datetime.utcnow()}",
         "content": base64.b64encode(content.encode()).decode(),
@@ -38,6 +46,7 @@ def github_push_file(filename, content, message=None):
     }
     if sha:
         data["sha"] = sha
+
     res = requests.put(url, headers=headers, json=data)
     if res.status_code not in [200, 201]:
         print(f"❌ Failed to push {filename}: {res.text}")
@@ -61,7 +70,7 @@ def load_apk():
 def save_apk(apk_obj):
     github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
 
-# ---------------- Index Pages ----------------
+# ---------------- Pages ----------------
 @app.route('/')
 def index():
     return send_from_directory('.', 'index.html')
