@@ -24,23 +24,19 @@ def github_get_file(filename, default):
         try:
             content = base64.b64decode(r.json()["content"]).decode()
             data = json.loads(content)
-            if not isinstance(data, (list, dict)):
-                return default
-            return data
+            return data if isinstance(data, (dict, list)) else default
         except Exception as e:
             print(f"⚠️ Failed to parse {filename}: {e}")
             return default
-    else:
-        print(f"ℹ️ {filename} not found, returning default.")
-        return default
+    return default
 
 def github_push_file(filename, content, message=None):
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
-    # get sha if file exists
-    r = requests.get(url, headers=headers)
-    sha = r.json().get("sha") if r.status_code == 200 else None
+    # Get SHA if file exists (needed to replace)
+    r_get = requests.get(url, headers=headers)
+    sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
     data = {
         "message": message or f"Update {filename} at {datetime.utcnow()}",
@@ -50,11 +46,11 @@ def github_push_file(filename, content, message=None):
     if sha:
         data["sha"] = sha
 
-    res = requests.put(url, headers=headers, json=data)
-    if res.status_code not in [200, 201]:
-        print(f"❌ Failed to push {filename}: {res.text}")
-    else:
-        print(f"✅ {filename} pushed to GitHub")
+    r = requests.put(url, headers=headers, json=data)
+    if r.status_code not in [200, 201]:
+        print(f"❌ Failed to push {filename}: {r.text}")
+        return False
+    return True
 
 # ---------------- Data Helpers ----------------
 def load_users():
@@ -65,11 +61,7 @@ def save_users(users_list):
     github_push_file(USERS_FILE, json.dumps(users_list, indent=2), "Update users")
 
 def load_apk():
-    return github_get_file(APK_FILE, {
-        "version": None,
-        "changelog": "",
-        "download_url": ""
-    })
+    return github_get_file(APK_FILE, {"version": None, "changelog": "", "download_url": ""})
 
 def save_apk(apk_obj):
     github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
@@ -87,14 +79,10 @@ def admin():
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
-    name = data.get('name')
-    email = data.get('email')
-    password = data.get('password')
-
+    name, email, password = data.get('name'), data.get('email'), data.get('password')
     users = load_users()
-    if any(isinstance(u, dict) and u.get('email') == email for u in users):
+    if any(u.get('email') == email for u in users if isinstance(u, dict)):
         return jsonify({"success": False, "message": "Email already registered."})
-
     users.append({"name": name, "email": email, "password": password, "enabled": True})
     save_users(users)
     return jsonify({"success": True})
@@ -102,15 +90,13 @@ def register():
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    email = data.get('email')
-    password = data.get('password')
-
+    email, password = data.get('email'), data.get('password')
     users = load_users()
-    for user in users:
-        if isinstance(user, dict) and user.get('email') == email:
-            if not user.get('enabled', True):
+    for u in users:
+        if isinstance(u, dict) and u.get('email') == email:
+            if not u.get('enabled', True):
                 return jsonify({"success": False, "message": "User is disabled."})
-            if user.get('password') == password:
+            if u.get('password') == password:
                 return jsonify({"success": True})
             return jsonify({"success": False, "message": "Incorrect password."})
     return jsonify({"success": False, "message": "Email not registered."})
@@ -122,13 +108,11 @@ def get_users():
 @app.route('/toggle_user', methods=['POST'])
 def toggle_user():
     data = request.get_json()
-    email = data.get('email')
-    enable = data.get('enable', True)
-
+    email, enable = data.get('email'), data.get('enable', True)
     users = load_users()
-    for user in users:
-        if isinstance(user, dict) and user.get('email') == email:
-            user['enabled'] = enable
+    for u in users:
+        if isinstance(u, dict) and u.get('email') == email:
+            u['enabled'] = enable
             break
     save_users(users)
     return jsonify({"success": True})
@@ -137,8 +121,7 @@ def toggle_user():
 def enable_all():
     users = load_users()
     for u in users:
-        if isinstance(u, dict):
-            u['enabled'] = True
+        if isinstance(u, dict): u['enabled'] = True
     save_users(users)
     return jsonify({"success": True})
 
@@ -146,8 +129,7 @@ def enable_all():
 def disable_all():
     users = load_users()
     for u in users:
-        if isinstance(u, dict):
-            u['enabled'] = False
+        if isinstance(u, dict): u['enabled'] = False
     save_users(users)
     return jsonify({"success": True})
 
@@ -172,23 +154,27 @@ def upload_apk():
     filename = secure_filename(file.filename)
     apk_bytes = file.read()
 
-    # push APK binary to GitHub
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
-    data = {"message": f"Upload APK {filename} version {version}",
-            "content": base64.b64encode(apk_bytes).decode(),
-            "branch": BRANCH}
+
+    # Get SHA if file exists
+    r_get = requests.get(url, headers=headers)
+    sha = r_get.json().get("sha") if r_get.status_code == 200 else None
+
+    data = {
+        "message": f"Upload APK {filename} version {version}",
+        "content": base64.b64encode(apk_bytes).decode(),
+        "branch": BRANCH
+    }
+    if sha:
+        data["sha"] = sha
+
     r = requests.put(url, headers=headers, json=data)
     if r.status_code not in [200, 201]:
         return jsonify({"success": False, "message": f"GitHub upload failed: {r.text}"}), 500
 
-    download_url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/main/{APK_FOLDER}/{filename}"
-    apk_data = {
-        "version": version,
-        "changelog": f"Uploaded version {version}",
-        "download_url": download_url
-    }
-    save_apk(apk_data)
+    download_url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/main/{APK_FOLDER}/{filename}?v={version}"
+    save_apk({"version": version, "changelog": f"Uploaded version {version}", "download_url": download_url})
     return jsonify({"success": True, "message": "APK uploaded.", "url": download_url})
 
 @app.route('/download_apk')
@@ -205,29 +191,12 @@ def get_apk():
 @app.route('/update_apk', methods=['POST'])
 def update_apk():
     data = request.get_json()
-    new_version = data.get('version')
-    new_changelog = data.get('changelog')
-    new_download_url = data.get('download_url')
-
-    apk_data = {
-        "version": new_version,
-        "changelog": new_changelog,
-        "download_url": new_download_url
-    }
-    save_apk(apk_data)
+    save_apk({
+        "version": data.get('version'),
+        "changelog": data.get('changelog'),
+        "download_url": data.get('download_url')
+    })
     return jsonify({"success": True})
-
-# ---------------- Test GitHub Push ----------------
-@app.route("/test_push")
-def test_push():
-    import traceback
-    try:
-        test_data = {"hello": "world"}
-        from random import randint
-        result = github_push_file("test.json", json.dumps(test_data), f"test push {randint(1,9999)}")
-        return jsonify({"success": True})
-    except Exception as e:
-        return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>"
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
