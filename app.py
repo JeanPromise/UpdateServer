@@ -15,37 +15,6 @@ USERS_FILE = "users.json"
 APK_FILE = "apk.json"
 APK_FOLDER = "apks"
 
-# ---------------- Simple Push Helper ----------------
-def push_users(data):
-    """Push users.json data to GitHub repo"""
-    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{USERS_FILE}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json"
-    }
-
-    # Get the current file SHA (required for updates)
-    get_res = requests.get(url, headers=headers)
-    sha = None
-    if get_res.status_code == 200:
-        sha = get_res.json().get("sha")
-
-    content = base64.b64encode(json.dumps(data, indent=2).encode()).decode()
-
-    payload = {
-        "message": "Update users.json",
-        "content": content,
-        "branch": BRANCH
-    }
-    if sha:
-        payload["sha"] = sha
-
-    res = requests.put(url, headers=headers, json=payload)
-    if res.status_code not in (200, 201):
-        raise Exception(f"Failed to push: {res.status_code} {res.text}")
-
-    return res.json()
-
 # ---------------- GitHub Helpers ----------------
 def github_get_file(filename, default):
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
@@ -54,7 +23,10 @@ def github_get_file(filename, default):
     if r.status_code == 200:
         try:
             content = base64.b64decode(r.json()["content"]).decode()
-            return json.loads(content)
+            data = json.loads(content)
+            if not isinstance(data, (list, dict)):
+                return default
+            return data
         except Exception as e:
             print(f"⚠️ Failed to parse {filename}: {e}")
             return default
@@ -66,7 +38,7 @@ def github_push_file(filename, content, message=None):
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
-    # check if file exists to get its sha
+    # get sha if file exists
     r = requests.get(url, headers=headers)
     sha = r.json().get("sha") if r.status_code == 200 else None
 
@@ -86,7 +58,8 @@ def github_push_file(filename, content, message=None):
 
 # ---------------- Data Helpers ----------------
 def load_users():
-    return github_get_file(USERS_FILE, [])
+    data = github_get_file(USERS_FILE, [])
+    return data if isinstance(data, list) else []
 
 def save_users(users_list):
     github_push_file(USERS_FILE, json.dumps(users_list, indent=2), "Update users")
@@ -119,7 +92,7 @@ def register():
     password = data.get('password')
 
     users = load_users()
-    if any(u['email'] == email for u in users):
+    if any(isinstance(u, dict) and u.get('email') == email for u in users):
         return jsonify({"success": False, "message": "Email already registered."})
 
     users.append({"name": name, "email": email, "password": password, "enabled": True})
@@ -134,10 +107,10 @@ def login():
 
     users = load_users()
     for user in users:
-        if user['email'] == email:
+        if isinstance(user, dict) and user.get('email') == email:
             if not user.get('enabled', True):
                 return jsonify({"success": False, "message": "User is disabled."})
-            if user['password'] == password:
+            if user.get('password') == password:
                 return jsonify({"success": True})
             return jsonify({"success": False, "message": "Incorrect password."})
     return jsonify({"success": False, "message": "Email not registered."})
@@ -154,7 +127,7 @@ def toggle_user():
 
     users = load_users()
     for user in users:
-        if user['email'] == email:
+        if isinstance(user, dict) and user.get('email') == email:
             user['enabled'] = enable
             break
     save_users(users)
@@ -164,7 +137,8 @@ def toggle_user():
 def enable_all():
     users = load_users()
     for u in users:
-        u['enabled'] = True
+        if isinstance(u, dict):
+            u['enabled'] = True
     save_users(users)
     return jsonify({"success": True})
 
@@ -172,7 +146,8 @@ def enable_all():
 def disable_all():
     users = load_users()
     for u in users:
-        u['enabled'] = False
+        if isinstance(u, dict):
+            u['enabled'] = False
     save_users(users)
     return jsonify({"success": True})
 
@@ -248,8 +223,9 @@ def test_push():
     import traceback
     try:
         test_data = {"hello": "world"}
-        result = push_users(test_data)
-        return jsonify(result)
+        from random import randint
+        result = github_push_file("test.json", json.dumps(test_data), f"test push {randint(1,9999)}")
+        return jsonify({"success": True})
     except Exception as e:
         return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>"
 
