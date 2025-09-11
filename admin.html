@@ -5,37 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Dashboard</title>
 <style>
-  body {
-    font-family: Arial, sans-serif;
-    background:#121212;
-    color:#fff;
-    padding:20px;
-  }
-  h1, h2 {color:#E50914;}
-  table {
-    width:100%;
-    border-collapse:collapse;
-    margin-top:20px;
-  }
-  th, td {
-    padding:10px;
-    border:1px solid #333;
-    text-align:left;
-  }
-  th {background:#1e1e1e;}
-  tr:nth-child(even){background:#1a1a1a;}
-  button {
-    padding:5px 10px;
-    border:none;
-    border-radius:5px;
-    cursor:pointer;
-    font-weight:bold;
-    margin:2px;
-  }
-  .enable {background:#4CAF50; color:#fff;}
-  .disable {background:#f44336; color:#fff;}
-  .all-btn {margin:10px 5px; padding:10px 20px;}
-  input[type="file"], input[type="text"] {margin:5px 0; padding:5px;}
+  body { font-family: Arial, sans-serif; background:#121212; color:#fff; padding:20px; }
+  h1, h2 { color:#E50914; }
+  table { width:100%; border-collapse:collapse; margin-top:20px; }
+  th, td { padding:10px; border:1px solid #333; text-align:left; }
+  th { background:#1e1e1e; }
+  tr:nth-child(even) { background:#1a1a1a; }
+  button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; margin:2px; }
+  .enable { background:#4CAF50; color:#fff; }
+  .disable { background:#f44336; color:#fff; }
+  .all-btn { margin:10px 5px; padding:10px 20px; }
+  input[type="file"], input[type="text"] { margin:5px 0; padding:5px; }
 </style>
 </head>
 <body>
@@ -48,6 +28,7 @@
   <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required>
   <button type="submit">Upload APK</button>
 </form>
+<p id="latest-apk" style="margin-top:10px;"></p>
 
 <h2>Users Management</h2>
 <button class="all-btn enable" id="enable-all">Enable All Users</button>
@@ -110,6 +91,18 @@ document.getElementById('disable-all').addEventListener('click', async () => {
   loadUsers();
 });
 
+// ----- Show latest APK info -----
+async function loadLatestAPK() {
+  const res = await fetch('/get_apk');
+  const apk = await res.json();
+  const p = document.getElementById('latest-apk');
+  if(apk.download_url) {
+    p.innerHTML = `Latest APK: Version <b>${apk.version}</b> - <a href="${apk.download_url}" target="_blank">Download</a>`;
+  } else {
+    p.innerHTML = `No APK uploaded yet.`;
+  }
+}
+
 // ----- Upload APK -----
 document.getElementById('upload-apk-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -126,12 +119,16 @@ document.getElementById('upload-apk-form').addEventListener('submit', async (e) 
   const res = await fetch('/upload_apk', {method:'POST', body: formData});
   const data = await res.json();
   alert(data.message);
+
   fileInput.value = '';
   versionInput.value = '';
+
+  loadLatestAPK(); // refresh latest APK info
 });
 
 // Initial load
 loadUsers();
+loadLatestAPK();
 </script>
 
 </body>
