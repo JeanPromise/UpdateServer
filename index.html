@@ -168,16 +168,21 @@ registerForm.addEventListener('submit', async (e) => {
     const password = registerForm[2].value.trim();
     const confirm = registerForm[3].value.trim();
     if (password !== confirm) return alert('Passwords do not match!');
+
     const res = await fetch('/register', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({name,email,password})
     });
     const data = await res.json();
+
     if (data.success) {
-        animateAndDisappear(() => {
-            if (window.AndroidBridge) window.AndroidBridge.loginSuccess();
-        });
+        alert('Registration successful! Please log in.');
+        // switch to login form
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'flex';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
     } else {
         alert(data.message);
     }
