@@ -34,7 +34,7 @@ def github_push_file(filename, content, message=None):
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
-    # Get SHA if file exists (needed to replace)
+    # Get SHA if file exists
     r_get = requests.get(url, headers=headers)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
