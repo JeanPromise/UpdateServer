@@ -212,8 +212,13 @@ def update_apk():
     return jsonify({"success": True})
 @app.route("/test_push")
 def test_push():
-    return push_users({"hello": "world"})
-
+    import traceback, json
+    try:
+        test_data = {"hello": "world"}
+        result = push_users(test_data)
+        return f"Push result: {result}"
+    except Exception as e:
+        return f"Error: {str(e)}<br><pre>{traceback.format_exc()}</pre>"
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
