@@ -3,7 +3,7 @@
     "name": "Jean",
     "email": "Jeangift128@gmail.com",
     "password": "123",
-    "enabled": false
+    "enabled": true
   },
   {
     "name": "Jean Gift",
