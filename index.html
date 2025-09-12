@@ -67,6 +67,7 @@
   .disabled-overlay button {
     margin-top:15px;
     background:#4CAF50;
+    cursor:pointer;
   }
 </style>
 </head>
@@ -168,7 +169,6 @@ loginForm.addEventListener('submit', async (e) => {
     const data = await res.json();
     if (data.success) {
         animateAndDisappear(() => {
-            // Notify Android immediately
             if (window.AndroidBridge && AndroidBridge.loginSuccess) {
                 AndroidBridge.loginSuccess();
             }
@@ -208,7 +208,7 @@ registerForm.addEventListener('submit', async (e) => {
 // ----- Notify app if page is fully loaded -----
 window.addEventListener('load', () => {
     if (window.AndroidBridge && AndroidBridge.loginSuccess) {
-        AndroidBridge.loginSuccess(); // in case user is already logged in or session valid
+        AndroidBridge.loginSuccess();
     }
 });
 
