@@ -198,6 +198,27 @@ def update_apk():
     })
     return jsonify({"success": True})
 
+@app.route('/delete_apk', methods=['POST'])
+def delete_apk():
+    apk_data = load_apk()
+    if not apk_data.get("download_url"):
+        return jsonify({"success": False, "message": "No APK to delete."})
+
+    # Remove APK info
+    save_apk({"version": None, "changelog": "", "download_url": ""})
+
+    # Optional: remove file from GitHub
+    if GITHUB_TOKEN:
+        filename = apk_data["download_url"].split('/')[-1].split('?')[0]
+        url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
+        headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+        r_get = requests.get(url, headers=headers)
+        sha = r_get.json().get("sha") if r_get.status_code == 200 else None
+        if sha:
+            requests.delete(url, headers=headers, json={"message": f"Delete APK {filename}", "sha": sha, "branch": BRANCH})
+
+    return jsonify({"success": True, "message": "APK deleted."})
+
 # ---------------- Run ----------------
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
