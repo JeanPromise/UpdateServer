@@ -198,6 +198,17 @@ def update_apk():
     })
     return jsonify({"success": True})
 
+# ---------------- New: Delete APK ----------------
+@app.route('/delete_apk', methods=['POST'])
+def delete_apk():
+    apk_data = load_apk()
+    if not apk_data.get("download_url"):
+        return jsonify({"success": False, "message": "No APK to delete."})
+
+    # Reset apk.json
+    save_apk({"version": None, "changelog": "", "download_url": ""})
+    return jsonify({"success": True, "message": "APK deleted."})
+
 # ---------------- Run ----------------
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
