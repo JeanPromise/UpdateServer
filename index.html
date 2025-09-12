@@ -168,7 +168,10 @@ loginForm.addEventListener('submit', async (e) => {
     const data = await res.json();
     if (data.success) {
         animateAndDisappear(() => {
-            if (window.AndroidBridge) window.AndroidBridge.loginSuccess();
+            // Notify Android immediately
+            if (window.AndroidBridge && AndroidBridge.loginSuccess) {
+                AndroidBridge.loginSuccess();
+            }
         });
     } else {
         alert(data.message);
@@ -199,6 +202,13 @@ registerForm.addEventListener('submit', async (e) => {
         toggleForm.textContent = "Don't have an account? Register";
     } else {
         alert(data.message);
+    }
+});
+
+// ----- Notify app if page is fully loaded -----
+window.addEventListener('load', () => {
+    if (window.AndroidBridge && AndroidBridge.loginSuccess) {
+        AndroidBridge.loginSuccess(); // in case user is already logged in or session valid
     }
 });
 
