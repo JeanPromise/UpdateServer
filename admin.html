@@ -16,6 +16,7 @@
   .disable { background:#f44336; color:#fff; }
   .all-btn { margin:10px 5px; padding:10px 20px; }
   input[type="file"], input[type="text"] { margin:5px 0; padding:5px; }
+  #delete-apk { background:#FF4500; color:#fff; display:none; margin-left:10px; }
 </style>
 </head>
 <body>
@@ -27,6 +28,7 @@
   <input type="file" id="apk-file" required>
   <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required>
   <button type="submit">Upload APK</button>
+  <button type="button" id="delete-apk">Delete APK</button>
 </form>
 <p id="latest-apk" style="margin-top:10px;"></p>
 
@@ -43,9 +45,7 @@
       <th>Actions</th>
     </tr>
   </thead>
-  <tbody id="users-tbody">
-    <!-- Users will populate here -->
-  </tbody>
+  <tbody id="users-tbody"></tbody>
 </table>
 
 <script>
@@ -96,10 +96,14 @@ async function loadLatestAPK() {
   const res = await fetch('/get_apk');
   const apk = await res.json();
   const p = document.getElementById('latest-apk');
+  const delBtn = document.getElementById('delete-apk');
+
   if(apk.download_url) {
     p.innerHTML = `Latest APK: Version <b>${apk.version}</b> - <a href="${apk.download_url}" target="_blank">Download</a>`;
+    delBtn.style.display = 'inline-block';
   } else {
     p.innerHTML = `No APK uploaded yet.`;
+    delBtn.style.display = 'none';
   }
 }
 
@@ -124,6 +128,15 @@ document.getElementById('upload-apk-form').addEventListener('submit', async (e) 
   versionInput.value = '';
 
   loadLatestAPK(); // refresh latest APK info
+});
+
+// ----- Delete APK -----
+document.getElementById('delete-apk').addEventListener('click', async () => {
+  if(!confirm('Are you sure you want to delete the APK?')) return;
+  const res = await fetch('/delete_apk', {method:'POST'});
+  const data = await res.json();
+  alert(data.message);
+  loadLatestAPK();
 });
 
 // Initial load
