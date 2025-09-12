@@ -4,5 +4,11 @@
     "email": "Jeangift128@gmail.com",
     "password": "123",
     "enabled": false
+  },
+  {
+    "name": "Jean Gift",
+    "email": "jeanpromise6@gmail.com",
+    "password": "123",
+    "enabled": true
   }
 ]
