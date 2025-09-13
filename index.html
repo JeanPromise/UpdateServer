@@ -147,12 +147,33 @@ async function checkUpdate() {
     }
 }
 
-// ----- Animate container -----
-function animateAndDisappear(callback) {
+// ----- Animate container and show Proceed button -----
+function animateAndDisappear() {
     container.classList.add('explode');
     container.addEventListener('animationend', () => {
         container.style.display = 'none';
-        if (callback) callback();
+        
+        // ===== Show Proceed button =====
+        const proceedBtn = document.createElement('button');
+        proceedBtn.textContent = 'Proceed to Shows';
+        proceedBtn.style.padding = '10px 20px';
+        proceedBtn.style.fontSize = '16px';
+        proceedBtn.style.background = '#E50914';
+        proceedBtn.style.color = '#fff';
+        proceedBtn.style.border = 'none';
+        proceedBtn.style.borderRadius = '5px';
+        proceedBtn.style.cursor = 'pointer';
+        proceedBtn.style.position = 'fixed';
+        proceedBtn.style.top = '50%';
+        proceedBtn.style.left = '50%';
+        proceedBtn.style.transform = 'translate(-50%, -50%)';
+        document.body.appendChild(proceedBtn);
+
+        proceedBtn.addEventListener('click', () => {
+            if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
+                AndroidBridge.openGoojaraPage();
+            }
+        });
     }, {once:true});
 }
 
@@ -168,11 +189,7 @@ loginForm.addEventListener('submit', async (e) => {
     });
     const data = await res.json();
     if (data.success) {
-        animateAndDisappear(() => {
-            if (window.AndroidBridge && AndroidBridge.loginSuccess) {
-                AndroidBridge.loginSuccess();
-            }
-        });
+        animateAndDisappear();
     } else {
         alert(data.message);
     }
@@ -205,14 +222,7 @@ registerForm.addEventListener('submit', async (e) => {
     }
 });
 
-// ----- Notify app if page is fully loaded -----
-window.addEventListener('load', () => {
-    if (window.AndroidBridge && AndroidBridge.loginSuccess) {
-        AndroidBridge.loginSuccess();
-    }
-});
-
-// ----- Initial check -----
+// ----- Initial APK update check -----
 checkUpdate();
 </script>
 
