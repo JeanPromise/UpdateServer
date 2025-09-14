@@ -15,7 +15,7 @@
     "name": "Jean",
     "email": "josiahmukung@gmail.com",
     "password": "123",
-    "enabled": false
+    "enabled": true
   },
   {
     "name": "Tes",
