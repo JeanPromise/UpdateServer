@@ -69,6 +69,25 @@
     background:#4CAF50;
     cursor:pointer;
   }
+  /* ====== Contact Us button ====== */
+  #contact-us-btn {
+    position:fixed;
+    bottom:20px;
+    right:20px;
+    padding:12px 18px;
+    font-size:16px;
+    background:#1e90ff;
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
+    z-index:999;
+    box-shadow:0 4px 12px rgba(0,0,0,0.5);
+    transition:0.2s;
+  }
+  #contact-us-btn:hover {
+    background:#0d6efd;
+  }
 </style>
 </head>
 <body>
@@ -93,6 +112,9 @@
   <div class="toggle" id="toggle-form">Don't have an account? Register</div>
 </div>
 
+<!-- ===== Always-present Contact Us Button ===== -->
+<button id="contact-us-btn">Contact Us</button>
+
 <script>
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
@@ -114,6 +136,11 @@ toggleForm.addEventListener('click', () => {
         formTitle.textContent = 'Login';
         toggleForm.textContent = "Don't have an account? Register";
     }
+});
+
+// ----- Contact Us button -----
+document.getElementById('contact-us-btn').addEventListener('click', () => {
+    window.location.href = '/contact'; // backend route serving contact.html
 });
 
 // ----- Check for APK update -----
@@ -153,7 +180,6 @@ function animateAndDisappear() {
     container.addEventListener('animationend', () => {
         container.style.display = 'none';
         
-        // ===== Show Proceed button =====
         const proceedBtn = document.createElement('button');
         proceedBtn.textContent = 'Proceed to Shows';
         proceedBtn.style.padding = '10px 20px';
@@ -167,9 +193,9 @@ function animateAndDisappear() {
         proceedBtn.style.top = '50%';
         proceedBtn.style.left = '50%';
         proceedBtn.style.transform = 'translate(-50%, -50%)';
+        proceedBtn.style.zIndex = '998'; // below Contact Us button
         document.body.appendChild(proceedBtn);
 
-        // 🔑 Deflect into Android (open Goojara)
         proceedBtn.addEventListener('click', () => {
             if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
                 AndroidBridge.openGoojaraPage();
