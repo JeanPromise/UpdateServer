@@ -3,99 +3,225 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Dashboard - Contact Us</title>
+<title>Admin Dashboard</title>
 <style>
-  body { font-family: Arial, sans-serif; background:#121212; color:#fff; padding:20px; }
-  h1, h2 { color:#E50914; margin-bottom:10px; }
-  table { width:100%; border-collapse:collapse; margin-top:20px; }
-  th, td { padding:10px; border:1px solid #333; text-align:left; }
-  th { background:#1e1e1e; }
-  tr:nth-child(even) { background:#1a1a1a; }
-  button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; margin:2px; }
-  .enable { background:#4CAF50; color:#fff; }
-  .disable { background:#f44336; color:#fff; }
-  .user-list { float:left; width:30%; max-height:80vh; overflow-y:auto; border-right:1px solid #333; padding-right:10px; }
-  .message-area { float:left; width:65%; padding-left:20px; max-height:80vh; overflow-y:auto; }
-  .message { background:#1e1e1e; padding:10px; margin-bottom:10px; border-radius:5px; }
-  .message.user { background:#333; }
-  textarea { width:100%; padding:10px; border-radius:5px; border:none; resize:none; margin-top:10px; }
-  #reply-btn { background:#4CAF50; margin-top:5px; }
-  .clearfix::after { content:""; clear:both; display:table; }
+body { font-family: Arial, sans-serif; background:#121212; color:#fff; padding:20px; margin:0;}
+h1, h2 { color:#E50914; }
+table { width:100%; border-collapse:collapse; margin-top:20px; }
+th, td { padding:10px; border:1px solid #333; text-align:left; }
+th { background:#1e1e1e; }
+tr:nth-child(even) { background:#1a1a1a; }
+button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; margin:2px; }
+.enable { background:#4CAF50; color:#fff; }
+.disable { background:#f44336; color:#fff; }
+.all-btn { margin:10px 5px; padding:10px 20px; }
+input[type="file"], input[type="text"] { margin:5px 0; padding:5px; }
+#delete-apk { background:#FF4500; color:#fff; display:none; margin-left:10px; }
+
+/* ===== Contact Us/Admin messages ===== */
+#contact-section { display:flex; margin-top:30px; gap:20px; height:400px; }
+#user-list { width:200px; background:#1e1e1e; border-radius:10px; overflow-y:auto; }
+.user-item { padding:10px; border-bottom:1px solid #333; cursor:pointer; }
+.user-item.selected { background:#333; }
+#conversation { flex:1; display:flex; flex-direction:column; background:#1e1e1e; border-radius:10px; padding:10px; }
+#messages { flex:1; overflow-y:auto; margin-bottom:10px; }
+.message { padding:8px; margin-bottom:5px; border-radius:5px; }
+.message.user { background:#333; text-align:right; }
+.message.admin { background:#4CAF50; text-align:left; }
+#reply-box { display:flex; gap:5px; }
+#reply-text { flex:1; padding:5px; border-radius:5px; border:none; }
+#reply-btn { padding:5px 10px; border:none; border-radius:5px; background:#E50914; color:#fff; cursor:pointer; }
+#reply-btn:hover { background:#ff1a2c; }
 </style>
 </head>
 <body>
 
 <h1>Admin Dashboard</h1>
 
-<h2>Users Messages</h2>
-<div class="clearfix">
-  <div class="user-list">
-    <ul id="user-list-ul" style="list-style:none; padding-left:0;"></ul>
-  </div>
-  <div class="message-area">
-    <h3 id="selected-user-title">Select a user to view messages</h3>
-    <div id="messages-container"></div>
-    <textarea id="reply-text" rows="3" placeholder="Type your reply..."></textarea>
-    <button id="reply-btn">Send Reply</button>
+<h2>Upload New APK</h2>
+<form id="upload-apk-form">
+  <input type="file" id="apk-file" required>
+  <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required>
+  <button type="submit">Upload APK</button>
+  <button type="button" id="delete-apk">Delete APK</button>
+</form>
+<p id="latest-apk" style="margin-top:10px;"></p>
+
+<h2>Users Management</h2>
+<button class="all-btn enable" id="enable-all">Enable All Users</button>
+<button class="all-btn disable" id="disable-all">Disable All Users</button>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="users-tbody"></tbody>
+</table>
+
+<!-- ===== Contact Us / Admin Messages ===== -->
+<h2>Contact Us / User Messages</h2>
+<div id="contact-section">
+  <div id="user-list"></div>
+  <div id="conversation">
+    <div id="messages"></div>
+    <div id="reply-box">
+      <input type="text" id="reply-text" placeholder="Type a reply...">
+      <button id="reply-btn">Send</button>
+    </div>
   </div>
 </div>
 
 <script>
-// ----- Load users who sent messages -----
-let selectedUserEmail = null;
-
+// ---------------- Users Management ----------------
 async function loadUsers() {
   const res = await fetch('/get_users');
   const users = await res.json();
-  const ul = document.getElementById('user-list-ul');
-  ul.innerHTML = '';
+  const tbody = document.getElementById('users-tbody');
+  tbody.innerHTML = '';
   users.forEach(u => {
-    const li = document.createElement('li');
-    li.style.padding='5px';
-    li.style.cursor='pointer';
-    li.style.borderBottom='1px solid #333';
-    li.textContent = u.name + ' ('+u.email+')';
-    li.addEventListener('click', () => selectUser(u.email, u.name));
-    ul.appendChild(li);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${u.name}</td>
+      <td>${u.email}</td>
+      <td>${u.enabled ? 'Enabled' : 'Disabled'}</td>
+      <td>
+        <button class="${u.enabled ? 'disable' : 'enable'}" onclick="toggleUser('${u.email}', ${!u.enabled})">
+          ${u.enabled ? 'Disable' : 'Enable'}
+        </button>
+      </td>
+    `;
+    tbody.appendChild(tr);
   });
-}
 
-// ----- Select user and load messages -----
-async function selectUser(email, name) {
-  selectedUserEmail = email;
-  document.getElementById('selected-user-title').textContent = 'Messages with ' + name;
-  const res = await fetch('/get_messages?email=' + encodeURIComponent(email));
-  const messages = await res.json();
-  const container = document.getElementById('messages-container');
-  container.innerHTML = '';
-  messages.forEach(m => {
+  // Populate left user list for messages
+  const userList = document.getElementById('user-list');
+  userList.innerHTML = '';
+  users.forEach(u => {
     const div = document.createElement('div');
-    div.className = 'message ' + (m.from === 'user' ? 'user' : 'admin');
-    div.innerHTML = `<b>${m.from === 'user' ? 'User' : 'Admin'}:</b> ${m.text}<br><small>${m.time}</small>`;
-    container.appendChild(div);
+    div.className = 'user-item';
+    div.textContent = u.name + ' (' + u.email + ')';
+    div.dataset.email = u.email;
+    div.addEventListener('click', () => selectUser(u.email, div));
+    userList.appendChild(div);
   });
-  container.scrollTop = container.scrollHeight;
 }
 
-// ----- Send reply -----
-document.getElementById('reply-btn').addEventListener('click', async () => {
-  const text = document.getElementById('reply-text').value.trim();
-  if(!selectedUserEmail) return alert('Select a user first.');
-  if(!text) return alert('Type your reply.');
-  const res = await fetch('/reply_message', {
+async function toggleUser(email, enable) {
+  await fetch('/toggle_user', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({email:selectedUserEmail, text})
+    body: JSON.stringify({email, enable})
+  });
+  loadUsers();
+}
+
+document.getElementById('enable-all').addEventListener('click', async () => {
+  await fetch('/enable_all', {method:'POST'});
+  loadUsers();
+});
+document.getElementById('disable-all').addEventListener('click', async () => {
+  await fetch('/disable_all', {method:'POST'});
+  loadUsers();
+});
+
+// ---------------- APK ----------------
+async function loadLatestAPK() {
+  const res = await fetch('/get_apk');
+  const apk = await res.json();
+  const p = document.getElementById('latest-apk');
+  const delBtn = document.getElementById('delete-apk');
+
+  if(apk.download_url) {
+    p.innerHTML = `Latest APK: Version <b>${apk.version}</b> - <a href="${apk.download_url}" target="_blank">Download</a>`;
+    delBtn.style.display = 'inline-block';
+  } else {
+    p.innerHTML = `No APK uploaded yet.`;
+    delBtn.style.display = 'none';
+  }
+}
+
+document.getElementById('upload-apk-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fileInput = document.getElementById('apk-file');
+  const versionInput = document.getElementById('apk-version');
+  const file = fileInput.files[0];
+  const version = versionInput.value.trim();
+  if(!file || !version) return alert('File and version required.');
+
+  const formData = new FormData();
+  formData.append('apk', file);
+  formData.append('version', version);
+
+  const res = await fetch('/upload_apk', {method:'POST', body: formData});
+  const data = await res.json();
+  alert(data.message);
+
+  fileInput.value = '';
+  versionInput.value = '';
+
+  loadLatestAPK();
+});
+
+document.getElementById('delete-apk').addEventListener('click', async () => {
+  if(!confirm('Are you sure you want to delete the APK?')) return;
+  const res = await fetch('/delete_apk', {method:'POST'});
+  const data = await res.json();
+  alert(data.message);
+  loadLatestAPK();
+});
+
+// ---------------- Contact Us / Messages ----------------
+let selectedEmail = null;
+
+async function loadMessages(email) {
+  if(!email) return;
+  const res = await fetch('/admin/get_messages');
+  const data = await res.json();
+  const userConvo = data.find(u => u.user_email === email);
+  const messagesDiv = document.getElementById('messages');
+  messagesDiv.innerHTML = '';
+
+  if(userConvo && userConvo.messages.length){
+    userConvo.messages.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'message ' + m.from;
+      div.textContent = m.text + ' [' + new Date(m.timestamp).toLocaleTimeString() + ']';
+      messagesDiv.appendChild(div);
+    });
+  }
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+function selectUser(email, divElement) {
+  selectedEmail = email;
+  document.querySelectorAll('.user-item').forEach(e => e.classList.remove('selected'));
+  divElement.classList.add('selected');
+  loadMessages(email);
+}
+
+document.getElementById('reply-btn').addEventListener('click', async () => {
+  const textInput = document.getElementById('reply-text');
+  if(!selectedEmail || !textInput.value) return alert('Select user and type message');
+  const res = await fetch('/admin/reply', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({email: selectedEmail, text: textInput.value})
   });
   const data = await res.json();
   if(data.success){
-    document.getElementById('reply-text').value='';
-    selectUser(selectedUserEmail, selectedUserEmail); // refresh messages
+    textInput.value = '';
+    loadMessages(selectedEmail);
   }
 });
 
-// ----- Initial load -----
+// Initial load
 loadUsers();
+loadLatestAPK();
 </script>
 
 </body>
