@@ -14,7 +14,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 USERS_FILE = "users.json"
 APK_FILE = "apk.json"
 APK_FOLDER = "apks"
-MESSAGES_FILE = "messages.json"  # new file for contact messages
+MESSAGES_FILE = "messages.json"
 
 # ---------------- GitHub Helpers ----------------
 def github_get_file(filename, default):
@@ -35,6 +35,7 @@ def github_push_file(filename, content, message=None):
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
+    # Get SHA if file exists
     r_get = requests.get(url, headers=headers)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
@@ -212,23 +213,33 @@ def delete_apk():
     save_apk({"version": None, "changelog": "", "download_url": ""})
     return jsonify({"success": True, "message": "APK deleted."})
 
-# ---------------- Contact Us / Messages ----------------
+# ---------------- Messaging ----------------
 @app.route('/contact_us', methods=['POST'])
 def contact_us():
-    data = request.get_json()
+    data = request.get_json() or {}
     email, text = data.get('email'), data.get('text')
     if not email or not text:
-        return jsonify({"success": False, "message": "Email and message required."})
+        return jsonify({"success": False, "message": "Email and text required."})
+
     messages = load_messages()
-    # Find user thread
-    user_thread = next((m for m in messages if m['user_email'] == email), None)
-    msg = {"from":"user","text":text,"timestamp":datetime.utcnow().isoformat()}
-    if user_thread:
-        user_thread['messages'].append(msg)
+    thread = next((m for m in messages if m['user_email'] == email), None)
+    msg_obj = {"from": "user", "text": text, "timestamp": datetime.utcnow().isoformat(), "viewed": False}
+    if thread:
+        thread['messages'].append(msg_obj)
     else:
-        messages.append({"user_email": email, "messages":[msg]})
+        messages.append({"user_email": email, "messages": [msg_obj]})
     save_messages(messages)
-    return jsonify({"success": True})
+    return jsonify({"success": True, "message": "Message sent."})
+
+@app.route('/get_messages', methods=['POST'])
+def get_user_messages():
+    data = request.get_json() or {}
+    email = data.get('email')
+    if not email:
+        return jsonify({"success": False, "messages": []})
+    messages = load_messages()
+    thread = next((m for m in messages if m['user_email'] == email), {"messages":[]})
+    return jsonify({"success": True, "messages": thread['messages']})
 
 @app.route('/admin/get_messages')
 def admin_get_messages():
@@ -237,21 +248,34 @@ def admin_get_messages():
 
 @app.route('/admin/reply', methods=['POST'])
 def admin_reply():
-    data = request.get_json()
+    data = request.get_json() or {}
     email, text = data.get('email'), data.get('text')
     if not email or not text:
         return jsonify({"success": False})
     messages = load_messages()
-    user_thread = next((m for m in messages if m['user_email'] == email), None)
-    msg = {"from":"admin","text":text,"timestamp":datetime.utcnow().isoformat()}
-    if user_thread:
-        user_thread['messages'].append(msg)
+    thread = next((m for m in messages if m['user_email'] == email), None)
+    msg_obj = {"from":"admin","text":text,"timestamp":datetime.utcnow().isoformat(),"viewed":True}
+    if thread:
+        thread['messages'].append(msg_obj)
     else:
-        messages.append({"user_email": email, "messages":[msg]})
+        messages.append({"user_email": email, "messages":[msg_obj]})
     save_messages(messages)
+    return jsonify({"success": True})
+
+@app.route('/mark_viewed', methods=['POST'])
+def mark_viewed():
+    data = request.get_json() or {}
+    email = data.get('email')
+    messages = load_messages()
+    thread = next((m for m in messages if m['user_email'] == email), None)
+    if thread:
+        for msg in thread['messages']:
+            if msg['from'] == 'user':
+                msg['viewed'] = True
+        save_messages(messages)
     return jsonify({"success": True})
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Render gives you $PORT
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
