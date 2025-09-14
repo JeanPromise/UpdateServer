@@ -6,7 +6,8 @@
 <title>Login, Registration & Contact</title>
 <style>
   * {margin:0; padding:0; box-sizing:border-box;}
-  body {font-family: Arial, sans-serif; background:#121212; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden;}
+  body {font-family: Arial, sans-serif; background:#121212; color:#fff; display:flex; justify-content:center; align-items:flex-start; padding-top:20px; min-height:100vh;}
+  
   .container {background:#1e1e1e; padding:40px; border-radius:10px; width:350px; box-shadow:0 0 20px rgba(0,0,0,0.7); position:relative; transition: transform 0.6s ease, opacity 0.6s ease;}
   h2 {text-align:center; margin-bottom:20px; color:#E50914;}
   form {display:flex; flex-direction:column;}
@@ -22,7 +23,7 @@
   .disabled-overlay button {margin-top:15px; background:#4CAF50; cursor:pointer;}
 
   /* Contact Us / Messaging */
-  #messages-container {display:none; flex-direction:column; gap:10px; width:350px;}
+  #messages-container {display:flex; flex-direction:column; gap:10px; width:350px; margin-left:20px;}
   #messages {background:#121212; padding:10px; border-radius:8px; height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:5px;}
   .msg {padding:8px 10px; border-radius:5px; max-width:80%; word-wrap:break-word;}
   .msg.user {background:#333; align-self:flex-end; color:#fff; border:1px solid #444;}
@@ -55,7 +56,7 @@
   <div class="toggle" id="toggle-form">Don't have an account? Register</div>
 </div>
 
-<!-- Messaging container -->
+<!-- Messaging container always visible -->
 <div id="messages-container">
   <h2>Contact Us</h2>
   <div id="messages"></div>
@@ -129,7 +130,6 @@ function animateAndDisappear() {
     container.classList.add('explode');
     container.addEventListener('animationend', () => {
         container.style.display = 'none';
-        
         // ===== Show Proceed button =====
         const proceedBtn = document.createElement('button');
         proceedBtn.textContent = 'Proceed to Shows';
@@ -152,7 +152,6 @@ function animateAndDisappear() {
             } else {
                 alert("Bridge not available.");
             }
-            messagesContainer.style.display = 'flex'; // show Contact Us after proceed
         });
     }, {once:true});
 }
@@ -171,6 +170,7 @@ loginForm.addEventListener('submit', async (e) => {
     if (data.success) {
         currentUserEmail = email;
         animateAndDisappear();
+        loadMessages(); // load Contact Us immediately
     } else { alert(data.message); }
 });
 
