@@ -45,7 +45,8 @@
       {
         "from": "user",
         "text": "Hi",
-        "timestamp": "2025-09-14T17:55:17.805079"
+        "timestamp": "2025-09-14T17:55:17.805079",
+        "viewed": true
       }
     ]
   }
