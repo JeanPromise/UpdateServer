@@ -16,5 +16,11 @@
     "email": "josiahmukung@gmail.com",
     "password": "123",
     "enabled": true
+  },
+  {
+    "name": "Tes",
+    "email": "tessymasibai@gmail.com",
+    "password": "tes123",
+    "enabled": true
   }
 ]
