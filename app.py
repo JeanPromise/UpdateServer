@@ -235,28 +235,53 @@ def delete_apk():
     save_apk({"version": None, "changelog": "", "download_url": ""})
     return jsonify({"success": True, "message": "APK deleted."})
 
-# ---------------- Contact Us / Messages Endpoints ----------------
+# ---------------- Contact Us ----------------
+CONTACTS_FILE = "contacts.json"
+
+def load_contacts():
+    data = github_get_file(CONTACTS_FILE, {})
+    return data if isinstance(data, dict) else {}
+
+def save_contacts(data):
+    github_push_file(CONTACTS_FILE, json.dumps(data, indent=2), "Update contacts")
+
 @app.route('/contact_us', methods=['POST'])
 def contact_us():
     data = request.get_json()
     email, text = data.get('email'), data.get('text')
     if not email or not text:
-        return jsonify({"success": False, "message": "Email and text required."})
-    add_user_message(email, text)
-    return jsonify({"success": True, "message": "Message sent."})
+        return jsonify({"success": False, "message": "Email and message required."})
+    contacts = load_contacts()
+    contacts.setdefault(email, []).append({
+        "from": "user",
+        "text": text,
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    })
+    save_contacts(contacts)
+    return jsonify({"success": True, "message": "Message sent to admin."})
 
-@app.route('/admin/get_messages')
-def admin_get_messages():
-    return jsonify(load_messages())
+@app.route('/get_messages')
+def get_messages():
+    email = request.args.get('email')
+    contacts = load_contacts()
+    msgs = contacts.get(email, [])
+    return jsonify(msgs)
 
-@app.route('/admin/reply', methods=['POST'])
-def admin_reply():
+@app.route('/reply_message', methods=['POST'])
+def reply_message():
     data = request.get_json()
     email, text = data.get('email'), data.get('text')
     if not email or not text:
-        return jsonify({"success": False, "message": "Email and text required."})
-    add_admin_reply(email, text)
+        return jsonify({"success": False, "message": "Email and reply text required."})
+    contacts = load_contacts()
+    contacts.setdefault(email, []).append({
+        "from": "admin",
+        "text": text,
+        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    })
+    save_contacts(contacts)
     return jsonify({"success": True})
+
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
