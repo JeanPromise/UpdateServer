@@ -3,246 +3,86 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Login, Registration & Contact</title>
+<title>Tomorrow Movies - Login</title>
 <style>
-  * {margin:0; padding:0; box-sizing:border-box;}
-  body {font-family: Arial, sans-serif; background:#121212; color:#fff; display:flex; justify-content:center; align-items:flex-start; padding-top:20px; min-height:100vh;}
-  
-  .container {background:#1e1e1e; padding:40px; border-radius:10px; width:350px; box-shadow:0 0 20px rgba(0,0,0,0.7); position:relative; transition: transform 0.6s ease, opacity 0.6s ease;}
-  h2 {text-align:center; margin-bottom:20px; color:#E50914;}
-  form {display:flex; flex-direction:column;}
-  input {margin-bottom:15px; padding:10px; border:none; border-radius:5px; font-size:16px;}
-  input:focus {outline:none; border:2px solid #E50914;}
-  button {padding:10px; border:none; border-radius:5px; background:#E50914; color:#fff; font-weight:bold; cursor:pointer; transition:0.2s;}
-  button:hover {background:#ff1a2c;}
-  .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
-  .toggle:hover {color:#fff;}
-  .explode {animation: explode 0.6s forwards;}
-  @keyframes explode {0% {transform: scale(1) rotate(0deg); opacity:1;} 50% {transform: scale(0.6) rotate(10deg); opacity:0.8;} 100% {transform: scale(0) rotate(30deg); opacity:0;}}
-  .disabled-overlay {position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; flex-direction:column; text-align:center; color:#ff5555; font-size:18px; z-index:10; border-radius:10px;}
-  .disabled-overlay button {margin-top:15px; background:#4CAF50; cursor:pointer;}
+    body {
+        margin: 0;
+        padding: 0;
+        font-family: sans-serif;
+        background: linear-gradient(135deg, #B81D24, #E50914);
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+    }
 
-  /* Contact Us / Messaging */
-  #messages-container {display:flex; flex-direction:column; gap:10px; width:350px; margin-left:20px;}
-  #messages {background:#121212; padding:10px; border-radius:8px; height:200px; overflow-y:auto; display:flex; flex-direction:column; gap:5px;}
-  .msg {padding:8px 10px; border-radius:5px; max-width:80%; word-wrap:break-word;}
-  .msg.user {background:#333; align-self:flex-end; color:#fff; border:1px solid #444;}
-  .msg.admin {background:#4CAF50; align-self:flex-start; color:#fff; border:1px solid #2b7a2b;}
-  .msg.notviewed {border-left:4px solid #000;}
-  #reply-box {display:flex; gap:5px; margin-top:10px;}
-  #reply-text {flex:1; padding:8px; border-radius:5px; border:none;}
-  #send-msg-btn {padding:8px 12px; border:none; border-radius:5px; background:#E50914; color:#fff; cursor:pointer;}
+    .login-container {
+        background: rgba(0,0,0,0.6);
+        padding: 32px;
+        border-radius: 16px;
+        width: 90%;
+        max-width: 400px;
+        text-align: center;
+    }
+
+    input[type=text], input[type=password] {
+        width: 100%;
+        padding: 12px;
+        margin: 8px 0;
+        border-radius: 8px;
+        border: none;
+    }
+
+    button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 12px;
+        border: none;
+        border-radius: 8px;
+        background-color: #FF4444;
+        color: white;
+        font-weight: bold;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background-color: #E50914;
+    }
+
+    .contact {
+        margin-top: 16px;
+        font-size: 14px;
+    }
+
+    .contact a {
+        color: #FFD700;
+        text-decoration: none;
+    }
 </style>
 </head>
 <body>
-
-<div class="container" id="container">
-  <h2 id="form-title">Login</h2>
-  
-  <form id="login-form">
-    <input type="email" placeholder="Email" required>
-    <input type="password" placeholder="Password" required>
-    <button type="submit">Login</button>
-  </form>
-
-  <form id="register-form" style="display:none;">
-    <input type="text" placeholder="Full Name" required>
-    <input type="email" placeholder="Email" required>
-    <input type="password" placeholder="Password" required>
-    <input type="password" placeholder="Confirm Password" required>
-    <button type="submit">Register</button>
-  </form>
-
-  <div class="toggle" id="toggle-form">Don't have an account? Register</div>
-</div>
-
-<!-- Messaging container always visible -->
-<div id="messages-container">
-  <h2>Contact Us</h2>
-  <div id="messages"></div>
-  <div id="reply-box">
-    <input type="text" id="reply-text" placeholder="Type your message...">
-    <button id="send-msg-btn">Send</button>
-  </div>
-</div>
+    <div class="login-container">
+        <h2>Login</h2>
+        <input type="text" placeholder="Username" id="username">
+        <input type="password" placeholder="Password" id="password">
+        <button onclick="login()">Login</button>
+        <div class="contact">
+            Contact us: <a href="mailto:support@tomorrow.com">support@tomorrow.com</a>
+        </div>
+    </div>
 
 <script>
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const toggleForm = document.getElementById('toggle-form');
-const formTitle = document.getElementById('form-title');
-const container = document.getElementById('container');
+function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
 
-const messagesContainer = document.getElementById('messages-container');
-const messagesDiv = document.getElementById('messages');
-const replyInput = document.getElementById('reply-text');
-const sendBtn = document.getElementById('send-msg-btn');
-
-let currentUserEmail = '';
-let currentUserApkVersion = '0.0.0';
-
-// ----- Toggle forms -----
-toggleForm.addEventListener('click', () => {
-    if (loginForm.style.display !== 'none') {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'flex';
-        formTitle.textContent = 'Register';
-        toggleForm.textContent = 'Already have an account? Login';
+    if(username && password) {
+        AndroidBridge.registrationSuccess("Login simulated!");
     } else {
-        loginForm.style.display = 'flex';
-        registerForm.style.display = 'none';
-        formTitle.textContent = 'Login';
-        toggleForm.textContent = "Don't have an account? Register";
-    }
-});
-
-// ----- APK update check -----
-async function checkUpdate() {
-    const res = await fetch('/check_update');
-    const data = await res.json();
-    if (data.apk_version && data.apk_version !== currentUserApkVersion) {
-        const overlay = document.createElement('div');
-        overlay.className = 'disabled-overlay';
-        overlay.innerHTML = `
-            <div>New APK version ${data.apk_version} is available.<br>
-            Please download and install it to continue.</div>
-            <button id="downloadBtn">Download APK</button>
-        `;
-        container.appendChild(overlay);
-
-        document.getElementById('downloadBtn').addEventListener('click', async () => {
-            const res = await fetch('/download_apk');
-            const result = await res.json();
-            if (result.success && result.url) {
-                const a = document.createElement('a');
-                a.href = result.url;
-                a.download = 'app-debug.apk';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            } else { alert('Download failed'); }
-        });
+        alert("Please enter credentials.");
     }
 }
-
-// ----- Animate container and show Proceed button -----
-function animateAndDisappear() {
-    container.classList.add('explode');
-    container.addEventListener('animationend', () => {
-        container.style.display = 'none';
-        // ===== Show Proceed button =====
-        const proceedBtn = document.createElement('button');
-        proceedBtn.textContent = 'Proceed to Shows';
-        proceedBtn.style.padding = '10px 20px';
-        proceedBtn.style.fontSize = '16px';
-        proceedBtn.style.background = '#E50914';
-        proceedBtn.style.color = '#fff';
-        proceedBtn.style.border = 'none';
-        proceedBtn.style.borderRadius = '5px';
-        proceedBtn.style.cursor = 'pointer';
-        proceedBtn.style.position = 'fixed';
-        proceedBtn.style.top = '50%';
-        proceedBtn.style.left = '50%';
-        proceedBtn.style.transform = 'translate(-50%, -50%)';
-        document.body.appendChild(proceedBtn);
-
-        proceedBtn.addEventListener('click', () => {
-            if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
-                AndroidBridge.openGoojaraPage();
-            } else {
-                alert("Bridge not available.");
-            }
-        });
-    }, {once:true});
-}
-
-// ----- Login submit -----
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = loginForm[0].value.trim();
-    const password = loginForm[1].value.trim();
-    const res = await fetch('/login', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
-    });
-    const data = await res.json();
-    if (data.success) {
-        currentUserEmail = email;
-        animateAndDisappear();
-        loadMessages(); // load Contact Us immediately
-    } else { alert(data.message); }
-});
-
-// ----- Registration submit -----
-registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = registerForm[0].value.trim();
-    const email = registerForm[1].value.trim();
-    const password = registerForm[2].value.trim();
-    const confirm = registerForm[3].value.trim();
-    if (password !== confirm) return alert('Passwords do not match!');
-    const res = await fetch('/register', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({name,email,password})
-    });
-    const data = await res.json();
-    if (data.success) {
-        alert('Registration successful! Please log in.');
-        registerForm.style.display = 'none';
-        loginForm.style.display = 'flex';
-        formTitle.textContent = 'Login';
-        toggleForm.textContent = "Don't have an account? Register";
-    } else { alert(data.message); }
-});
-
-// ----- Messaging -----
-async function loadMessages() {
-    if (!currentUserEmail) return;
-    const res = await fetch('/get_messages', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email: currentUserEmail})
-    });
-    const data = await res.json();
-    messagesDiv.innerHTML = '';
-    if (data.success && data.messages) {
-        data.messages.forEach(msg => {
-            const div = document.createElement('div');
-            div.className = 'msg ' + msg.from + (msg.from==='user' && !msg.viewed ? ' notviewed':'');
-            div.textContent = msg.text;
-            messagesDiv.appendChild(div);
-        });
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-
-        // mark user messages as viewed
-        await fetch('/mark_viewed', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({email: currentUserEmail})
-        });
-    }
-}
-
-sendBtn.addEventListener('click', async () => {
-    const text = replyInput.value.trim();
-    if (!text) return;
-    const res = await fetch('/contact_us', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email:currentUserEmail, text})
-    });
-    const data = await res.json();
-    if (data.success) {
-        replyInput.value = '';
-        loadMessages();
-    } else { alert('Failed to send message.'); }
-});
-
-// ----- Initial APK check -----
-checkUpdate();
 </script>
-
 </body>
 </html>
