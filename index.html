@@ -169,9 +169,12 @@ function animateAndDisappear() {
         proceedBtn.style.transform = 'translate(-50%, -50%)';
         document.body.appendChild(proceedBtn);
 
+        // 🔑 Deflect into Android (open Goojara)
         proceedBtn.addEventListener('click', () => {
             if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
                 AndroidBridge.openGoojaraPage();
+            } else {
+                alert("Bridge not available.");
             }
         });
     }, {once:true});
