@@ -5,33 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin Dashboard</title>
 <style>
-body { font-family: Arial, sans-serif; background:#121212; color:#fff; padding:20px; margin:0;}
-h1, h2 { color:#E50914; }
-table { width:100%; border-collapse:collapse; margin-top:20px; }
-th, td { padding:10px; border:1px solid #333; text-align:left; }
-th { background:#1e1e1e; }
-tr:nth-child(even) { background:#1a1a1a; }
-button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; margin:2px; }
-.enable { background:#4CAF50; color:#fff; }
-.disable { background:#f44336; color:#fff; }
-.all-btn { margin:10px 5px; padding:10px 20px; }
-input[type="file"], input[type="text"] { margin:5px 0; padding:5px; }
-#delete-apk { background:#FF4500; color:#fff; display:none; margin-left:10px; }
+  body { font-family: Arial, sans-serif; background:#121212; color:#fff; padding:20px; }
+  h1, h2 { color:#E50914; }
+  table { width:100%; border-collapse:collapse; margin-top:20px; }
+  th, td { padding:10px; border:1px solid #333; text-align:left; }
+  th { background:#1e1e1e; }
+  tr:nth-child(even) { background:#1a1a1a; }
+  button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; margin:2px; }
+  .enable { background:#4CAF50; color:#fff; }
+  .disable { background:#f44336; color:#fff; }
+  .all-btn { margin:10px 5px; padding:10px 20px; }
+  input[type="file"], input[type="text"] { margin:5px 0; padding:5px; }
+  #delete-apk { background:#FF4500; color:#fff; display:none; margin-left:10px; }
 
-/* ===== Contact Us/Admin messages ===== */
-#contact-section { display:flex; margin-top:30px; gap:20px; height:400px; }
-#user-list { width:200px; background:#1e1e1e; border-radius:10px; overflow-y:auto; }
-.user-item { padding:10px; border-bottom:1px solid #333; cursor:pointer; }
-.user-item.selected { background:#333; }
-#conversation { flex:1; display:flex; flex-direction:column; background:#1e1e1e; border-radius:10px; padding:10px; }
-#messages { flex:1; overflow-y:auto; margin-bottom:10px; }
-.message { padding:8px; margin-bottom:5px; border-radius:5px; }
-.message.user { background:#333; text-align:right; }
-.message.admin { background:#4CAF50; text-align:left; }
-#reply-box { display:flex; gap:5px; }
-#reply-text { flex:1; padding:5px; border-radius:5px; border:none; }
-#reply-btn { padding:5px 10px; border:none; border-radius:5px; background:#E50914; color:#fff; cursor:pointer; }
-#reply-btn:hover { background:#ff1a2c; }
+  /* ===== Contact Us/Admin messages ===== */
+  #contact-section { display:flex; margin-top:30px; gap:20px; height:400px; }
+  #user-list { width:200px; background:#1e1e1e; border-radius:10px; overflow-y:auto; }
+  .user-item { padding:10px; border-bottom:1px solid #333; cursor:pointer; }
+  .user-item.selected { background:#333; }
+  #conversation { flex:1; display:flex; flex-direction:column; background:#1e1e1e; border-radius:10px; padding:10px; }
+  #messages { flex:1; overflow-y:auto; margin-bottom:10px; }
+  .message { padding:8px; margin-bottom:5px; border-radius:5px; }
+  .message.user { background:#333; text-align:right; }
+  .message.admin { background:#4CAF50; text-align:left; }
+  #reply-box { display:flex; gap:5px; }
+  #reply-text { flex:1; padding:5px; border-radius:5px; border:none; }
+  #reply-btn { padding:5px 10px; border:none; border-radius:5px; background:#E50914; color:#fff; cursor:pointer; }
+  #reply-btn:hover { background:#ff1a2c; }
 </style>
 </head>
 <body>
