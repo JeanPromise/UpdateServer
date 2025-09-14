@@ -10,5 +10,11 @@
     "email": "jeanpromise6@gmail.com",
     "password": "123",
     "enabled": true
+  },
+  {
+    "name": "Jean",
+    "email": "josiahmukung@gmail.com",
+    "password": "123",
+    "enabled": true
   }
 ]
