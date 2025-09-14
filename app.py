@@ -14,6 +14,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 USERS_FILE = "users.json"
 APK_FILE = "apk.json"
 APK_FOLDER = "apks"
+MESSAGES_FILE = "messages.json"  # new for contact us
 
 # ---------------- GitHub Helpers ----------------
 def github_get_file(filename, default):
@@ -65,6 +66,34 @@ def load_apk():
 
 def save_apk(apk_obj):
     github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
+
+# ---------------- Messages Helpers ----------------
+def load_messages():
+    data = github_get_file(MESSAGES_FILE, [])
+    return data if isinstance(data, list) else []
+
+def save_messages(messages_list):
+    github_push_file(MESSAGES_FILE, json.dumps(messages_list, indent=2), "Update messages")
+
+def add_user_message(user_email, text):
+    messages = load_messages()
+    user_convo = next((u for u in messages if u.get("user_email")==user_email), None)
+    timestamp = datetime.utcnow().isoformat()
+    if not user_convo:
+        user_convo = {"user_email": user_email, "messages":[]}
+        messages.append(user_convo)
+    user_convo["messages"].append({"from":"user","text":text,"timestamp":timestamp})
+    save_messages(messages)
+
+def add_admin_reply(user_email, text):
+    messages = load_messages()
+    user_convo = next((u for u in messages if u.get("user_email")==user_email), None)
+    timestamp = datetime.utcnow().isoformat()
+    if not user_convo:
+        user_convo = {"user_email": user_email, "messages":[]}
+        messages.append(user_convo)
+    user_convo["messages"].append({"from":"admin","text":text,"timestamp":timestamp})
+    save_messages(messages)
 
 # ---------------- Pages ----------------
 @app.route('/')
@@ -157,7 +186,6 @@ def upload_apk():
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
-    # Get SHA if file exists
     r_get = requests.get(url, headers=headers)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
@@ -198,19 +226,39 @@ def update_apk():
     })
     return jsonify({"success": True})
 
-# ---------------- New: Delete APK ----------------
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
     apk_data = load_apk()
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK to delete."})
 
-    # Reset apk.json
     save_apk({"version": None, "changelog": "", "download_url": ""})
     return jsonify({"success": True, "message": "APK deleted."})
 
+# ---------------- Contact Us / Messages Endpoints ----------------
+@app.route('/contact_us', methods=['POST'])
+def contact_us():
+    data = request.get_json()
+    email, text = data.get('email'), data.get('text')
+    if not email or not text:
+        return jsonify({"success": False, "message": "Email and text required."})
+    add_user_message(email, text)
+    return jsonify({"success": True, "message": "Message sent."})
+
+@app.route('/admin/get_messages')
+def admin_get_messages():
+    return jsonify(load_messages())
+
+@app.route('/admin/reply', methods=['POST'])
+def admin_reply():
+    data = request.get_json()
+    email, text = data.get('email'), data.get('text')
+    if not email or not text:
+        return jsonify({"success": False, "message": "Email and text required."})
+    add_admin_reply(email, text)
+    return jsonify({"success": True})
+
 # ---------------- Run ----------------
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Render gives you $PORT
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
-
