@@ -14,7 +14,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 USERS_FILE = "users.json"
 APK_FILE = "apk.json"
 APK_FOLDER = "apks"
-MESSAGES_FILE = "messages.json"  # new for contact us
+MESSAGES_FILE = "messages.json"  # new file for contact messages
 
 # ---------------- GitHub Helpers ----------------
 def github_get_file(filename, default):
@@ -35,7 +35,6 @@ def github_push_file(filename, content, message=None):
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
-    # Get SHA if file exists
     r_get = requests.get(url, headers=headers)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
@@ -67,33 +66,12 @@ def load_apk():
 def save_apk(apk_obj):
     github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
 
-# ---------------- Messages Helpers ----------------
 def load_messages():
     data = github_get_file(MESSAGES_FILE, [])
     return data if isinstance(data, list) else []
 
 def save_messages(messages_list):
     github_push_file(MESSAGES_FILE, json.dumps(messages_list, indent=2), "Update messages")
-
-def add_user_message(user_email, text):
-    messages = load_messages()
-    user_convo = next((u for u in messages if u.get("user_email")==user_email), None)
-    timestamp = datetime.utcnow().isoformat()
-    if not user_convo:
-        user_convo = {"user_email": user_email, "messages":[]}
-        messages.append(user_convo)
-    user_convo["messages"].append({"from":"user","text":text,"timestamp":timestamp})
-    save_messages(messages)
-
-def add_admin_reply(user_email, text):
-    messages = load_messages()
-    user_convo = next((u for u in messages if u.get("user_email")==user_email), None)
-    timestamp = datetime.utcnow().isoformat()
-    if not user_convo:
-        user_convo = {"user_email": user_email, "messages":[]}
-        messages.append(user_convo)
-    user_convo["messages"].append({"from":"admin","text":text,"timestamp":timestamp})
-    save_messages(messages)
 
 # ---------------- Pages ----------------
 @app.route('/')
@@ -231,59 +209,49 @@ def delete_apk():
     apk_data = load_apk()
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK to delete."})
-
     save_apk({"version": None, "changelog": "", "download_url": ""})
     return jsonify({"success": True, "message": "APK deleted."})
 
-# ---------------- Contact Us ----------------
-CONTACTS_FILE = "contacts.json"
-
-def load_contacts():
-    data = github_get_file(CONTACTS_FILE, {})
-    return data if isinstance(data, dict) else {}
-
-def save_contacts(data):
-    github_push_file(CONTACTS_FILE, json.dumps(data, indent=2), "Update contacts")
-
+# ---------------- Contact Us / Messages ----------------
 @app.route('/contact_us', methods=['POST'])
 def contact_us():
     data = request.get_json()
     email, text = data.get('email'), data.get('text')
     if not email or not text:
         return jsonify({"success": False, "message": "Email and message required."})
-    contacts = load_contacts()
-    contacts.setdefault(email, []).append({
-        "from": "user",
-        "text": text,
-        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    })
-    save_contacts(contacts)
-    return jsonify({"success": True, "message": "Message sent to admin."})
+    messages = load_messages()
+    # Find user thread
+    user_thread = next((m for m in messages if m['user_email'] == email), None)
+    msg = {"from":"user","text":text,"timestamp":datetime.utcnow().isoformat()}
+    if user_thread:
+        user_thread['messages'].append(msg)
+    else:
+        messages.append({"user_email": email, "messages":[msg]})
+    save_messages(messages)
+    return jsonify({"success": True})
 
-@app.route('/get_messages')
-def get_messages():
-    email = request.args.get('email')
-    contacts = load_contacts()
-    msgs = contacts.get(email, [])
-    return jsonify(msgs)
+@app.route('/admin/get_messages')
+def admin_get_messages():
+    messages = load_messages()
+    return jsonify(messages)
 
-@app.route('/reply_message', methods=['POST'])
-def reply_message():
+@app.route('/admin/reply', methods=['POST'])
+def admin_reply():
     data = request.get_json()
     email, text = data.get('email'), data.get('text')
     if not email or not text:
-        return jsonify({"success": False, "message": "Email and reply text required."})
-    contacts = load_contacts()
-    contacts.setdefault(email, []).append({
-        "from": "admin",
-        "text": text,
-        "time": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    })
-    save_contacts(contacts)
+        return jsonify({"success": False})
+    messages = load_messages()
+    user_thread = next((m for m in messages if m['user_email'] == email), None)
+    msg = {"from":"admin","text":text,"timestamp":datetime.utcnow().isoformat()}
+    if user_thread:
+        user_thread['messages'].append(msg)
+    else:
+        messages.append({"user_email": email, "messages":[msg]})
+    save_messages(messages)
     return jsonify({"success": True})
-
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))
+    port = int(os.environ.get("PORT", 5000))  # Render gives you $PORT
     app.run(host="0.0.0.0", port=port, debug=False)
