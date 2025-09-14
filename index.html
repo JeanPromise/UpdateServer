@@ -3,86 +3,309 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tomorrow Movies - Login</title>
+<title>Login & Registration</title>
 <style>
-    body {
-        margin: 0;
-        padding: 0;
-        font-family: sans-serif;
-        background: linear-gradient(135deg, #B81D24, #E50914);
-        height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        color: white;
-    }
+  * {margin:0; padding:0; box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background:#121212;
+    color:#fff;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    overflow:hidden;
+  }
+  .container {
+    background:#1e1e1e;
+    padding:40px;
+    border-radius:10px;
+    width:350px;
+    box-shadow:0 0 20px rgba(0,0,0,0.7);
+    position:relative;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+  }
+  h2 {text-align:center; margin-bottom:20px; color:#E50914;}
+  form {display:flex; flex-direction:column;}
+  input {
+    margin-bottom:15px;
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    font-size:16px;
+  }
+  input:focus {outline:none; border:2px solid #E50914;}
+  button {
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    background:#E50914;
+    color:#fff;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.2s;
+  }
+  button:hover {background:#ff1a2c;}
+  .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
+  .toggle:hover {color:#fff;}
+  .explode {animation: explode 0.6s forwards;}
+  @keyframes explode {
+    0% {transform: scale(1) rotate(0deg); opacity:1;}
+    50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
+    100% {transform: scale(0) rotate(30deg); opacity:0;}
+  }
+  .disabled-overlay {
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.8);
+    display:flex; justify-content:center; align-items:center;
+    flex-direction:column;
+    text-align:center; color:#ff5555; font-size:18px;
+    z-index:10;
+    border-radius:10px;
+  }
+  .disabled-overlay button {
+    margin-top:15px;
+    background:#4CAF50;
+    cursor:pointer;
+  }
 
-    .login-container {
-        background: rgba(0,0,0,0.6);
-        padding: 32px;
-        border-radius: 16px;
-        width: 90%;
-        max-width: 400px;
-        text-align: center;
-    }
-
-    input[type=text], input[type=password] {
-        width: 100%;
-        padding: 12px;
-        margin: 8px 0;
-        border-radius: 8px;
-        border: none;
-    }
-
-    button {
-        width: 100%;
-        padding: 12px;
-        margin-top: 12px;
-        border: none;
-        border-radius: 8px;
-        background-color: #FF4444;
-        color: white;
-        font-weight: bold;
-        cursor: pointer;
-    }
-
-    button:hover {
-        background-color: #E50914;
-    }
-
-    .contact {
-        margin-top: 16px;
-        font-size: 14px;
-    }
-
-    .contact a {
-        color: #FFD700;
-        text-decoration: none;
-    }
+  /* ---------------- Contact Panel ---------------- */
+  .contact-panel {
+    position:fixed;
+    right:20px;
+    top:20px;
+    width:300px;
+    max-height:90vh;
+    background:#1e1e1e;
+    border-radius:10px;
+    box-shadow:0 0 15px rgba(0,0,0,0.6);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    z-index:5;
+  }
+  .contact-header {
+    background:#E50914;
+    padding:10px;
+    text-align:center;
+    font-weight:bold;
+    color:#fff;
+  }
+  .messages {
+    flex:1;
+    overflow-y:auto;
+    padding:10px;
+  }
+  .messages .message {
+    padding:8px 10px;
+    margin-bottom:8px;
+    border-radius:5px;
+    font-size:14px;
+  }
+  .message.unread {background:#000; color:#fff;}
+  .message.read {background:#0f0; color:#000;}
+  .message.admin {background:#2222aa; color:#fff; font-weight:bold;}
+  .contact-input {
+    display:flex;
+    padding:10px;
+    border-top:1px solid #333;
+  }
+  .contact-input input {
+    flex:1;
+    padding:8px;
+    border-radius:5px;
+    border:none;
+  }
+  .contact-input button {
+    margin-left:5px;
+  }
 </style>
 </head>
 <body>
-    <div class="login-container">
-        <h2>Login</h2>
-        <input type="text" placeholder="Username" id="username">
-        <input type="password" placeholder="Password" id="password">
-        <button onclick="login()">Login</button>
-        <div class="contact">
-            Contact us: <a href="mailto:support@tomorrow.com">support@tomorrow.com</a>
-        </div>
-    </div>
+
+<!-- ---------------- Login/Register Container ---------------- -->
+<div class="container" id="container">
+  <h2 id="form-title">Login</h2>
+  
+  <form id="login-form">
+    <input type="email" placeholder="Email" required>
+    <input type="password" placeholder="Password" required>
+    <button type="submit">Login</button>
+  </form>
+
+  <form id="register-form" style="display:none;">
+    <input type="text" placeholder="Full Name" required>
+    <input type="email" placeholder="Email" required>
+    <input type="password" placeholder="Password" required>
+    <input type="password" placeholder="Confirm Password" required>
+    <button type="submit">Register</button>
+  </form>
+
+  <div class="toggle" id="toggle-form">Don't have an account? Register</div>
+</div>
+
+<!-- ---------------- Contact Panel ---------------- -->
+<div class="contact-panel" id="contact-panel">
+  <div class="contact-header">Contact Us</div>
+  <div class="messages" id="messages"></div>
+  <div class="contact-input">
+    <input type="text" id="message-input" placeholder="Type your message..." />
+    <button id="send-btn">Send</button>
+  </div>
+</div>
 
 <script>
-function login() {
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const toggleForm = document.getElementById('toggle-form');
+const formTitle = document.getElementById('form-title');
+const container = document.getElementById('container');
+let currentUserApkVersion = '0.0.0';
+let currentUserEmail = null;
 
-    if(username && password) {
-        AndroidBridge.registrationSuccess("Login simulated!");
+// ---------------- Toggle forms ----------------
+toggleForm.addEventListener('click', () => {
+    if (loginForm.style.display !== 'none') {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'flex';
+        formTitle.textContent = 'Register';
+        toggleForm.textContent = 'Already have an account? Login';
     } else {
-        alert("Please enter credentials.");
+        loginForm.style.display = 'flex';
+        registerForm.style.display = 'none';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
+    }
+});
+
+// ---------------- Check APK ----------------
+async function checkUpdate() {
+    const res = await fetch('/check_update');
+    const data = await res.json();
+    if (data.apk_version && data.apk_version !== currentUserApkVersion) {
+        const overlay = document.createElement('div');
+        overlay.className = 'disabled-overlay';
+        overlay.innerHTML = `
+            <div>New APK version ${data.apk_version} is available.<br>
+            Please download and install it to continue.</div>
+            <button id="downloadBtn">Download APK</button>
+        `;
+        container.appendChild(overlay);
+
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            const res = await fetch('/download_apk');
+            const result = await res.json();
+            if (result.success && result.url) {
+                const a = document.createElement('a');
+                a.href = result.url;
+                a.download = 'app-debug.apk';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } else {
+                alert('Download failed');
+            }
+        });
     }
 }
+
+// ---------------- Animate login disappear ----------------
+function animateAndDisappear() {
+    container.classList.add('explode');
+    container.addEventListener('animationend', () => {
+        container.style.display = 'none';
+    }, {once:true});
+}
+
+// ---------------- Login ----------------
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = loginForm[0].value.trim();
+    const password = loginForm[1].value.trim();
+    const res = await fetch('/login', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
+    });
+    const data = await res.json();
+    if (data.success) {
+        currentUserEmail = email;
+        animateAndDisappear();
+        loadMessages();
+    } else {
+        alert(data.message);
+    }
+});
+
+// ---------------- Registration ----------------
+registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = registerForm[0].value.trim();
+    const email = registerForm[1].value.trim();
+    const password = registerForm[2].value.trim();
+    const confirm = registerForm[3].value.trim();
+    if (password !== confirm) return alert('Passwords do not match!');
+
+    const res = await fetch('/register', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name,email,password})
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        alert('Registration successful! Please log in.');
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'flex';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
+    } else {
+        alert(data.message);
+    }
+});
+
+// ---------------- Messages ----------------
+const messagesDiv = document.getElementById('messages');
+const messageInput = document.getElementById('message-input');
+const sendBtn = document.getElementById('send-btn');
+
+async function loadMessages() {
+    if (!currentUserEmail) return;
+    const res = await fetch('/get_messages', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({user1: currentUserEmail, user2: "admin@example.com"})
+    });
+    const msgs = await res.json();
+    messagesDiv.innerHTML = '';
+    msgs.forEach(m => {
+        const div = document.createElement('div');
+        div.className = 'message';
+        div.classList.add(m.read ? 'read' : 'unread');
+        if (m.sender === "admin@example.com") div.classList.add('admin');
+        div.textContent = `${m.sender}: ${m.content}`;
+        messagesDiv.appendChild(div);
+    });
+}
+
+sendBtn.addEventListener('click', async () => {
+    const content = messageInput.value.trim();
+    if (!content || !currentUserEmail) return;
+    const res = await fetch('/send_message', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({sender: currentUserEmail, receiver:"admin@example.com", content})
+    });
+    const data = await res.json();
+    if (data.success) {
+        messageInput.value = '';
+        loadMessages();
+    }
+});
+
+// ---------------- Initial APK check ----------------
+checkUpdate();
 </script>
 </body>
 </html>
