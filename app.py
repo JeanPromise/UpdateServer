@@ -211,6 +211,13 @@ def delete_apk():
     return jsonify({"success": True, "message": "APK deleted."})
 
 # ---------------- Run ----------------
-if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 5000))  # Render gives you $PORT
-    app.run(host="0.0.0.0", port=port, debug=False)
+if __name__ == "__main__":
+    import os
+
+    port = int(os.environ.get("PORT", 5000))  # Render requires binding to $PORT
+    app.run(
+        host="0.0.0.0",  # Bind to all interfaces
+        port=port,
+        debug=False,     # Always disable debug on production
+        use_reloader=False  # Prevent double-start issues on some hosts
+    )
