@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+
+<!DOCTYPE html> 
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -17,21 +18,6 @@
   .all-btn { margin:10px 5px; padding:10px 20px; }
   input[type="file"], input[type="text"] { margin:5px 0; padding:5px; }
   #delete-apk { background:#FF4500; color:#fff; display:none; margin-left:10px; }
-
-  /* ===== Contact Us/Admin messages ===== */
-  #contact-section { display:flex; margin-top:30px; gap:20px; height:400px; }
-  #user-list { width:200px; background:#1e1e1e; border-radius:10px; overflow-y:auto; }
-  .user-item { padding:10px; border-bottom:1px solid #333; cursor:pointer; }
-  .user-item.selected { background:#333; }
-  #conversation { flex:1; display:flex; flex-direction:column; background:#1e1e1e; border-radius:10px; padding:10px; }
-  #messages { flex:1; overflow-y:auto; margin-bottom:10px; }
-  .message { padding:8px; margin-bottom:5px; border-radius:5px; }
-  .message.user { background:#333; text-align:right; }
-  .message.admin { background:#4CAF50; text-align:left; }
-  #reply-box { display:flex; gap:5px; }
-  #reply-text { flex:1; padding:5px; border-radius:5px; border:none; }
-  #reply-btn { padding:5px 10px; border:none; border-radius:5px; background:#E50914; color:#fff; cursor:pointer; }
-  #reply-btn:hover { background:#ff1a2c; }
 </style>
 </head>
 <body>
@@ -63,21 +49,8 @@
   <tbody id="users-tbody"></tbody>
 </table>
 
-<!-- ===== Contact Us / Admin Messages ===== -->
-<h2>Contact Us / User Messages</h2>
-<div id="contact-section">
-  <div id="user-list"></div>
-  <div id="conversation">
-    <div id="messages"></div>
-    <div id="reply-box">
-      <input type="text" id="reply-text" placeholder="Type a reply...">
-      <button id="reply-btn">Send</button>
-    </div>
-  </div>
-</div>
-
 <script>
-// ---------------- Users Management ----------------
+// ----- Fetch and display users -----
 async function loadUsers() {
   const res = await fetch('/get_users');
   const users = await res.json();
@@ -97,20 +70,9 @@ async function loadUsers() {
     `;
     tbody.appendChild(tr);
   });
-
-  // Populate left user list for messages
-  const userList = document.getElementById('user-list');
-  userList.innerHTML = '';
-  users.forEach(u => {
-    const div = document.createElement('div');
-    div.className = 'user-item';
-    div.textContent = u.name + ' (' + u.email + ')';
-    div.dataset.email = u.email;
-    div.addEventListener('click', () => selectUser(u.email, div));
-    userList.appendChild(div);
-  });
 }
 
+// ----- Toggle individual user -----
 async function toggleUser(email, enable) {
   await fetch('/toggle_user', {
     method:'POST',
@@ -120,6 +82,7 @@ async function toggleUser(email, enable) {
   loadUsers();
 }
 
+// ----- Enable all / Disable all -----
 document.getElementById('enable-all').addEventListener('click', async () => {
   await fetch('/enable_all', {method:'POST'});
   loadUsers();
@@ -129,7 +92,7 @@ document.getElementById('disable-all').addEventListener('click', async () => {
   loadUsers();
 });
 
-// ---------------- APK ----------------
+// ----- Show latest APK info -----
 async function loadLatestAPK() {
   const res = await fetch('/get_apk');
   const apk = await res.json();
@@ -145,6 +108,7 @@ async function loadLatestAPK() {
   }
 }
 
+// ----- Upload APK -----
 document.getElementById('upload-apk-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const fileInput = document.getElementById('apk-file');
@@ -164,59 +128,16 @@ document.getElementById('upload-apk-form').addEventListener('submit', async (e) 
   fileInput.value = '';
   versionInput.value = '';
 
-  loadLatestAPK();
+  loadLatestAPK(); // refresh latest APK info
 });
 
+// ----- Delete APK -----
 document.getElementById('delete-apk').addEventListener('click', async () => {
   if(!confirm('Are you sure you want to delete the APK?')) return;
   const res = await fetch('/delete_apk', {method:'POST'});
   const data = await res.json();
   alert(data.message);
   loadLatestAPK();
-});
-
-// ---------------- Contact Us / Messages ----------------
-let selectedEmail = null;
-
-async function loadMessages(email) {
-  if(!email) return;
-  const res = await fetch('/admin/get_messages');
-  const data = await res.json();
-  const userConvo = data.find(u => u.user_email === email);
-  const messagesDiv = document.getElementById('messages');
-  messagesDiv.innerHTML = '';
-
-  if(userConvo && userConvo.messages.length){
-    userConvo.messages.forEach(m => {
-      const div = document.createElement('div');
-      div.className = 'message ' + m.from;
-      div.textContent = m.text + ' [' + new Date(m.timestamp).toLocaleTimeString() + ']';
-      messagesDiv.appendChild(div);
-    });
-  }
-  messagesDiv.scrollTop = messagesDiv.scrollHeight;
-}
-
-function selectUser(email, divElement) {
-  selectedEmail = email;
-  document.querySelectorAll('.user-item').forEach(e => e.classList.remove('selected'));
-  divElement.classList.add('selected');
-  loadMessages(email);
-}
-
-document.getElementById('reply-btn').addEventListener('click', async () => {
-  const textInput = document.getElementById('reply-text');
-  if(!selectedEmail || !textInput.value) return alert('Select user and type message');
-  const res = await fetch('/admin/reply', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({email: selectedEmail, text: textInput.value})
-  });
-  const data = await res.json();
-  if(data.success){
-    textInput.value = '';
-    loadMessages(selectedEmail);
-  }
 });
 
 // Initial load
