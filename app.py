@@ -1,4 +1,5 @@
-import base64, json, requests, os
+
+import base64, json, requests, os 
 from flask import Flask, request, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from datetime import datetime
@@ -14,7 +15,6 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 USERS_FILE = "users.json"
 APK_FILE = "apk.json"
 APK_FOLDER = "apks"
-MESSAGES_FILE = "messages.json"  # <-- New for contact messages
 
 # ---------------- GitHub Helpers ----------------
 def github_get_file(filename, default):
@@ -66,14 +66,6 @@ def load_apk():
 
 def save_apk(apk_obj):
     github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
-
-# ---------------- Messages Helpers ----------------
-def load_messages():
-    data = github_get_file(MESSAGES_FILE, [])
-    return data if isinstance(data, list) else []
-
-def save_messages(msg_list):
-    github_push_file(MESSAGES_FILE, json.dumps(msg_list, indent=2), "Update messages")
 
 # ---------------- Pages ----------------
 @app.route('/')
@@ -166,6 +158,7 @@ def upload_apk():
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
+    # Get SHA if file exists
     r_get = requests.get(url, headers=headers)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
@@ -206,38 +199,16 @@ def update_apk():
     })
     return jsonify({"success": True})
 
+# ---------------- New: Delete APK ----------------
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
     apk_data = load_apk()
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK to delete."})
 
+    # Reset apk.json
     save_apk({"version": None, "changelog": "", "download_url": ""})
     return jsonify({"success": True, "message": "APK deleted."})
-
-# ---------------- Contact / Messages ----------------
-@app.route('/send_message', methods=['POST'])
-def send_message():
-    data = request.get_json()
-    sender = data.get("sender")  # email of sender
-    receiver = data.get("receiver")  # email of receiver
-    content = data.get("content")
-    timestamp = datetime.utcnow().isoformat()
-    if not all([sender, receiver, content]):
-        return jsonify({"success": False, "message": "sender, receiver, content required"})
-    messages = load_messages()
-    messages.append({"sender": sender, "receiver": receiver, "content": content, "timestamp": timestamp})
-    save_messages(messages)
-    return jsonify({"success": True})
-
-@app.route('/get_messages', methods=['POST'])
-def get_messages():
-    data = request.get_json()
-    user1 = data.get("user1")
-    user2 = data.get("user2")
-    messages = load_messages()
-    convo = [m for m in messages if (m["sender"] == user1 and m["receiver"] == user2) or (m["sender"] == user2 and m["receiver"] == user1)]
-    return jsonify(convo)
 
 # ---------------- Run ----------------
 if __name__ == '__main__':
