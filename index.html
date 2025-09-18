@@ -1,9 +1,8 @@
-
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Login & Registration</title>
 <style>
   * {margin:0; padding:0; box-sizing:border-box;}
@@ -17,6 +16,7 @@
     height:100vh;
     overflow:hidden;
   }
+
   .container {
     background:#1e1e1e;
     padding:40px;
@@ -55,28 +55,86 @@
     50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
     100% {transform: scale(0) rotate(30deg); opacity:0;}
   }
+
+  /* Disabled overlay that blocks the UI while update is required */
   .disabled-overlay {
     position:absolute;
     top:0; left:0; width:100%; height:100%;
-    background:rgba(0,0,0,0.8);
+    background:rgba(0,0,0,0.85);
     display:flex; justify-content:center; align-items:center;
     flex-direction:column;
-    text-align:center; color:#ff5555; font-size:18px;
+    text-align:center; color:#ffb3b3; font-size:18px;
     z-index:10;
     border-radius:10px;
+    padding:20px;
   }
   .disabled-overlay button {
     margin-top:15px;
     background:#4CAF50;
     cursor:pointer;
+    padding:10px 16px;
+    border-radius:6px;
+    border:none;
+  }
+
+  /* In-page small app store */
+  #store {
+    position:fixed;
+    top:0; left:0; width:100vw; height:100vh;
+    background:linear-gradient(180deg,#0f0f0f,#171717);
+    display:none;
+    justify-content:center;
+    align-items:flex-start;
+    padding:40px;
+    overflow:auto;
+  }
+  .store-inner {
+    width:920px;
+    max-width:95%;
+    margin-top:40px;
+  }
+  .store-header {
+    display:flex; align-items:center; justify-content:space-between;
+    color:#fff; margin-bottom:16px;
+  }
+  .store-grid {
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap:16px;
+  }
+  .app-card {
+    background:#1f1f1f; padding:18px; border-radius:10px; box-shadow:0 6px 18px rgba(0,0,0,0.6);
+  }
+  .app-title { font-size:18px; color:#E50914; margin-bottom:8px; }
+  .app-desc { color:#ccc; font-size:14px; min-height:42px; margin-bottom:12px; }
+  .app-meta { font-size:13px; color:#999; margin-bottom:12px; }
+  .app-actions { display:flex; gap:8px; }
+  .btn-primary { background:#E50914; color:#fff; border:none; padding:8px 12px; border-radius:6px; cursor:pointer; }
+  .btn-secondary { background:transparent; border:1px solid #444; color:#fff; padding:8px 12px; border-radius:6px; cursor:pointer; }
+
+  /* small Back button */
+  .back-store {
+    background:transparent; border:1px solid #444; color:#fff; padding:8px 12px; border-radius:6px; cursor:pointer;
+  }
+
+  /* Proceed button style when login hides */
+  .proceed-btn {
+    padding:10px 20px; font-size:16px; background:#E50914; color:#fff; border-radius:6px; border:none; cursor:pointer;
+  }
+
+  @media (max-width:520px) {
+    .container { width:92%; padding:20px; }
+    #store { padding:16px; align-items:flex-start; }
+    .store-inner { margin-top:24px; }
   }
 </style>
 </head>
 <body>
 
+<!-- Main login/register container -->
 <div class="container" id="container">
   <h2 id="form-title">Login</h2>
-  
+
   <form id="login-form">
     <input type="email" placeholder="Email" required>
     <input type="password" placeholder="Password" required>
@@ -94,15 +152,36 @@
   <div class="toggle" id="toggle-form">Don't have an account? Register</div>
 </div>
 
+<!-- In-page App Store (hidden until needed) -->
+<div id="store" role="dialog" aria-hidden="true">
+  <div class="store-inner">
+    <div class="store-header">
+      <div style="font-size:20px; color:#fff;">Our Apps</div>
+      <div>
+        <button class="back-store" id="backToLogin">Back</button>
+      </div>
+    </div>
+
+    <div id="store-grid" class="store-grid">
+      <!-- App cards inserted dynamically -->
+    </div>
+
+    <div style="height:60px"></div>
+  </div>
+</div>
+
 <script>
+/* ====== Existing UI state & behavior preserved ====== */
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
-let currentUserApkVersion = '0.0.0';
 
-// ----- Toggle forms -----
+let currentUserApkVersion = '0.0.0'; // update this from native when needed
+let updateInfo = null; // will hold server's update JSON (apk_version, apk_url, etc.)
+
+// Toggle login/register
 toggleForm.addEventListener('click', () => {
     if (loginForm.style.display !== 'none') {
         loginForm.style.display = 'none';
@@ -117,89 +196,186 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// ----- Check for APK update -----
+/* ====== Check for update and show disabled overlay ====== */
 async function checkUpdate() {
-    const res = await fetch('/check_update');
-    const data = await res.json();
-    if (data.apk_version && data.apk_version !== currentUserApkVersion) {
-        const overlay = document.createElement('div');
-        overlay.className = 'disabled-overlay';
-        overlay.innerHTML = `
-            <div>New APK version ${data.apk_version} is available.<br>
-            Please download and install it to continue.</div>
-            <button id="downloadBtn">Download APK</button>
-        `;
-        container.appendChild(overlay);
+    try {
+        const res = await fetch('/check_update'); // endpoint returns { apk_version: '1.0.1', apk_url: 'https://...' }
+        if (!res.ok) return;
+        const data = await res.json();
+        updateInfo = data || null;
 
-        document.getElementById('downloadBtn').addEventListener('click', async () => {
-            const res = await fetch('/download_apk');
-            const result = await res.json();
-            if (result.success && result.url) {
-                const a = document.createElement('a');
-                a.href = result.url;
-                a.download = 'app-debug.apk';
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-            } else {
-                alert('Download failed');
-            }
-        });
+        if (data && data.apk_version && data.apk_version !== currentUserApkVersion) {
+            const overlay = document.createElement('div');
+            overlay.className = 'disabled-overlay';
+            overlay.id = 'updateOverlay';
+            overlay.innerHTML = `
+                <div>New APK version <strong>${data.apk_version}</strong> is available.<br>
+                Please download and install it to continue.</div>
+                <div style="margin-top:12px; font-size:13px; color:#ddd;">You can open our app store to download.</div>
+                <button id="openStoreBtn">Open Our Apps</button>
+            `;
+            container.appendChild(overlay);
+
+            document.getElementById('openStoreBtn').addEventListener('click', () => {
+                showStore();
+            });
+        }
+    } catch (e) {
+        // ignore update check failure silently
+        console.warn('update check failed', e);
     }
 }
 
-// ----- Animate container and show Proceed button -----
+/* ====== Store UI & behavior (embedded) ====== */
+const store = document.getElementById('store');
+const storeGrid = document.getElementById('store-grid');
+const backToLogin = document.getElementById('backToLogin');
+
+function showStore() {
+    // hide login container
+    container.style.display = 'none';
+    // populate store if not already
+    renderStore();
+    store.style.display = 'flex';
+    store.setAttribute('aria-hidden', 'false');
+}
+
+function hideStore() {
+    store.style.display = 'none';
+    store.setAttribute('aria-hidden', 'true');
+    container.style.display = 'block';
+}
+
+// Simple store renderer — first app is your APK; more apps can be added to data.apps
+function renderStore() {
+    // If server provided a structured list use that; otherwise build one app from updateInfo
+    let apps = [];
+    if (updateInfo && Array.isArray(updateInfo.apps) && updateInfo.apps.length) {
+        apps = updateInfo.apps;
+    } else if (updateInfo && updateInfo.apk_url) {
+        apps = [{
+            id: 'app-debug',
+            title: 'TomorrowLand',
+            version: updateInfo.apk_version || 'latest',
+            description: 'Official app — tap Download to open in a browser and install.',
+            url: updateInfo.apk_url
+        }];
+    } else {
+        // Fallback demo app (replace URL with a real hosted apk when available)
+        apps = [{
+            id: 'app-debug',
+            title: 'TomorrowLand',
+            version: 'unknown',
+            description: 'App listing — download from browser.',
+            url: 'https://raw.githubusercontent.com/Jeanpromise/UpdateServer/main/apks/app-debug.apk'
+        }];
+    }
+
+    // Render cards
+    storeGrid.innerHTML = '';
+    apps.forEach(a => {
+        const card = document.createElement('div');
+        card.className = 'app-card';
+        card.innerHTML = `
+            <div class="app-title">${escapeHtml(a.title)}</div>
+            <div class="app-desc">${escapeHtml(a.description || '')}</div>
+            <div class="app-meta">Version: <strong>${escapeHtml(a.version || '—')}</strong></div>
+            <div class="app-actions">
+                <button class="btn-primary" data-url="${escapeHtml(a.url)}">Download</button>
+                <button class="btn-secondary" data-id="${escapeHtml(a.id)}">Details</button>
+            </div>
+        `;
+        storeGrid.appendChild(card);
+
+        // Download behavior — open in new tab/browser so native browser handles the file and preserves .apk
+        const dlBtn = card.querySelector('.btn-primary');
+        dlBtn.addEventListener('click', (ev) => {
+            const url = ev.currentTarget.getAttribute('data-url');
+            if (!url) return alert('Download URL missing.');
+            // attempt to open externally; in many WebViews this triggers the external browser
+            // use a short delay so UI feels responsive
+            setTimeout(() => {
+                try {
+                    window.open(url, '_blank', 'noopener');
+                } catch (e) {
+                    // fallback: navigate current window
+                    window.location.href = url;
+                }
+            }, 120);
+        });
+
+        // Details button: simple alert or expand (keeps it minimal)
+        const infoBtn = card.querySelector('.btn-secondary');
+        infoBtn.addEventListener('click', () => {
+            alert(`${a.title}\nVersion: ${a.version}\n\n${a.description || ''}`);
+        });
+    });
+}
+
+// Utility: safe text (basic)
+function escapeHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/[&<>"']/g, function(m){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]); });
+}
+
+backToLogin.addEventListener('click', () => {
+    // remove any update overlay so login becomes usable if desired
+    const ov = document.getElementById('updateOverlay');
+    if (ov) ov.remove();
+    hideStore();
+});
+
+/* ====== Animate container and show Proceed button ====== */
 function animateAndDisappear() {
     container.classList.add('explode');
     container.addEventListener('animationend', () => {
         container.style.display = 'none';
-        
+
         // ===== Show Proceed button =====
         const proceedBtn = document.createElement('button');
         proceedBtn.textContent = 'Proceed to Shows';
-        proceedBtn.style.padding = '10px 20px';
-        proceedBtn.style.fontSize = '16px';
-        proceedBtn.style.background = '#E50914';
-        proceedBtn.style.color = '#fff';
-        proceedBtn.style.border = 'none';
-        proceedBtn.style.borderRadius = '5px';
-        proceedBtn.style.cursor = 'pointer';
+        proceedBtn.className = 'proceed-btn';
         proceedBtn.style.position = 'fixed';
         proceedBtn.style.top = '50%';
         proceedBtn.style.left = '50%';
         proceedBtn.style.transform = 'translate(-50%, -50%)';
         document.body.appendChild(proceedBtn);
 
-        // 🔑 Deflect into Android (open Goojara)
+        // Deflect into Android (open Goojara)
         proceedBtn.addEventListener('click', () => {
             if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
                 AndroidBridge.openGoojaraPage();
             } else {
+                // as fallback navigate to a page or show message
                 alert("Bridge not available.");
             }
         });
     }, {once:true});
 }
 
-// ----- Login submit -----
+/* ====== Login & Registration submit handlers (preserve existing behavior) ===== */
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = loginForm[0].value.trim();
     const password = loginForm[1].value.trim();
-    const res = await fetch('/login', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
-    });
-    const data = await res.json();
-    if (data.success) {
-        animateAndDisappear();
-    } else {
-        alert(data.message);
+    try {
+        const res = await fetch('/login', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
+        });
+        const data = await res.json();
+        if (data.success) {
+            // If server returns apk info and wants to force store, you can set updateInfo = data.update
+            animateAndDisappear();
+        } else {
+            alert(data.message || 'Login failed');
+        }
+    } catch (err) {
+        alert('Network error');
     }
 });
 
-// ----- Registration submit -----
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = registerForm[0].value.trim();
@@ -208,26 +384,36 @@ registerForm.addEventListener('submit', async (e) => {
     const confirm = registerForm[3].value.trim();
     if (password !== confirm) return alert('Passwords do not match!');
 
-    const res = await fetch('/register', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({name,email,password})
-    });
-    const data = await res.json();
-
-    if (data.success) {
-        alert('Registration successful! Please log in.');
-        registerForm.style.display = 'none';
-        loginForm.style.display = 'flex';
-        formTitle.textContent = 'Login';
-        toggleForm.textContent = "Don't have an account? Register";
-    } else {
-        alert(data.message);
+    try {
+        const res = await fetch('/register', {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({name,email,password})
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert('Registration successful! Please log in.');
+            registerForm.style.display = 'none';
+            loginForm.style.display = 'flex';
+            formTitle.textContent = 'Login';
+            toggleForm.textContent = "Don't have an account? Register";
+        } else {
+            alert(data.message || 'Registration failed');
+        }
+    } catch (err) {
+        alert('Network error');
     }
 });
 
-// ----- Initial APK update check -----
+/* ====== Initial flow: check update ====== */
 checkUpdate();
+
+/* ====== Android bridge helpers (optional) ======
+   Keep these function names if your native app expects them:
+   - AndroidBridge.revealForm()  -> call when form is ready (native JS bridge uses this)
+   - AndroidBridge.openGoojaraPage() -> deflect into native
+   If AndroidBridge doesn't exist on desktop, code still works.
+================================================= */
 </script>
 
 </body>
