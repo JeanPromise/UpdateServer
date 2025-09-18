@@ -1,43 +1,92 @@
-<!DOCTYPE html>
+
+
+
+
+<!DOCTYPE html> 
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login & Registration</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:Arial,sans-serif;background:#121212;color:#fff;display:flex;justify-content:center;align-items:center;height:100vh;overflow:hidden}
-  .container{background:#1e1e1e;padding:40px;border-radius:10px;width:350px;box-shadow:0 0 20px rgba(0,0,0,.7);position:relative;transition:transform .6s ease,opacity .6s ease}
-  h2{text-align:center;margin-bottom:20px;color:#E50914}
-  form{display:flex;flex-direction:column}
-  input{margin-bottom:15px;padding:10px;border:0;border-radius:5px;font-size:16px}
-  input:focus{outline:none;border:2px solid #E50914}
-  button{padding:10px;border:0;border-radius:5px;background:#E50914;color:#fff;font-weight:700;cursor:pointer;transition:.2s}
-  button:hover{background:#ff1a2c}
-  .toggle{text-align:center;margin-top:10px;cursor:pointer;color:#aaa}
-  .toggle:hover{color:#fff}
-  .explode{animation:explode .6s forwards}
-  @keyframes explode{0%{transform:scale(1) rotate(0);opacity:1}50%{transform:scale(.6) rotate(10deg);opacity:.8}100%{transform:scale(0) rotate(30deg);opacity:0}}
-
-  .disabled-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.85);display:flex;justify-content:center;align-items:center;flex-direction:column;text-align:center;color:#ffb3b3;font-size:18px;z-index:10;border-radius:10px;padding:20px}
-  .disabled-overlay button{margin-top:15px;background:#4CAF50;cursor:pointer;padding:10px 16px;border-radius:6px;border:0}
-
-  .proceed-btn{padding:10px 20px;font-size:16px;background:#E50914;color:#fff;border-radius:6px;border:0;cursor:pointer}
-  @media (max-width:520px){.container{width:92%;padding:20px}}
+  * {margin:0; padding:0; box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background:#121212;
+    color:#fff;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    overflow:hidden;
+  }
+  .container {
+    background:#1e1e1e;
+    padding:40px;
+    border-radius:10px;
+    width:350px;
+    box-shadow:0 0 20px rgba(0,0,0,0.7);
+    position:relative;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+  }
+  h2 {text-align:center; margin-bottom:20px; color:#E50914;}
+  form {display:flex; flex-direction:column;}
+  input {
+    margin-bottom:15px;
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    font-size:16px;
+  }
+  input:focus {outline:none; border:2px solid #E50914;}
+  button {
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    background:#E50914;
+    color:#fff;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.2s;
+  }
+  button:hover {background:#ff1a2c;}
+  .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
+  .toggle:hover {color:#fff;}
+  .explode {animation: explode 0.6s forwards;}
+  @keyframes explode {
+    0% {transform: scale(1) rotate(0deg); opacity:1;}
+    50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
+    100% {transform: scale(0) rotate(30deg); opacity:0;}
+  }
+  .disabled-overlay {
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.8);
+    display:flex; justify-content:center; align-items:center;
+    flex-direction:column;
+    text-align:center; color:#ff5555; font-size:18px;
+    z-index:10;
+    border-radius:10px;
+  }
+  .disabled-overlay button {
+    margin-top:15px;
+    background:#4CAF50;
+    cursor:pointer;
+  }
 </style>
 </head>
 <body>
 
 <div class="container" id="container">
   <h2 id="form-title">Login</h2>
-
+  
   <form id="login-form">
     <input type="email" placeholder="Email" required>
     <input type="password" placeholder="Password" required>
     <button type="submit">Login</button>
   </form>
 
-  <form id="register-form" style="display:none">
+  <form id="register-form" style="display:none;">
     <input type="text" placeholder="Full Name" required>
     <input type="email" placeholder="Email" required>
     <input type="password" placeholder="Password" required>
@@ -49,186 +98,138 @@
 </div>
 
 <script>
-/* preserved UI + behavior */
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
+let currentUserApkVersion = '0.0.0';
 
-let currentUserApkVersion = '0.0.0'; // native may override via JS bridge
-let updateInfo = null;
-
-/* toggle forms */
+// ----- Toggle forms -----
 toggleForm.addEventListener('click', () => {
-  if (loginForm.style.display !== 'none') {
-    loginForm.style.display = 'none';
-    registerForm.style.display = 'flex';
-    formTitle.textContent = 'Register';
-    toggleForm.textContent = 'Already have an account? Login';
-  } else {
-    loginForm.style.display = 'flex';
-    registerForm.style.display = 'none';
-    formTitle.textContent = 'Login';
-    toggleForm.textContent = "Don't have an account? Register";
-  }
-});
-
-/* openExternal fallback (tries intent:// then window.open) */
-function openExternal(url) {
-  if (!url) return;
-  try {
-    const withoutProto = url.replace(/^https?:\/\//i, '');
-    const intentUrl = 'intent://' + withoutProto + '#Intent;scheme=https;package=com.android.chrome;end';
-    // try intent first (some WebViews will hand it to system)
-    window.location.href = intentUrl;
-    setTimeout(() => {
-      try { window.open(url, '_blank', 'noopener'); } catch (e) { window.location.href = url; }
-    }, 600);
-  } catch (e) {
-    try { window.open(url, '_blank', 'noopener'); } catch (err) { window.location.href = url; }
-  }
-}
-
-/* checkUpdate: shows disabled overlay and a Download button that opens external browser */
-async function checkUpdate() {
-  try {
-    const res = await fetch('/check_update');
-    if (!res.ok) return;
-    const data = await res.json();
-    updateInfo = data || null;
-
-    if (data && data.apk_version && data.apk_version !== currentUserApkVersion) {
-      const overlay = document.createElement('div');
-      overlay.className = 'disabled-overlay';
-      overlay.id = 'updateOverlay';
-      overlay.innerHTML = `
-        <div>New APK version <strong>${escapeHtml(data.apk_version)}</strong> is available.<br>
-        Please download and install it to continue.</div>
-        <div style="margin-top:12px;font-size:13px;color:#ddd">This will open your browser to download.</div>
-        <button id="downloadBtn">Open in Browser</button>
-      `;
-      container.appendChild(overlay);
-
-      document.getElementById('downloadBtn').addEventListener('click', async () => {
-        try {
-          // get URL from backend (keeps your existing server behaviour)
-          const r = await fetch('/download_apk');
-          if (!r.ok) {
-            // fallback to store_url or raw link if provided earlier
-            const fallback = (updateInfo && updateInfo.store_url) ? updateInfo.store_url : (updateInfo && updateInfo.apk_url ? updateInfo.apk_url : null);
-            if (fallback) {
-              if (window.AndroidBridge && typeof AndroidBridge.openExternal === 'function') {
-                try { AndroidBridge.openExternal(fallback); return; } catch(e){ openExternal(fallback); return; }
-              } else { openExternal(fallback); return; }
-            }
-            return alert('Could not fetch download link.');
-          }
-          const result = await r.json();
-          if (result && result.url) {
-            const url = result.url;
-            // Primary: call native bridge to launch external browser (reliable)
-            if (window.AndroidBridge && typeof AndroidBridge.openExternal === 'function') {
-              try { AndroidBridge.openExternal(url); return; } catch (e) { /* fall through */ }
-            }
-            // Fallback: try to open externally via JS
-            openExternal(url);
-          } else {
-            alert('Download link not available.');
-          }
-        } catch (err) {
-          // final fallback to updateInfo or raw link
-          const fallback = (updateInfo && updateInfo.store_url) ? updateInfo.store_url : (updateInfo && updateInfo.apk_url ? updateInfo.apk_url : null);
-          if (fallback) {
-            if (window.AndroidBridge && typeof AndroidBridge.openExternal === 'function') {
-              try { AndroidBridge.openExternal(fallback); return; } catch(e){ openExternal(fallback); return; }
-            } else openExternal(fallback);
-          } else {
-            alert('Download failed (network).');
-          }
-        }
-      });
-    }
-  } catch (e) {
-    console.warn('update check error', e);
-  }
-}
-
-/* animate and show proceed button (preserved) */
-function animateAndDisappear(){
-  container.classList.add('explode');
-  container.addEventListener('animationend', ()=>{
-    container.style.display = 'none';
-    const proceedBtn = document.createElement('button');
-    proceedBtn.textContent = 'Proceed to Shows';
-    proceedBtn.className = 'proceed-btn';
-    proceedBtn.style.position = 'fixed';
-    proceedBtn.style.top = '50%';
-    proceedBtn.style.left = '50%';
-    proceedBtn.style.transform = 'translate(-50%,-50%)';
-    document.body.appendChild(proceedBtn);
-
-    proceedBtn.addEventListener('click', ()=>{
-      if (window.AndroidBridge && typeof AndroidBridge.openGoojaraPage === 'function') {
-        try { AndroidBridge.openGoojaraPage(); } catch (e) { alert('Bridge not available.'); }
-      } else {
-        alert('Bridge not available.');
-      }
-    });
-  }, {once:true});
-}
-
-/* login/register handlers preserved */
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = loginForm[0].value.trim();
-  const password = loginForm[1].value.trim();
-  try {
-    const res = await fetch('/login', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
-    });
-    const data = await res.json();
-    if (data.success) {
-      // optional: server may return update info here
-      animateAndDisappear();
+    if (loginForm.style.display !== 'none') {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'flex';
+        formTitle.textContent = 'Register';
+        toggleForm.textContent = 'Already have an account? Login';
     } else {
-      alert(data.message || 'Login failed');
+        loginForm.style.display = 'flex';
+        registerForm.style.display = 'none';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
     }
-  } catch (err) {
-    alert('Network error');
-  }
 });
 
-registerForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const name = registerForm[0].value.trim();
-  const email = registerForm[1].value.trim();
-  const password = registerForm[2].value.trim();
-  const confirm = registerForm[3].value.trim();
-  if (password !== confirm) return alert('Passwords do not match!');
-  try {
-    const res = await fetch('/register', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({name,email,password})
+// ----- Check for APK update -----
+async function checkUpdate() {
+    const res = await fetch('/check_update');
+    const data = await res.json();
+    if (data.apk_version && data.apk_version !== currentUserApkVersion) {
+        const overlay = document.createElement('div');
+        overlay.className = 'disabled-overlay';
+        overlay.innerHTML = `
+            <div>New APK version ${data.apk_version} is available.<br>
+            Please download and install it to continue.</div>
+            <button id="downloadBtn">Download APK</button>
+        `;
+        container.appendChild(overlay);
+
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            const res = await fetch('/download_apk');
+            const result = await res.json();
+            if (result.success && result.url) {
+                const a = document.createElement('a');
+                a.href = result.url;
+                a.download = 'app-debug.apk';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            } else {
+                alert('Download failed');
+            }
+        });
+    }
+}
+
+// ----- Animate container and show Proceed button -----
+function animateAndDisappear() {
+    container.classList.add('explode');
+    container.addEventListener('animationend', () => {
+        container.style.display = 'none';
+        
+        // ===== Show Proceed button =====
+        const proceedBtn = document.createElement('button');
+        proceedBtn.textContent = 'Proceed to Shows';
+        proceedBtn.style.padding = '10px 20px';
+        proceedBtn.style.fontSize = '16px';
+        proceedBtn.style.background = '#E50914';
+        proceedBtn.style.color = '#fff';
+        proceedBtn.style.border = 'none';
+        proceedBtn.style.borderRadius = '5px';
+        proceedBtn.style.cursor = 'pointer';
+        proceedBtn.style.position = 'fixed';
+        proceedBtn.style.top = '50%';
+        proceedBtn.style.left = '50%';
+        proceedBtn.style.transform = 'translate(-50%, -50%)';
+        document.body.appendChild(proceedBtn);
+
+        // 🔑 Deflect into Android (open Goojara)
+        proceedBtn.addEventListener('click', () => {
+            if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
+                AndroidBridge.openGoojaraPage();
+            } else {
+                alert("Bridge not available.");
+            }
+        });
+    }, {once:true});
+}
+
+// ----- Login submit -----
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = loginForm[0].value.trim();
+    const password = loginForm[1].value.trim();
+    const res = await fetch('/login', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
     });
     const data = await res.json();
     if (data.success) {
-      alert('Registration successful! Please log in.');
-      registerForm.style.display='none';
-      loginForm.style.display='flex';
-      formTitle.textContent='Login';
-      toggleForm.textContent="Don't have an account? Register";
-    } else alert(data.message || 'Registration failed');
-  } catch (err) { alert('Network error'); }
+        animateAndDisappear();
+    } else {
+        alert(data.message);
+    }
 });
 
-/* simple escape */
-function escapeHtml(s){ if(!s) return ''; return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+// ----- Registration submit -----
+registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = registerForm[0].value.trim();
+    const email = registerForm[1].value.trim();
+    const password = registerForm[2].value.trim();
+    const confirm = registerForm[3].value.trim();
+    if (password !== confirm) return alert('Passwords do not match!');
 
-/* initial update check */
+    const res = await fetch('/register', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name,email,password})
+    });
+    const data = await res.json();
+
+    if (data.success) {
+        alert('Registration successful! Please log in.');
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'flex';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
+    } else {
+        alert(data.message);
+    }
+});
+
+// ----- Initial APK update check -----
 checkUpdate();
 </script>
 
