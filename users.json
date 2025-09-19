@@ -3,7 +3,7 @@
     "name": "Jean Gift",
     "email": "jeanpromise6@gmail.com",
     "password": "123",
-    "enabled": true,
+    "enabled": false,
     "apk_version": "1.0.0"
   }
 ]
