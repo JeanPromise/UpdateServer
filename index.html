@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -100,8 +100,8 @@ const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
 
-// ✅ Load stored version from localStorage
-let currentUserApkVersion = localStorage.getItem("apk_version") || "0.0.0";
+// ✅ Load stored "installed" APK version
+let installedVersion = localStorage.getItem("apk_installed_version") || "0.0.0";
 
 // ----- Toggle forms -----
 toggleForm.addEventListener('click', () => {
@@ -120,32 +120,40 @@ toggleForm.addEventListener('click', () => {
 
 // ----- Check for APK update -----
 async function checkUpdate() {
-    const res = await fetch('/check_update');
-    const data = await res.json();
-
-    if (data.apk_version && data.apk_version !== currentUserApkVersion) {
-        const overlay = document.createElement('div');
-        overlay.className = 'disabled-overlay';
-        overlay.innerHTML = `
-            <div>New APK version ${data.apk_version} is available.<br>
-            Please download and install it to continue.</div>
-            <button id="downloadBtn">Download APK</button>
-        `;
-        container.appendChild(overlay);
-
-        document.getElementById('downloadBtn').addEventListener('click', () => {
-            const a = document.createElement('a');
-            a.href = '/download_apk';
-            a.download = 'app-latest.apk';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-
-            // ✅ Save the new version as "installed"
-            localStorage.setItem("apk_version", data.apk_version);
-            currentUserApkVersion = data.apk_version;
-            overlay.remove(); // remove overlay so user can continue
+    try {
+        const res = await fetch('/check_update', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({installed_version: installedVersion})
         });
+        const data = await res.json();
+
+        if (data.update_required) {
+            const overlay = document.createElement('div');
+            overlay.className = 'disabled-overlay';
+            overlay.innerHTML = `
+                <div>New APK version ${data.apk_version} is available.<br>
+                Please download and install it to continue.</div>
+                <button id="downloadBtn">Download APK</button>
+            `;
+            container.appendChild(overlay);
+
+            document.getElementById('downloadBtn').addEventListener('click', () => {
+                const a = document.createElement('a');
+                a.href = data.url || '/download_apk';
+                a.download = 'app-latest.apk';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+
+                // Mark as installed locally
+                localStorage.setItem("apk_installed_version", data.apk_version);
+                installedVersion = data.apk_version;
+                overlay.remove();
+            });
+        }
+    } catch(err) {
+        console.error("Update check failed:", err);
     }
 }
 
@@ -154,21 +162,14 @@ function animateAndDisappear() {
     container.classList.add('explode');
     container.addEventListener('animationend', () => {
         container.style.display = 'none';
-        
-        // ===== Show Proceed button =====
+
         const proceedBtn = document.createElement('button');
         proceedBtn.textContent = 'Proceed to Shows';
-        proceedBtn.style.padding = '10px 20px';
-        proceedBtn.style.fontSize = '16px';
-        proceedBtn.style.background = '#E50914';
-        proceedBtn.style.color = '#fff';
-        proceedBtn.style.border = 'none';
-        proceedBtn.style.borderRadius = '5px';
-        proceedBtn.style.cursor = 'pointer';
-        proceedBtn.style.position = 'fixed';
-        proceedBtn.style.top = '50%';
-        proceedBtn.style.left = '50%';
-        proceedBtn.style.transform = 'translate(-50%, -50%)';
+        proceedBtn.style.cssText = `
+            padding:10px 20px; font-size:16px; background:#E50914;
+            color:#fff; border:none; border-radius:5px; cursor:pointer;
+            position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+        `;
         document.body.appendChild(proceedBtn);
 
         proceedBtn.addEventListener('click', () => {
@@ -189,7 +190,7 @@ loginForm.addEventListener('submit', async (e) => {
     const res = await fetch('/login', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
+        body: JSON.stringify({email, password, apk_version: installedVersion})
     });
     const data = await res.json();
     if (data.success) {
