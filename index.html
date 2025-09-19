@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -6,20 +6,70 @@
 <title>Login & Registration</title>
 <style>
   * {margin:0; padding:0; box-sizing:border-box;}
-  body {font-family: Arial, sans-serif; background:#121212; color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden;}
-  .container {background:#1e1e1e; padding:40px; border-radius:10px; width:350px; box-shadow:0 0 20px rgba(0,0,0,0.7); position:relative; transition: transform 0.6s ease, opacity 0.6s ease;}
+  body {
+    font-family: Arial, sans-serif;
+    background:#121212;
+    color:#fff;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    overflow:hidden;
+  }
+  .container {
+    background:#1e1e1e;
+    padding:40px;
+    border-radius:10px;
+    width:350px;
+    box-shadow:0 0 20px rgba(0,0,0,0.7);
+    position:relative;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+    z-index:1;
+  }
   h2 {text-align:center; margin-bottom:20px; color:#E50914;}
   form {display:flex; flex-direction:column;}
-  input {margin-bottom:15px; padding:10px; border:none; border-radius:5px; font-size:16px;}
+  input {
+    margin-bottom:15px;
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    font-size:16px;
+  }
   input:focus {outline:none; border:2px solid #E50914;}
-  button {padding:10px; border:none; border-radius:5px; background:#E50914; color:#fff; font-weight:bold; cursor:pointer; transition:0.2s;}
+  button {
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    background:#E50914;
+    color:#fff;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.2s;
+  }
   button:hover {background:#ff1a2c;}
   .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
   .toggle:hover {color:#fff;}
   .explode {animation: explode 0.6s forwards;}
-  @keyframes explode {0% {transform: scale(1) rotate(0deg); opacity:1;} 50% {transform: scale(0.6) rotate(10deg); opacity:0.8;} 100% {transform: scale(0) rotate(30deg); opacity:0;}}
-  .disabled-overlay {position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; flex-direction:column; text-align:center; color:#ff5555; font-size:18px; z-index:10; border-radius:10px;}
-  .disabled-overlay button {margin-top:15px; background:#4CAF50; cursor:pointer;}
+  @keyframes explode {
+    0% {transform: scale(1) rotate(0deg); opacity:1;}
+    50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
+    100% {transform: scale(0) rotate(30deg); opacity:0;}
+  }
+  .disabled-overlay {
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.85);
+    display:flex; justify-content:center; align-items:center;
+    flex-direction:column;
+    text-align:center; color:#ff5555; font-size:18px;
+    z-index:10;
+    border-radius:10px;
+  }
+  .disabled-overlay button {
+    margin-top:15px;
+    background:#4CAF50;
+    cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -51,7 +101,7 @@ const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
 
-// ----- Track user's APK version -----
+// Track user's APK version in localStorage
 let currentUserApkVersion = localStorage.getItem('apk_version') || '0.0.0';
 
 // ----- Toggle forms -----
@@ -69,33 +119,26 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// ----- Animate container and show Proceed button -----
-function animateAndDisappear() {
-    container.classList.add('explode');
-    container.addEventListener('animationend', () => {
-        container.style.display = 'none';
-        const proceedBtn = document.createElement('button');
-        proceedBtn.textContent = 'Proceed to Shows';
-        Object.assign(proceedBtn.style, {
-            padding:'10px 20px', fontSize:'16px', background:'#E50914', color:'#fff',
-            border:'none', borderRadius:'5px', cursor:'pointer', position:'fixed',
-            top:'50%', left:'50%', transform:'translate(-50%, -50%)'
-        });
-        document.body.appendChild(proceedBtn);
-        proceedBtn.addEventListener('click', () => {
-            if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
-                AndroidBridge.openGoojaraPage();
-            } else alert("Bridge not available.");
-        });
-    }, {once:true});
+// ----- APK overlay -----
+async function checkUpdate() {
+    try {
+        const res = await fetch('/check_update');
+        const data = await res.json();
+        if (data.apk_version) {
+            if (data.apk_version !== currentUserApkVersion) {
+                showApkOverlay(data.apk_version, data.url);
+            }
+        }
+    } catch (err) {
+        console.error("Update check failed:", err);
+    }
 }
 
-// ----- Show APK update overlay -----
-function showUpdateOverlay(apk_version, download_url) {
+function showApkOverlay(version, url) {
     const overlay = document.createElement('div');
     overlay.className = 'disabled-overlay';
     overlay.innerHTML = `
-        <div>New APK version ${apk_version} is available.<br>
+        <div>New APK version ${version} is available.<br>
         Please download and install it to continue.</div>
         <button id="downloadBtn">Download APK</button>
     `;
@@ -103,17 +146,41 @@ function showUpdateOverlay(apk_version, download_url) {
 
     document.getElementById('downloadBtn').addEventListener('click', () => {
         const a = document.createElement('a');
-        a.href = download_url || '/download_apk';
+        a.href = url;
         a.download = 'app-latest.apk';
         document.body.appendChild(a);
         a.click();
         a.remove();
 
-        // ✅ Save version locally
-        currentUserApkVersion = apk_version;
-        localStorage.setItem('apk_version', apk_version);
+        // Save updated version to localStorage
+        localStorage.setItem('apk_version', version);
         overlay.remove();
     });
+}
+
+// ----- Animate container and show Proceed button -----
+function animateAndDisappear() {
+    container.classList.add('explode');
+    container.addEventListener('animationend', () => {
+        container.style.display = 'none';
+
+        const proceedBtn = document.createElement('button');
+        proceedBtn.textContent = 'Proceed to Shows';
+        proceedBtn.style.cssText = `
+            padding:10px 20px; font-size:16px; background:#E50914; color:#fff;
+            border:none; border-radius:5px; cursor:pointer;
+            position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+        `;
+        document.body.appendChild(proceedBtn);
+
+        proceedBtn.addEventListener('click', () => {
+            if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
+                AndroidBridge.openGoojaraPage();
+            } else {
+                alert("Bridge not available.");
+            }
+        });
+    }, {once:true});
 }
 
 // ----- Login submit -----
@@ -121,18 +188,14 @@ loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = loginForm[0].value.trim();
     const password = loginForm[1].value.trim();
-
     const res = await fetch('/login', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
     });
     const data = await res.json();
-    
     if (data.success) {
         animateAndDisappear();
-    } else if (data.update_required) {
-        showUpdateOverlay(data.apk_version, data.url);
     } else {
         alert(data.message);
     }
@@ -153,14 +216,20 @@ registerForm.addEventListener('submit', async (e) => {
         body: JSON.stringify({name,email,password})
     });
     const data = await res.json();
+
     if (data.success) {
         alert('Registration successful! Please log in.');
         registerForm.style.display = 'none';
         loginForm.style.display = 'flex';
         formTitle.textContent = 'Login';
         toggleForm.textContent = "Don't have an account? Register";
-    } else alert(data.message);
+    } else {
+        alert(data.message);
+    }
 });
+
+// ----- Initial APK update check -----
+checkUpdate();
 </script>
 
 </body>
