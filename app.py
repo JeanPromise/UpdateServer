@@ -1,10 +1,11 @@
 import base64, json, requests, os
-from flask import Flask, request, jsonify, send_from_directory, Response
+from flask import Flask, request, jsonify, send_from_directory, Response, session, redirect, url_for
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
 app = Flask(__name__, static_url_path='', static_folder='.')
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")  # required for session
 
 # ---------------- Config ----------------
 GITHUB_OWNER = "JeanPromise"
@@ -67,6 +68,14 @@ def load_apk():
 def save_apk(apk_obj):
     github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
 
+# ---------------- Private Site Enforcement ----------------
+@app.before_request
+def require_login():
+    if request.endpoint in ['login', 'register', 'index', 'static', 'check_update', 'download_apk', 'get_apk']:
+        return  # allow these
+    if 'user_email' not in session:
+        return redirect(url_for('index'))
+
 # ---------------- Pages ----------------
 @app.route('/')
 def index():
@@ -99,10 +108,12 @@ def login():
             if not u.get('enabled', True):
                 return jsonify({"success": False, "message": "User is disabled."})
             if check_password_hash(u.get('password'), password):
+                # login success → save session
+                session['user_email'] = email
+
                 # ---------------- Log login ----------------
                 ip = request.headers.get('X-Forwarded-For', request.remote_addr)
                 user_agent = request.headers.get("User-Agent", "")
-                # Try simple free IP lookup
                 try:
                     loc_res = requests.get(f"http://ip-api.com/json/{ip}").json()
                     country = loc_res.get("country", "Unknown")
@@ -114,13 +125,16 @@ def login():
                     "country": country,
                     "user_agent": user_agent
                 }
-                if "login_history" not in u:
-                    u["login_history"] = []
-                u["login_history"].append(login_record)
+                u.setdefault("login_history", []).append(login_record)
                 save_users(users)
                 return jsonify({"success": True})
             return jsonify({"success": False, "message": "Incorrect password."})
     return jsonify({"success": False, "message": "Email not registered."})
+
+@app.route('/logout')
+def logout():
+    session.pop('user_email', None)
+    return redirect(url_for('index'))
 
 @app.route('/get_users')
 def get_users():
@@ -196,7 +210,6 @@ def upload_apk():
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
-    # Get SHA if file exists
     r_get = requests.get(url, headers=headers)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
