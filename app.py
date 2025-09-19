@@ -136,32 +136,15 @@ def disable_all():
     return jsonify({"success": True})
 
 # ---------------- APK Endpoints ----------------
-@app.route('/check_update', methods=['POST'])
+@app.route('/check_update')
 def check_update():
-    data = request.get_json(silent=True) or {}
-    installed_version = data.get("installed_version")  # what the app reports
     apk_data = load_apk()
-    latest_version = apk_data.get("version")
-    download_url = apk_data.get("download_url")
-
-    # No APK uploaded at all
-    if not latest_version or not download_url:
-        return jsonify({"update_required": False})
-
-    # If installed version equals latest → no update required
-    if installed_version == latest_version:
-        return jsonify({
-            "update_required": False,
-            "apk_version": latest_version
-        })
-
-    # Otherwise update is required
+    has_apk = bool(apk_data.get("download_url"))
     return jsonify({
-        "update_required": True,
-        "apk_version": latest_version,
-        "url": download_url
+        "update_required": has_apk,
+        "apk_version": apk_data.get("version") if has_apk else None,
+        "url": apk_data.get("download_url") if has_apk else None
     })
-
 
 @app.route('/upload_apk', methods=['POST'])
 def upload_apk():
