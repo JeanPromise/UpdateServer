@@ -58,7 +58,7 @@
   .disabled-overlay {
     position:absolute;
     top:0; left:0; width:100%; height:100%;
-    background:rgba(0,0,0,0.8);
+    background:rgba(0,0,0,0.9);
     display:flex; justify-content:center; align-items:center;
     flex-direction:column;
     text-align:center; color:#ff5555; font-size:18px;
@@ -69,8 +69,11 @@
     margin-top:15px;
     background:#4CAF50;
     cursor:pointer;
+    padding:8px 16px;
+    border:none;
+    border-radius:5px;
+    font-weight:bold;
   }
-  /* Small green version stamp */
   .apk-version-stamp {
     position:fixed;
     bottom:10px;
@@ -106,7 +109,6 @@
   <div class="toggle" id="toggle-form">Don't have an account? Register</div>
 </div>
 
-<!-- Version stamp -->
 <div class="apk-version-stamp" id="apk-version-stamp">App version: 0.0.0</div>
 
 <script>
@@ -158,12 +160,10 @@ async function checkUpdate() {
             a.click();
             a.remove();
 
-            // Save new version locally
             localStorage.setItem('installedApkVersion', data.apk_version);
             currentUserApkVersion = data.apk_version;
             versionStamp.textContent = 'App version: ' + currentUserApkVersion;
 
-            // Remove overlay
             overlay.remove();
         });
     }
@@ -186,7 +186,6 @@ function animateAndDisappear() {
     container.classList.add('explode');
     container.addEventListener('animationend', () => {
         container.style.display = 'none';
-        
         const proceedBtn = document.createElement('button');
         proceedBtn.textContent = 'Proceed to Shows';
         Object.assign(proceedBtn.style, {
