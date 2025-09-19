@@ -1,4 +1,3 @@
-
 <!DOCTYPE html> 
 <html lang="en">
 <head>
@@ -72,6 +71,18 @@
   }
 </style>
 </head>
+ <div id="installed-version" style="
+    position: fixed;
+    bottom: 5px;
+    right: 10px;
+    color: #4CAF50;
+    font-size: 14px;
+    font-weight: bold;
+    background: rgba(0,0,0,0.3);
+    padding: 4px 8px;
+    border-radius: 4px;
+">Installed Version: 0.0.0</div>
+
 <body>
 
 <div class="container" id="container">
@@ -117,11 +128,15 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// ----- Check for APK update -----
 async function checkUpdate() {
     const res = await fetch('/check_update');
     const data = await res.json();
-    if (data.apk_version && data.apk_version !== currentUserApkVersion) {
+
+    const stamp = document.getElementById('installed-version');
+    stamp.innerText = `Installed Version: ${currentUserApkVersion}`;
+
+    // Compare versions
+    if (data.apk_version && compareVersions(data.apk_version, currentUserApkVersion) > 0) {
         const overlay = document.createElement('div');
         overlay.className = 'disabled-overlay';
         overlay.innerHTML = `
@@ -131,7 +146,6 @@ async function checkUpdate() {
         `;
         container.appendChild(overlay);
 
-        // ✅ Fixed: Now directly downloads .apk instead of .bin
         document.getElementById('downloadBtn').addEventListener('click', () => {
             const a = document.createElement('a');
             a.href = '/download_apk';
@@ -139,9 +153,29 @@ async function checkUpdate() {
             document.body.appendChild(a);
             a.click();
             a.remove();
+
+            // Update installed version stamp
+            currentUserApkVersion = data.apk_version;
+            stamp.innerText = `Installed Version: ${currentUserApkVersion}`;
+
+            overlay.remove();
         });
     }
 }
+
+// ----- Version comparison helper -----
+function compareVersions(v1, v2) {
+    const a1 = v1.split('.').map(Number);
+    const a2 = v2.split('.').map(Number);
+    for (let i = 0; i < Math.max(a1.length, a2.length); i++) {
+        const n1 = a1[i] || 0;
+        const n2 = a2[i] || 0;
+        if (n1 > n2) return 1;
+        if (n1 < n2) return -1;
+    }
+    return 0;
+}
+
 
 // ----- Animate container and show Proceed button -----
 function animateAndDisappear() {
