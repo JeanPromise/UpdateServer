@@ -34,7 +34,6 @@ def github_push_file(filename, content, message=None):
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
-    # Get SHA if file exists
     r_get = requests.get(url, headers=headers)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
@@ -83,20 +82,35 @@ def register():
     users = load_users()
     if any(u.get('email') == email for u in users if isinstance(u, dict)):
         return jsonify({"success": False, "message": "Email already registered."})
-    users.append({"name": name, "email": email, "password": password, "enabled": True})
+    # ✅ Initialize apk_version to "0.0.0"
+    users.append({"name": name, "email": email, "password": password, "enabled": True, "apk_version": "0.0.0"})
     save_users(users)
     return jsonify({"success": True})
 
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    email, password = data.get('email'), data.get('password')
+    email, password, user_apk_version = data.get('email'), data.get('password'), data.get('apk_version', '0.0.0')
     users = load_users()
+    latest_apk = load_apk()
+    
     for u in users:
         if isinstance(u, dict) and u.get('email') == email:
             if not u.get('enabled', True):
                 return jsonify({"success": False, "message": "User is disabled."})
             if u.get('password') == password:
+                # ✅ Check APK version
+                if latest_apk.get("version") and u.get("apk_version", "0.0.0") != latest_apk["version"]:
+                    return jsonify({
+                        "success": False,
+                        "update_required": True,
+                        "apk_version": latest_apk["version"],
+                        "url": latest_apk["download_url"],
+                        "message": f"New APK version {latest_apk['version']} available."
+                    })
+                # ✅ Save user's installed APK version
+                u['apk_version'] = user_apk_version
+                save_users(users)
                 return jsonify({"success": True})
             return jsonify({"success": False, "message": "Incorrect password."})
     return jsonify({"success": False, "message": "Email not registered."})
@@ -136,15 +150,24 @@ def disable_all():
     return jsonify({"success": True})
 
 # ---------------- APK Endpoints ----------------
-@app.route('/check_update')
+@app.route('/check_update', methods=['POST'])
 def check_update():
+    data = request.get_json()
+    user_email = data.get('email')
+    users = load_users()
+    user = next((u for u in users if u.get('email') == user_email), None)
     apk_data = load_apk()
-    has_apk = bool(apk_data.get("download_url"))
-    return jsonify({
-        "update_required": has_apk,
-        "apk_version": apk_data.get("version") if has_apk else None,
-        "url": apk_data.get("download_url") if has_apk else None
-    })
+
+    if user and apk_data.get("version"):
+        if user.get('apk_version') == apk_data['version']:
+            return jsonify({"update_required": False})
+        else:
+            return jsonify({
+                "update_required": True,
+                "apk_version": apk_data['version'],
+                "url": apk_data['download_url']
+            })
+    return jsonify({"update_required": bool(apk_data.get("version"))})
 
 @app.route('/upload_apk', methods=['POST'])
 def upload_apk():
@@ -159,7 +182,6 @@ def upload_apk():
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
-    # Get SHA if file exists
     r_get = requests.get(url, headers=headers)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
@@ -185,7 +207,6 @@ def download_apk():
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK available."}), 404
 
-    # Fetch APK from GitHub and stream with correct headers
     r = requests.get(apk_data["download_url"], stream=True)
     if r.status_code != 200:
         return jsonify({"success": False, "message": "Failed to fetch APK"}), 500
@@ -210,23 +231,16 @@ def update_apk():
     })
     return jsonify({"success": True})
 
-# ---------------- Delete APK ----------------
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
     apk_data = load_apk()
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK to delete."})
 
-    # Reset apk.json
     save_apk({"version": None, "changelog": "", "download_url": ""})
     return jsonify({"success": True, "message": "APK deleted."})
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Render requires binding to $PORT
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=False,
-        use_reloader=False
-    )
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
