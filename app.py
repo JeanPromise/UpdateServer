@@ -1,6 +1,3 @@
-can you full app.py...i think you just smarter than I expected, you never siez to amaze..so you storing user with version huh...smart guy
-
-current app.py:
 import base64, json, requests, os
 from flask import Flask, request, jsonify, send_from_directory, Response
 from werkzeug.utils import secure_filename
