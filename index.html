@@ -102,6 +102,7 @@ const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
 
 // Track user's APK version in localStorage
+let currentUserEmail = localStorage.getItem('user_email') || null;
 let currentUserApkVersion = localStorage.getItem('apk_version') || '0.0.0';
 
 // ----- Toggle forms -----
@@ -119,21 +120,7 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// ----- APK overlay -----
-async function checkUpdate() {
-    try {
-        const res = await fetch('/check_update');
-        const data = await res.json();
-        if (data.apk_version) {
-            if (data.apk_version !== currentUserApkVersion) {
-                showApkOverlay(data.apk_version, data.url);
-            }
-        }
-    } catch (err) {
-        console.error("Update check failed:", err);
-    }
-}
-
+// ----- Show APK overlay -----
 function showApkOverlay(version, url) {
     const overlay = document.createElement('div');
     overlay.className = 'disabled-overlay';
@@ -144,7 +131,8 @@ function showApkOverlay(version, url) {
     `;
     container.appendChild(overlay);
 
-    document.getElementById('downloadBtn').addEventListener('click', () => {
+    document.getElementById('downloadBtn').addEventListener('click', async () => {
+        // Download APK
         const a = document.createElement('a');
         a.href = url;
         a.download = 'app-latest.apk';
@@ -152,13 +140,24 @@ function showApkOverlay(version, url) {
         a.click();
         a.remove();
 
-        // Save updated version to localStorage
+        // Update APK version locally
         localStorage.setItem('apk_version', version);
+
+        // Update APK version for user on server
+        if (currentUserEmail) {
+            await fetch('/download_apk', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({email: currentUserEmail})
+            });
+        }
+
         overlay.remove();
+        animateAndDisappear();
     });
 }
 
-// ----- Animate container and show Proceed button -----
+// ----- Animate container & show Proceed button -----
 function animateAndDisappear() {
     container.classList.add('explode');
     container.addEventListener('animationend', () => {
@@ -188,14 +187,23 @@ loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = loginForm[0].value.trim();
     const password = loginForm[1].value.trim();
+
     const res = await fetch('/login', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
+        body: JSON.stringify({email, password})
     });
     const data = await res.json();
+
     if (data.success) {
-        animateAndDisappear();
+        currentUserEmail = email;
+        localStorage.setItem('user_email', email);
+
+        if (data.update_required) {
+            showApkOverlay(data.apk_version, data.apk_url);
+        } else {
+            animateAndDisappear();
+        }
     } else {
         alert(data.message);
     }
@@ -227,10 +235,8 @@ registerForm.addEventListener('submit', async (e) => {
         alert(data.message);
     }
 });
-
-// ----- Initial APK update check -----
-checkUpdate();
 </script>
+
 
 </body>
 </html>
