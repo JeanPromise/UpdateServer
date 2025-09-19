@@ -1,4 +1,4 @@
-import base64, json, requests, os 
+import base64, json, requests, os
 from flask import Flask, request, jsonify, send_from_directory, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime
@@ -121,7 +121,8 @@ def toggle_user():
 def enable_all():
     users = load_users()
     for u in users:
-        if isinstance(u, dict): u['enabled'] = True
+        if isinstance(u, dict):
+            u['enabled'] = True
     save_users(users)
     return jsonify({"success": True})
 
@@ -129,7 +130,8 @@ def enable_all():
 def disable_all():
     users = load_users()
     for u in users:
-        if isinstance(u, dict): u['enabled'] = False
+        if isinstance(u, dict):
+            u['enabled'] = False
     save_users(users)
     return jsonify({"success": True})
 
@@ -208,7 +210,7 @@ def update_apk():
     })
     return jsonify({"success": True})
 
-# ---------------- New: Delete APK ----------------
+# ---------------- Delete APK ----------------
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
     apk_data = load_apk()
@@ -223,7 +225,7 @@ def delete_apk():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))  # Render requires binding to $PORT
     app.run(
-        host="0.0.0.0",  # Bind to all interfaces
+        host="0.0.0.0",
         port=port,
         debug=False,
         use_reloader=False
