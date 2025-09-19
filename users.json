@@ -5,5 +5,12 @@
     "password": "123",
     "enabled": true,
     "apk_version": "1.0.2"
+  },
+  {
+    "name": "Jean",
+    "email": "jeangift128@gmail.com",
+    "password": "scrypt:32768:8:1$C4ppust93cbMkkGD$8a42c712e7ad10b997e987caa075bf73c8fa6e6d846cc293d9cfe8776ef463c653f7982368de620d1d8502e0d2c926623cf406091777ebd3aff141da8540f3bc",
+    "enabled": true,
+    "login_history": []
   }
 ]
