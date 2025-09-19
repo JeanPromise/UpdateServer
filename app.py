@@ -1,6 +1,5 @@
-
 import base64, json, requests, os 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response
 from werkzeug.utils import secure_filename
 from datetime import datetime
 
@@ -183,7 +182,17 @@ def download_apk():
     apk_data = load_apk()
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK available."}), 404
-    return jsonify({"success": True, "url": apk_data["download_url"]})
+
+    # Fetch APK from GitHub and stream with correct headers
+    r = requests.get(apk_data["download_url"], stream=True)
+    if r.status_code != 200:
+        return jsonify({"success": False, "message": "Failed to fetch APK"}), 500
+
+    return Response(
+        r.iter_content(chunk_size=8192),
+        content_type="application/vnd.android.package-archive",
+        headers={"Content-Disposition": "attachment; filename=app-latest.apk"}
+    )
 
 @app.route('/get_apk')
 def get_apk():
@@ -212,12 +221,10 @@ def delete_apk():
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
-    import os
-
     port = int(os.environ.get("PORT", 5000))  # Render requires binding to $PORT
     app.run(
         host="0.0.0.0",  # Bind to all interfaces
         port=port,
-        debug=False,     # Always disable debug on production
-        use_reloader=False  # Prevent double-start issues on some hosts
+        debug=False,
+        use_reloader=False
     )
