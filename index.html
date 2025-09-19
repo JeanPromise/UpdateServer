@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -68,11 +68,6 @@
     margin-top:15px;
     background:#4CAF50;
     cursor:pointer;
-    padding:10px 20px;
-    border:none;
-    border-radius:5px;
-    color:#fff;
-    font-weight:bold;
   }
 </style>
 </head>
@@ -104,11 +99,9 @@ const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
+let currentUserApkVersion = '0.0.0';
 
-// ✅ Keep track of installed APK version locally
-let installedVersion = localStorage.getItem("apk_installed_version") || "0.0.0";
-
-// ----- Toggle login/register forms -----
+// ----- Toggle forms -----
 toggleForm.addEventListener('click', () => {
     if (loginForm.style.display !== 'none') {
         loginForm.style.display = 'none';
@@ -123,65 +116,60 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// ----- Check APK update -----
+// ----- Check for APK update -----
 async function checkUpdate() {
-    try {
-        const res = await fetch('/check_update');
-        const data = await res.json();
+    const res = await fetch('/check_update');
+    const data = await res.json();
+    if (data.apk_version && data.apk_version !== currentUserApkVersion) {
+        const overlay = document.createElement('div');
+        overlay.className = 'disabled-overlay';
+        overlay.innerHTML = `
+            <div>New APK version ${data.apk_version} is available.<br>
+            Please download and install it to continue.</div>
+            <button id="downloadBtn">Download APK</button>
+        `;
+        container.appendChild(overlay);
 
-        if (data.update_required && data.apk_version !== installedVersion) {
-            const overlay = document.createElement('div');
-            overlay.className = 'disabled-overlay';
-            overlay.innerHTML = `
-                <div>New APK version ${data.apk_version} is available.<br>
-                Please download and install it to continue.</div>
-                <button id="downloadBtn">Download APK</button>
-            `;
-            container.appendChild(overlay);
-
-            document.getElementById('downloadBtn').addEventListener('click', () => {
+        document.getElementById('downloadBtn').addEventListener('click', async () => {
+            const res = await fetch('/download_apk');
+            const result = await res.json();
+            if (result.success && result.url) {
                 const a = document.createElement('a');
-                a.href = data.url || '/download_apk';
-                a.download = 'app-latest.apk';
+                a.href = result.url;
+                a.download = 'app-debug.apk';
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
-
-                // Mark installed version locally
-                installedVersion = data.apk_version;
-                localStorage.setItem("apk_installed_version", installedVersion);
-
-                overlay.remove();
-            });
-        }
-    } catch(err) {
-        console.error("APK check failed:", err);
+            } else {
+                alert('Download failed');
+            }
+        });
     }
 }
 
-// ----- Animate container and proceed -----
+// ----- Animate container and show Proceed button -----
 function animateAndDisappear() {
     container.classList.add('explode');
     container.addEventListener('animationend', () => {
         container.style.display = 'none';
-
+        
+        // ===== Show Proceed button =====
         const proceedBtn = document.createElement('button');
         proceedBtn.textContent = 'Proceed to Shows';
-        Object.assign(proceedBtn.style, {
-            padding: '10px 20px',
-            fontSize: '16px',
-            background: '#E50914',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer',
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)'
-        });
+        proceedBtn.style.padding = '10px 20px';
+        proceedBtn.style.fontSize = '16px';
+        proceedBtn.style.background = '#E50914';
+        proceedBtn.style.color = '#fff';
+        proceedBtn.style.border = 'none';
+        proceedBtn.style.borderRadius = '5px';
+        proceedBtn.style.cursor = 'pointer';
+        proceedBtn.style.position = 'fixed';
+        proceedBtn.style.top = '50%';
+        proceedBtn.style.left = '50%';
+        proceedBtn.style.transform = 'translate(-50%, -50%)';
         document.body.appendChild(proceedBtn);
 
+        // 🔑 Deflect into Android (open Goojara)
         proceedBtn.addEventListener('click', () => {
             if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
                 AndroidBridge.openGoojaraPage();
@@ -197,13 +185,11 @@ loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = loginForm[0].value.trim();
     const password = loginForm[1].value.trim();
-
     const res = await fetch('/login', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({email, password, apk_version: installedVersion})
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
     });
-
     const data = await res.json();
     if (data.success) {
         animateAndDisappear();
@@ -226,8 +212,8 @@ registerForm.addEventListener('submit', async (e) => {
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({name,email,password})
     });
-
     const data = await res.json();
+
     if (data.success) {
         alert('Registration successful! Please log in.');
         registerForm.style.display = 'none';
@@ -239,8 +225,9 @@ registerForm.addEventListener('submit', async (e) => {
     }
 });
 
-// ----- Initial APK check on load -----
+// ----- Initial APK update check -----
 checkUpdate();
 </script>
+
 </body>
 </html>
