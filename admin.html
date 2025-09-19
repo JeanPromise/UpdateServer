@@ -1,149 +1,192 @@
-
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Admin Dashboard</title>
-<style>
-  body { font-family: Arial, sans-serif; background:#121212; color:#fff; padding:20px; }
-  h1, h2 { color:#E50914; }
-  table { width:100%; border-collapse:collapse; margin-top:20px; }
-  th, td { padding:10px; border:1px solid #333; text-align:left; }
-  th { background:#1e1e1e; }
-  tr:nth-child(even) { background:#1a1a1a; }
-  button { padding:5px 10px; border:none; border-radius:5px; cursor:pointer; font-weight:bold; margin:2px; }
-  .enable { background:#4CAF50; color:#fff; }
-  .disable { background:#f44336; color:#fff; }
-  .all-btn { margin:10px 5px; padding:10px 20px; }
-  input[type="file"], input[type="text"] { margin:5px 0; padding:5px; }
-  #delete-apk { background:#FF4500; color:#fff; display:none; margin-left:10px; }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #fff;
+      padding: 20px;
+      margin: 0;
+    }
+    h1, h2 { color: #E50914; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      padding: 10px;
+      border: 1px solid #333;
+      text-align: left;
+    }
+    th { background: #1e1e1e; }
+    tr:nth-child(even) { background: #1a1a1a; }
+    button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      margin: 2px;
+    }
+    .enable { background: #4CAF50; color: #fff; }
+    .disable { background: #f44336; color: #fff; }
+    .all-btn {
+      margin: 10px 5px;
+      padding: 10px 20px;
+      border-radius: 6px;
+    }
+    input[type="file"], input[type="text"] {
+      margin: 5px 0;
+      padding: 6px;
+    }
+    #delete-apk {
+      background: #FF4500;
+      color: #fff;
+      display: none;
+      margin-left: 10px;
+    }
+    a.download-link {
+      color: #4DA6FF;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    a.download-link:hover {
+      text-decoration: underline;
+    }
+  </style>
 </head>
 <body>
 
-<h1>Admin Dashboard</h1>
+  <h1>Admin Dashboard</h1>
 
-<h2>Upload New APK</h2>
-<form id="upload-apk-form">
-  <input type="file" id="apk-file" required>
-  <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required>
-  <button type="submit">Upload APK</button>
-  <button type="button" id="delete-apk">Delete APK</button>
-</form>
-<p id="latest-apk" style="margin-top:10px;"></p>
+  <!-- APK Management -->
+  <h2>Upload New APK</h2>
+  <form id="upload-apk-form">
+    <input type="file" id="apk-file" accept=".apk" required>
+    <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required>
+    <button type="submit">Upload APK</button>
+    <button type="button" id="delete-apk">Delete APK</button>
+  </form>
+  <p id="latest-apk" style="margin-top:10px;"></p>
 
-<h2>Users Management</h2>
-<button class="all-btn enable" id="enable-all">Enable All Users</button>
-<button class="all-btn disable" id="disable-all">Disable All Users</button>
+  <!-- User Management -->
+  <h2>Users Management</h2>
+  <button class="all-btn enable" id="enable-all">Enable All Users</button>
+  <button class="all-btn disable" id="disable-all">Disable All Users</button>
 
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Email</th>
-      <th>Status</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody id="users-tbody"></tbody>
-</table>
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="users-tbody"></tbody>
+  </table>
 
-<script>
-// ----- Fetch and display users -----
-async function loadUsers() {
-  const res = await fetch('/get_users');
-  const users = await res.json();
-  const tbody = document.getElementById('users-tbody');
-  tbody.innerHTML = '';
-  users.forEach(u => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${u.name}</td>
-      <td>${u.email}</td>
-      <td>${u.enabled ? 'Enabled' : 'Disabled'}</td>
-      <td>
-        <button class="${u.enabled ? 'disable' : 'enable'}" onclick="toggleUser('${u.email}', ${!u.enabled})">
-          ${u.enabled ? 'Disable' : 'Enable'}
-        </button>
-      </td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
+  <script>
+    // ----- Fetch and display users -----
+    async function loadUsers() {
+      const res = await fetch('/get_users');
+      const users = await res.json();
+      const tbody = document.getElementById('users-tbody');
+      tbody.innerHTML = '';
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${u.name}</td>
+          <td>${u.email}</td>
+          <td>${u.enabled ? 'Enabled' : 'Disabled'}</td>
+          <td>
+            <button class="${u.enabled ? 'disable' : 'enable'}"
+                    onclick="toggleUser('${u.email}', ${!u.enabled})">
+              ${u.enabled ? 'Disable' : 'Enable'}
+            </button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
 
-// ----- Toggle individual user -----
-async function toggleUser(email, enable) {
-  await fetch('/toggle_user', {
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({email, enable})
-  });
-  loadUsers();
-}
+    // ----- Toggle individual user -----
+    async function toggleUser(email, enable) {
+      await fetch('/toggle_user', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({email, enable})
+      });
+      loadUsers();
+    }
 
-// ----- Enable all / Disable all -----
-document.getElementById('enable-all').addEventListener('click', async () => {
-  await fetch('/enable_all', {method:'POST'});
-  loadUsers();
-});
-document.getElementById('disable-all').addEventListener('click', async () => {
-  await fetch('/disable_all', {method:'POST'});
-  loadUsers();
-});
+    // ----- Enable all / Disable all -----
+    document.getElementById('enable-all').addEventListener('click', async () => {
+      await fetch('/enable_all', {method:'POST'});
+      loadUsers();
+    });
+    document.getElementById('disable-all').addEventListener('click', async () => {
+      await fetch('/disable_all', {method:'POST'});
+      loadUsers();
+    });
 
-// ----- Show latest APK info -----
-async function loadLatestAPK() {
-  const res = await fetch('/get_apk');
-  const apk = await res.json();
-  const p = document.getElementById('latest-apk');
-  const delBtn = document.getElementById('delete-apk');
+    // ----- Show latest APK info -----
+    async function loadLatestAPK() {
+      const res = await fetch('/get_apk');
+      const apk = await res.json();
+      const p = document.getElementById('latest-apk');
+      const delBtn = document.getElementById('delete-apk');
 
-  if(apk.download_url) {
-    p.innerHTML = `Latest APK: Version <b>${apk.version}</b> - <a href="${apk.download_url}" target="_blank">Download</a>`;
-    delBtn.style.display = 'inline-block';
-  } else {
-    p.innerHTML = `No APK uploaded yet.`;
-    delBtn.style.display = 'none';
-  }
-}
+      if(apk.download_url) {
+        p.innerHTML = `Latest APK: Version <b>${apk.version}</b> -
+          <a class="download-link" href="${apk.download_url}" download="app-latest.apk">Download</a>`;
+        delBtn.style.display = 'inline-block';
+      } else {
+        p.innerHTML = `No APK uploaded yet.`;
+        delBtn.style.display = 'none';
+      }
+    }
 
-// ----- Upload APK -----
-document.getElementById('upload-apk-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const fileInput = document.getElementById('apk-file');
-  const versionInput = document.getElementById('apk-version');
-  const file = fileInput.files[0];
-  const version = versionInput.value.trim();
-  if(!file || !version) return alert('File and version required.');
+    // ----- Upload APK -----
+    document.getElementById('upload-apk-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('apk-file');
+      const versionInput = document.getElementById('apk-version');
+      const file = fileInput.files[0];
+      const version = versionInput.value.trim();
+      if(!file || !version) return alert('File and version required.');
 
-  const formData = new FormData();
-  formData.append('apk', file);
-  formData.append('version', version);
+      const formData = new FormData();
+      formData.append('apk', file);
+      formData.append('version', version);
 
-  const res = await fetch('/upload_apk', {method:'POST', body: formData});
-  const data = await res.json();
-  alert(data.message);
+      const res = await fetch('/upload_apk', {method:'POST', body: formData});
+      const data = await res.json();
+      alert(data.message);
 
-  fileInput.value = '';
-  versionInput.value = '';
+      fileInput.value = '';
+      versionInput.value = '';
 
-  loadLatestAPK(); // refresh latest APK info
-});
+      loadLatestAPK(); // refresh latest APK info
+    });
 
-// ----- Delete APK -----
-document.getElementById('delete-apk').addEventListener('click', async () => {
-  if(!confirm('Are you sure you want to delete the APK?')) return;
-  const res = await fetch('/delete_apk', {method:'POST'});
-  const data = await res.json();
-  alert(data.message);
-  loadLatestAPK();
-});
+    // ----- Delete APK -----
+    document.getElementById('delete-apk').addEventListener('click', async () => {
+      if(!confirm('Are you sure you want to delete the APK?')) return;
+      const res = await fetch('/delete_apk', {method:'POST'});
+      const data = await res.json();
+      alert(data.message);
+      loadLatestAPK();
+    });
 
-// Initial load
-loadUsers();
-loadLatestAPK();
-</script>
-
+    // Initial load
+    loadUsers();
+    loadLatestAPK();
+  </script>
 </body>
 </html>
