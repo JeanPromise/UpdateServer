@@ -58,6 +58,9 @@
     a.download-link:hover {
       text-decoration: underline;
     }
+    .analytics-table {
+      margin-top: 40px;
+    }
   </style>
 </head>
 <body>
@@ -89,6 +92,23 @@
       </tr>
     </thead>
     <tbody id="users-tbody"></tbody>
+  </table>
+
+  <!-- Login Analytics -->
+  <h2>Login Analytics</h2>
+  <table class="analytics-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Total Logins</th>
+        <th>Last Login Timestamp (UTC)</th>
+        <th>IP</th>
+        <th>Country</th>
+        <th>User-Agent</th>
+      </tr>
+    </thead>
+    <tbody id="analytics-tbody"></tbody>
   </table>
 
   <script>
@@ -123,16 +143,19 @@
         body: JSON.stringify({email, enable})
       });
       loadUsers();
+      loadAnalytics();
     }
 
     // ----- Enable all / Disable all -----
     document.getElementById('enable-all').addEventListener('click', async () => {
       await fetch('/enable_all', {method:'POST'});
       loadUsers();
+      loadAnalytics();
     });
     document.getElementById('disable-all').addEventListener('click', async () => {
       await fetch('/disable_all', {method:'POST'});
       loadUsers();
+      loadAnalytics();
     });
 
     // ----- Show latest APK info -----
@@ -184,9 +207,33 @@
       loadLatestAPK();
     });
 
+    // ----- Load login analytics -----
+    async function loadAnalytics() {
+      const res = await fetch('/login_analytics');
+      const analytics = await res.json();
+      const tbody = document.getElementById('analytics-tbody');
+      tbody.innerHTML = '';
+
+      analytics.forEach(u => {
+        const last = u.last_login || {};
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${u.name}</td>
+          <td>${u.email}</td>
+          <td>${u.total_logins}</td>
+          <td>${last.timestamp || '-'}</td>
+          <td>${last.ip || '-'}</td>
+          <td>${last.country || '-'}</td>
+          <td>${last.user_agent || '-'}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
     // Initial load
     loadUsers();
     loadLatestAPK();
+    loadAnalytics();
   </script>
 </body>
 </html>
