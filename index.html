@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -15,6 +15,7 @@
     align-items:center;
     height:100vh;
     overflow:hidden;
+    position:relative;
   }
   .container {
     background:#1e1e1e;
@@ -69,20 +70,20 @@
     background:#4CAF50;
     cursor:pointer;
   }
+  /* Small green version stamp */
+  .apk-version-stamp {
+    position:fixed;
+    bottom:10px;
+    right:10px;
+    color:#4CAF50;
+    font-size:14px;
+    font-weight:bold;
+    background:rgba(0,0,0,0.4);
+    padding:4px 8px;
+    border-radius:5px;
+  }
 </style>
 </head>
- <div id="installed-version" style="
-    position: fixed;
-    bottom: 5px;
-    right: 10px;
-    color: #4CAF50;
-    font-size: 14px;
-    font-weight: bold;
-    background: rgba(0,0,0,0.3);
-    padding: 4px 8px;
-    border-radius: 4px;
-">Installed Version: 0.0.0</div>
-
 <body>
 
 <div class="container" id="container">
@@ -105,13 +106,20 @@
   <div class="toggle" id="toggle-form">Don't have an account? Register</div>
 </div>
 
+<!-- Version stamp -->
+<div class="apk-version-stamp" id="apk-version-stamp">App version: 0.0.0</div>
+
 <script>
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
-let currentUserApkVersion = '0.0.0';
+const versionStamp = document.getElementById('apk-version-stamp');
+
+// ----- Persistent APK version -----
+let currentUserApkVersion = localStorage.getItem('installedApkVersion') || '0.0.0';
+versionStamp.textContent = 'App version: ' + currentUserApkVersion;
 
 // ----- Toggle forms -----
 toggleForm.addEventListener('click', () => {
@@ -128,15 +136,11 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
+// ----- Check for APK update -----
 async function checkUpdate() {
     const res = await fetch('/check_update');
     const data = await res.json();
-
-    const stamp = document.getElementById('installed-version');
-    stamp.innerText = `Installed Version: ${currentUserApkVersion}`;
-
-    // Compare versions
-    if (data.apk_version && compareVersions(data.apk_version, currentUserApkVersion) > 0) {
+    if (data.apk_version && isVersionNewer(data.apk_version, currentUserApkVersion)) {
         const overlay = document.createElement('div');
         overlay.className = 'disabled-overlay';
         overlay.innerHTML = `
@@ -154,28 +158,28 @@ async function checkUpdate() {
             a.click();
             a.remove();
 
-            // Update installed version stamp
+            // Save new version locally
+            localStorage.setItem('installedApkVersion', data.apk_version);
             currentUserApkVersion = data.apk_version;
-            stamp.innerText = `Installed Version: ${currentUserApkVersion}`;
+            versionStamp.textContent = 'App version: ' + currentUserApkVersion;
 
+            // Remove overlay
             overlay.remove();
         });
     }
 }
 
-// ----- Version comparison helper -----
-function compareVersions(v1, v2) {
-    const a1 = v1.split('.').map(Number);
-    const a2 = v2.split('.').map(Number);
-    for (let i = 0; i < Math.max(a1.length, a2.length); i++) {
-        const n1 = a1[i] || 0;
-        const n2 = a2[i] || 0;
-        if (n1 > n2) return 1;
-        if (n1 < n2) return -1;
+// ----- Compare version strings -----
+function isVersionNewer(serverVer, localVer) {
+    const sv = serverVer.split('.').map(Number);
+    const lv = localVer.split('.').map(Number);
+    for(let i=0; i<Math.max(sv.length, lv.length); i++) {
+        const s = sv[i]||0, l = lv[i]||0;
+        if(s > l) return true;
+        if(s < l) return false;
     }
-    return 0;
+    return false;
 }
-
 
 // ----- Animate container and show Proceed button -----
 function animateAndDisappear() {
@@ -183,23 +187,15 @@ function animateAndDisappear() {
     container.addEventListener('animationend', () => {
         container.style.display = 'none';
         
-        // ===== Show Proceed button =====
         const proceedBtn = document.createElement('button');
         proceedBtn.textContent = 'Proceed to Shows';
-        proceedBtn.style.padding = '10px 20px';
-        proceedBtn.style.fontSize = '16px';
-        proceedBtn.style.background = '#E50914';
-        proceedBtn.style.color = '#fff';
-        proceedBtn.style.border = 'none';
-        proceedBtn.style.borderRadius = '5px';
-        proceedBtn.style.cursor = 'pointer';
-        proceedBtn.style.position = 'fixed';
-        proceedBtn.style.top = '50%';
-        proceedBtn.style.left = '50%';
-        proceedBtn.style.transform = 'translate(-50%, -50%)';
+        Object.assign(proceedBtn.style, {
+            padding:'10px 20px', fontSize:'16px', background:'#E50914', color:'#fff',
+            border:'none', borderRadius:'5px', cursor:'pointer', position:'fixed',
+            top:'50%', left:'50%', transform:'translate(-50%, -50%)'
+        });
         document.body.appendChild(proceedBtn);
 
-        // 🔑 Deflect into Android (open Goojara)
         proceedBtn.addEventListener('click', () => {
             if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
                 AndroidBridge.openGoojaraPage();
@@ -221,11 +217,8 @@ loginForm.addEventListener('submit', async (e) => {
         body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
     });
     const data = await res.json();
-    if (data.success) {
-        animateAndDisappear();
-    } else {
-        alert(data.message);
-    }
+    if (data.success) animateAndDisappear();
+    else alert(data.message);
 });
 
 // ----- Registration submit -----
@@ -243,16 +236,13 @@ registerForm.addEventListener('submit', async (e) => {
         body: JSON.stringify({name,email,password})
     });
     const data = await res.json();
-
     if (data.success) {
         alert('Registration successful! Please log in.');
         registerForm.style.display = 'none';
         loginForm.style.display = 'flex';
         formTitle.textContent = 'Login';
         toggleForm.textContent = "Don't have an account? Register";
-    } else {
-        alert(data.message);
-    }
+    } else alert(data.message);
 });
 
 // ----- Initial APK update check -----
