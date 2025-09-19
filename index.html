@@ -68,6 +68,11 @@
     margin-top:15px;
     background:#4CAF50;
     cursor:pointer;
+    padding:10px 20px;
+    border:none;
+    border-radius:5px;
+    color:#fff;
+    font-weight:bold;
   }
 </style>
 </head>
@@ -100,10 +105,10 @@ const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
 
-// ✅ Load locally installed APK version
+// ✅ Keep track of installed APK version locally
 let installedVersion = localStorage.getItem("apk_installed_version") || "0.0.0";
 
-// ----- Toggle forms -----
+// ----- Toggle login/register forms -----
 toggleForm.addEventListener('click', () => {
     if (loginForm.style.display !== 'none') {
         loginForm.style.display = 'none';
@@ -118,14 +123,13 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// ----- Check for APK update -----
+// ----- Check APK update -----
 async function checkUpdate() {
     try {
         const res = await fetch('/check_update');
         const data = await res.json();
 
         if (data.update_required && data.apk_version !== installedVersion) {
-            // Show overlay blocking login
             const overlay = document.createElement('div');
             overlay.className = 'disabled-overlay';
             overlay.innerHTML = `
@@ -133,7 +137,7 @@ async function checkUpdate() {
                 Please download and install it to continue.</div>
                 <button id="downloadBtn">Download APK</button>
             `;
-            document.body.appendChild(overlay);
+            container.appendChild(overlay);
 
             document.getElementById('downloadBtn').addEventListener('click', () => {
                 const a = document.createElement('a');
@@ -143,22 +147,19 @@ async function checkUpdate() {
                 a.click();
                 a.remove();
 
-                // Mark as installed locally
-                localStorage.setItem("apk_installed_version", data.apk_version);
+                // Mark installed version locally
                 installedVersion = data.apk_version;
+                localStorage.setItem("apk_installed_version", installedVersion);
+
                 overlay.remove();
-                container.style.display = 'flex'; // Show login after update
             });
-        } else {
-            container.style.display = 'flex'; // No update, show login immediately
         }
     } catch(err) {
-        console.error("Update check failed:", err);
-        container.style.display = 'flex'; // Fail-safe: show login
+        console.error("APK check failed:", err);
     }
 }
 
-// ----- Animate container and show Proceed button -----
+// ----- Animate container and proceed -----
 function animateAndDisappear() {
     container.classList.add('explode');
     container.addEventListener('animationend', () => {
@@ -166,11 +167,19 @@ function animateAndDisappear() {
 
         const proceedBtn = document.createElement('button');
         proceedBtn.textContent = 'Proceed to Shows';
-        proceedBtn.style.cssText = `
-            padding:10px 20px; font-size:16px; background:#E50914;
-            color:#fff; border:none; border-radius:5px; cursor:pointer;
-            position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
-        `;
+        Object.assign(proceedBtn.style, {
+            padding: '10px 20px',
+            fontSize: '16px',
+            background: '#E50914',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '5px',
+            cursor: 'pointer',
+            position: 'fixed',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)'
+        });
         document.body.appendChild(proceedBtn);
 
         proceedBtn.addEventListener('click', () => {
@@ -190,18 +199,14 @@ loginForm.addEventListener('submit', async (e) => {
     const password = loginForm[1].value.trim();
 
     const res = await fetch('/login', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
         body: JSON.stringify({email, password, apk_version: installedVersion})
     });
 
     const data = await res.json();
     if (data.success) {
         animateAndDisappear();
-    } else if (data.update_required) {
-        alert(`Update required: Version ${data.apk_version}. Please download the latest APK.`);
-        // Force update overlay if somehow missed
-        checkUpdate();
     } else {
         alert(data.message);
     }
@@ -221,8 +226,8 @@ registerForm.addEventListener('submit', async (e) => {
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({name,email,password})
     });
-    const data = await res.json();
 
+    const data = await res.json();
     if (data.success) {
         alert('Registration successful! Please log in.');
         registerForm.style.display = 'none';
@@ -234,10 +239,8 @@ registerForm.addEventListener('submit', async (e) => {
     }
 });
 
-// ----- Initial APK update check -----
+// ----- Initial APK check on load -----
 checkUpdate();
 </script>
-
-
 </body>
 </html>
