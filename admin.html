@@ -64,6 +64,17 @@
   </style>
 </head>
 <body>
+<div id="current-version-stamp" style="
+    position: fixed;
+    bottom: 5px;
+    right: 10px;
+    color: #4CAF50;
+    font-size: 14px;
+    font-weight: bold;
+    background: rgba(0,0,0,0.3);
+    padding: 4px 8px;
+    border-radius: 4px;
+">Version: -</div>
 
   <h1>Admin Dashboard</h1>
 
@@ -206,6 +217,24 @@
       alert(data.message);
       loadLatestAPK();
     });
+async function loadLatestAPK() {
+  const res = await fetch('/get_apk');
+  const apk = await res.json();
+  const p = document.getElementById('latest-apk');
+  const delBtn = document.getElementById('delete-apk');
+  const stamp = document.getElementById('current-version-stamp');
+
+  if(apk.download_url) {
+    p.innerHTML = `Latest APK: Version <b>${apk.version}</b> - 
+      <a class="download-link" href="${apk.download_url}" download="app-latest.apk">Download</a>`;
+    delBtn.style.display = 'inline-block';
+    stamp.innerText = `Version: ${apk.version}`; // update bottom stamp
+  } else {
+    p.innerHTML = `No APK uploaded yet.`;
+    delBtn.style.display = 'none';
+    stamp.innerText = `Version: -`;
+  }
+}
 
     // ----- Load login analytics -----
     async function loadAnalytics() {
