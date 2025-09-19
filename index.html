@@ -1,192 +1,228 @@
-<!DOCTYPE html>
+<!DOCTYPE html> 
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #121212;
-      color: #fff;
-      padding: 20px;
-      margin: 0;
-    }
-    h1, h2 { color: #E50914; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th, td {
-      padding: 10px;
-      border: 1px solid #333;
-      text-align: left;
-    }
-    th { background: #1e1e1e; }
-    tr:nth-child(even) { background: #1a1a1a; }
-    button {
-      padding: 6px 12px;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-      font-weight: bold;
-      margin: 2px;
-    }
-    .enable { background: #4CAF50; color: #fff; }
-    .disable { background: #f44336; color: #fff; }
-    .all-btn {
-      margin: 10px 5px;
-      padding: 10px 20px;
-      border-radius: 6px;
-    }
-    input[type="file"], input[type="text"] {
-      margin: 5px 0;
-      padding: 6px;
-    }
-    #delete-apk {
-      background: #FF4500;
-      color: #fff;
-      display: none;
-      margin-left: 10px;
-    }
-    a.download-link {
-      color: #4DA6FF;
-      text-decoration: none;
-      font-weight: bold;
-    }
-    a.download-link:hover {
-      text-decoration: underline;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login & Registration</title>
+<style>
+  * {margin:0; padding:0; box-sizing:border-box;}
+  body {
+    font-family: Arial, sans-serif;
+    background:#121212;
+    color:#fff;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+    overflow:hidden;
+  }
+  .container {
+    background:#1e1e1e;
+    padding:40px;
+    border-radius:10px;
+    width:350px;
+    box-shadow:0 0 20px rgba(0,0,0,0.7);
+    position:relative;
+    transition: transform 0.6s ease, opacity 0.6s ease;
+  }
+  h2 {text-align:center; margin-bottom:20px; color:#E50914;}
+  form {display:flex; flex-direction:column;}
+  input {
+    margin-bottom:15px;
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    font-size:16px;
+  }
+  input:focus {outline:none; border:2px solid #E50914;}
+  button {
+    padding:10px;
+    border:none;
+    border-radius:5px;
+    background:#E50914;
+    color:#fff;
+    font-weight:bold;
+    cursor:pointer;
+    transition:0.2s;
+  }
+  button:hover {background:#ff1a2c;}
+  .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
+  .toggle:hover {color:#fff;}
+  .explode {animation: explode 0.6s forwards;}
+  @keyframes explode {
+    0% {transform: scale(1) rotate(0deg); opacity:1;}
+    50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
+    100% {transform: scale(0) rotate(30deg); opacity:0;}
+  }
+  .disabled-overlay {
+    position:absolute;
+    top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.8);
+    display:flex; justify-content:center; align-items:center;
+    flex-direction:column;
+    text-align:center; color:#ff5555; font-size:18px;
+    z-index:10;
+    border-radius:10px;
+  }
+  .disabled-overlay button {
+    margin-top:15px;
+    background:#4CAF50;
+    cursor:pointer;
+  }
+</style>
 </head>
 <body>
 
-  <h1>Admin Dashboard</h1>
-
-  <!-- APK Management -->
-  <h2>Upload New APK</h2>
-  <form id="upload-apk-form">
-    <input type="file" id="apk-file" accept=".apk" required>
-    <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required>
-    <button type="submit">Upload APK</button>
-    <button type="button" id="delete-apk">Delete APK</button>
+<div class="container" id="container">
+  <h2 id="form-title">Login</h2>
+  
+  <form id="login-form">
+    <input type="email" placeholder="Email" required>
+    <input type="password" placeholder="Password" required>
+    <button type="submit">Login</button>
   </form>
-  <p id="latest-apk" style="margin-top:10px;"></p>
 
-  <!-- User Management -->
-  <h2>Users Management</h2>
-  <button class="all-btn enable" id="enable-all">Enable All Users</button>
-  <button class="all-btn disable" id="disable-all">Disable All Users</button>
+  <form id="register-form" style="display:none;">
+    <input type="text" placeholder="Full Name" required>
+    <input type="email" placeholder="Email" required>
+    <input type="password" placeholder="Password" required>
+    <input type="password" placeholder="Confirm Password" required>
+    <button type="submit">Register</button>
+  </form>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Email</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody id="users-tbody"></tbody>
-  </table>
+  <div class="toggle" id="toggle-form">Don't have an account? Register</div>
+</div>
 
-  <script>
-    // ----- Fetch and display users -----
-    async function loadUsers() {
-      const res = await fetch('/get_users');
-      const users = await res.json();
-      const tbody = document.getElementById('users-tbody');
-      tbody.innerHTML = '';
-      users.forEach(u => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${u.name}</td>
-          <td>${u.email}</td>
-          <td>${u.enabled ? 'Enabled' : 'Disabled'}</td>
-          <td>
-            <button class="${u.enabled ? 'disable' : 'enable'}"
-                    onclick="toggleUser('${u.email}', ${!u.enabled})">
-              ${u.enabled ? 'Disable' : 'Enable'}
-            </button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
+<script>
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const toggleForm = document.getElementById('toggle-form');
+const formTitle = document.getElementById('form-title');
+const container = document.getElementById('container');
+let currentUserApkVersion = '0.0.0';
+
+// ----- Toggle forms -----
+toggleForm.addEventListener('click', () => {
+    if (loginForm.style.display !== 'none') {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'flex';
+        formTitle.textContent = 'Register';
+        toggleForm.textContent = 'Already have an account? Login';
+    } else {
+        loginForm.style.display = 'flex';
+        registerForm.style.display = 'none';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
     }
+});
 
-    // ----- Toggle individual user -----
-    async function toggleUser(email, enable) {
-      await fetch('/toggle_user', {
+// ----- Check for APK update -----
+async function checkUpdate() {
+    const res = await fetch('/check_update');
+    const data = await res.json();
+    if (data.apk_version && data.apk_version !== currentUserApkVersion) {
+        const overlay = document.createElement('div');
+        overlay.className = 'disabled-overlay';
+        overlay.innerHTML = `
+            <div>New APK version ${data.apk_version} is available.<br>
+            Please download and install it to continue.</div>
+            <button id="downloadBtn">Download APK</button>
+        `;
+        container.appendChild(overlay);
+
+        // ✅ Fixed: Now directly downloads .apk instead of .bin
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const a = document.createElement('a');
+            a.href = '/download_apk';
+            a.download = 'app-latest.apk';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        });
+    }
+}
+
+// ----- Animate container and show Proceed button -----
+function animateAndDisappear() {
+    container.classList.add('explode');
+    container.addEventListener('animationend', () => {
+        container.style.display = 'none';
+        
+        // ===== Show Proceed button =====
+        const proceedBtn = document.createElement('button');
+        proceedBtn.textContent = 'Proceed to Shows';
+        proceedBtn.style.padding = '10px 20px';
+        proceedBtn.style.fontSize = '16px';
+        proceedBtn.style.background = '#E50914';
+        proceedBtn.style.color = '#fff';
+        proceedBtn.style.border = 'none';
+        proceedBtn.style.borderRadius = '5px';
+        proceedBtn.style.cursor = 'pointer';
+        proceedBtn.style.position = 'fixed';
+        proceedBtn.style.top = '50%';
+        proceedBtn.style.left = '50%';
+        proceedBtn.style.transform = 'translate(-50%, -50%)';
+        document.body.appendChild(proceedBtn);
+
+        // 🔑 Deflect into Android (open Goojara)
+        proceedBtn.addEventListener('click', () => {
+            if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
+                AndroidBridge.openGoojaraPage();
+            } else {
+                alert("Bridge not available.");
+            }
+        });
+    }, {once:true});
+}
+
+// ----- Login submit -----
+loginForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = loginForm[0].value.trim();
+    const password = loginForm[1].value.trim();
+    const res = await fetch('/login', {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email, enable})
-      });
-      loadUsers();
+        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
+    });
+    const data = await res.json();
+    if (data.success) {
+        animateAndDisappear();
+    } else {
+        alert(data.message);
     }
+});
 
-    // ----- Enable all / Disable all -----
-    document.getElementById('enable-all').addEventListener('click', async () => {
-      await fetch('/enable_all', {method:'POST'});
-      loadUsers();
+// ----- Registration submit -----
+registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = registerForm[0].value.trim();
+    const email = registerForm[1].value.trim();
+    const password = registerForm[2].value.trim();
+    const confirm = registerForm[3].value.trim();
+    if (password !== confirm) return alert('Passwords do not match!');
+
+    const res = await fetch('/register', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({name,email,password})
     });
-    document.getElementById('disable-all').addEventListener('click', async () => {
-      await fetch('/disable_all', {method:'POST'});
-      loadUsers();
-    });
+    const data = await res.json();
 
-    // ----- Show latest APK info -----
-    async function loadLatestAPK() {
-      const res = await fetch('/get_apk');
-      const apk = await res.json();
-      const p = document.getElementById('latest-apk');
-      const delBtn = document.getElementById('delete-apk');
-
-      if(apk.download_url) {
-        p.innerHTML = `Latest APK: Version <b>${apk.version}</b> -
-          <a class="download-link" href="${apk.download_url}" download="app-latest.apk">Download</a>`;
-        delBtn.style.display = 'inline-block';
-      } else {
-        p.innerHTML = `No APK uploaded yet.`;
-        delBtn.style.display = 'none';
-      }
+    if (data.success) {
+        alert('Registration successful! Please log in.');
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'flex';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
+    } else {
+        alert(data.message);
     }
+});
 
-    // ----- Upload APK -----
-    document.getElementById('upload-apk-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fileInput = document.getElementById('apk-file');
-      const versionInput = document.getElementById('apk-version');
-      const file = fileInput.files[0];
-      const version = versionInput.value.trim();
-      if(!file || !version) return alert('File and version required.');
+// ----- Initial APK update check -----
+checkUpdate();
+</script>
 
-      const formData = new FormData();
-      formData.append('apk', file);
-      formData.append('version', version);
-
-      const res = await fetch('/upload_apk', {method:'POST', body: formData});
-      const data = await res.json();
-      alert(data.message);
-
-      fileInput.value = '';
-      versionInput.value = '';
-
-      loadLatestAPK(); // refresh latest APK info
-    });
-
-    // ----- Delete APK -----
-    document.getElementById('delete-apk').addEventListener('click', async () => {
-      if(!confirm('Are you sure you want to delete the APK?')) return;
-      const res = await fetch('/delete_apk', {method:'POST'});
-      const data = await res.json();
-      alert(data.message);
-      loadLatestAPK();
-    });
-
-    // Initial load
-    loadUsers();
-    loadLatestAPK();
-  </script>
 </body>
 </html>
