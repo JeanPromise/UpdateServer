@@ -83,7 +83,15 @@ def register():
     users = load_users()
     if any(u.get('email') == email for u in users if isinstance(u, dict)):
         return jsonify({"success": False, "message": "Email already registered."})
-    users.append({"name": name, "email": email, "password": password, "enabled": True})
+    
+    apk_data = load_apk()
+    users.append({
+        "name": name,
+        "email": email,
+        "password": password,
+        "enabled": True,
+        "apk_version": apk_data.get("version") or "0.0.0"  # store current APK version for user
+    })
     save_users(users)
     return jsonify({"success": True})
 
@@ -92,12 +100,23 @@ def login():
     data = request.get_json()
     email, password = data.get('email'), data.get('password')
     users = load_users()
+    apk_data = load_apk()
+    latest_apk_version = apk_data.get("version") or "0.0.0"
+    
     for u in users:
         if isinstance(u, dict) and u.get('email') == email:
             if not u.get('enabled', True):
                 return jsonify({"success": False, "message": "User is disabled."})
             if u.get('password') == password:
-                return jsonify({"success": True})
+                # return user info + APK status
+                user_apk_version = u.get("apk_version", "0.0.0")
+                update_required = (latest_apk_version != user_apk_version)
+                return jsonify({
+                    "success": True,
+                    "update_required": update_required,
+                    "apk_version": latest_apk_version if update_required else user_apk_version,
+                    "apk_url": apk_data.get("download_url") if update_required else None
+                })
             return jsonify({"success": False, "message": "Incorrect password."})
     return jsonify({"success": False, "message": "Email not registered."})
 
@@ -136,15 +155,24 @@ def disable_all():
     return jsonify({"success": True})
 
 # ---------------- APK Endpoints ----------------
-@app.route('/check_update')
-def check_update():
+@app.route('/check_update', methods=['POST'])
+def check_update_user():
+    data = request.get_json()
+    email = data.get("email")
+    users = load_users()
     apk_data = load_apk()
-    has_apk = bool(apk_data.get("download_url"))
-    return jsonify({
-        "update_required": has_apk,
-        "apk_version": apk_data.get("version") if has_apk else None,
-        "url": apk_data.get("download_url") if has_apk else None
-    })
+    latest_version = apk_data.get("version") or "0.0.0"
+
+    for u in users:
+        if u.get("email") == email:
+            user_version = u.get("apk_version", "0.0.0")
+            update_required = (user_version != latest_version)
+            return jsonify({
+                "update_required": update_required,
+                "apk_version": latest_version if update_required else user_version,
+                "apk_url": apk_data.get("download_url") if update_required else None
+            })
+    return jsonify({"update_required": False, "apk_version": None, "apk_url": None})
 
 @app.route('/upload_apk', methods=['POST'])
 def upload_apk():
@@ -179,17 +207,28 @@ def upload_apk():
     save_apk({"version": version, "changelog": f"Uploaded version {version}", "download_url": download_url})
     return jsonify({"success": True, "message": "APK uploaded.", "url": download_url})
 
-@app.route('/download_apk')
-def download_apk():
+@app.route('/download_apk', methods=['GET','POST'])
+def download_apk_user():
     apk_data = load_apk()
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK available."}), 404
 
-    # Fetch APK from GitHub and stream with correct headers
+    # POST: user clicked download -> update their version
+    if request.method == "POST":
+        data = request.get_json()
+        email = data.get("email")
+        users = load_users()
+        for u in users:
+            if u.get("email") == email:
+                u["apk_version"] = apk_data.get("version")
+                break
+        save_users(users)
+        return jsonify({"success": True, "message": "APK version updated for user."})
+
+    # GET: stream APK
     r = requests.get(apk_data["download_url"], stream=True)
     if r.status_code != 200:
         return jsonify({"success": False, "message": "Failed to fetch APK"}), 500
-
     return Response(
         r.iter_content(chunk_size=8192),
         content_type="application/vnd.android.package-archive",
@@ -210,23 +249,16 @@ def update_apk():
     })
     return jsonify({"success": True})
 
-# ---------------- Delete APK ----------------
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
     apk_data = load_apk()
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK to delete."})
 
-    # Reset apk.json
     save_apk({"version": None, "changelog": "", "download_url": ""})
     return jsonify({"success": True, "message": "APK deleted."})
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))  # Render requires binding to $PORT
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=False,
-        use_reloader=False
-    )
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False, use_reloader=False)
