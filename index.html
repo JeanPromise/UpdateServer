@@ -99,7 +99,9 @@ const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
-let currentUserApkVersion = '0.0.0';
+
+// ✅ Load stored version from localStorage
+let currentUserApkVersion = localStorage.getItem("apk_version") || "0.0.0";
 
 // ----- Toggle forms -----
 toggleForm.addEventListener('click', () => {
@@ -120,6 +122,7 @@ toggleForm.addEventListener('click', () => {
 async function checkUpdate() {
     const res = await fetch('/check_update');
     const data = await res.json();
+
     if (data.apk_version && data.apk_version !== currentUserApkVersion) {
         const overlay = document.createElement('div');
         overlay.className = 'disabled-overlay';
@@ -130,7 +133,6 @@ async function checkUpdate() {
         `;
         container.appendChild(overlay);
 
-        // ✅ Fixed: Now directly downloads .apk instead of .bin
         document.getElementById('downloadBtn').addEventListener('click', () => {
             const a = document.createElement('a');
             a.href = '/download_apk';
@@ -138,6 +140,11 @@ async function checkUpdate() {
             document.body.appendChild(a);
             a.click();
             a.remove();
+
+            // ✅ Save the new version as "installed"
+            localStorage.setItem("apk_version", data.apk_version);
+            currentUserApkVersion = data.apk_version;
+            overlay.remove(); // remove overlay so user can continue
         });
     }
 }
@@ -164,7 +171,6 @@ function animateAndDisappear() {
         proceedBtn.style.transform = 'translate(-50%, -50%)';
         document.body.appendChild(proceedBtn);
 
-        // 🔑 Deflect into Android (open Goojara)
         proceedBtn.addEventListener('click', () => {
             if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
                 AndroidBridge.openGoojaraPage();
