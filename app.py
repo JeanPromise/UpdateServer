@@ -1,7 +1,7 @@
-
 import base64, json, requests, os
 from flask import Flask, request, jsonify, send_from_directory, Response
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
 app = Flask(__name__, static_url_path='', static_folder='.')
@@ -84,7 +84,8 @@ def register():
     users = load_users()
     if any(u.get('email') == email for u in users if isinstance(u, dict)):
         return jsonify({"success": False, "message": "Email already registered."})
-    users.append({"name": name, "email": email, "password": password, "enabled": True})
+    hashed_pw = generate_password_hash(password)
+    users.append({"name": name, "email": email, "password": hashed_pw, "enabled": True, "login_history": []})
     save_users(users)
     return jsonify({"success": True})
 
@@ -97,7 +98,26 @@ def login():
         if isinstance(u, dict) and u.get('email') == email:
             if not u.get('enabled', True):
                 return jsonify({"success": False, "message": "User is disabled."})
-            if u.get('password') == password:
+            if check_password_hash(u.get('password'), password):
+                # ---------------- Log login ----------------
+                ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+                user_agent = request.headers.get("User-Agent", "")
+                # Try simple free IP lookup
+                try:
+                    loc_res = requests.get(f"http://ip-api.com/json/{ip}").json()
+                    country = loc_res.get("country", "Unknown")
+                except:
+                    country = "Unknown"
+                login_record = {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "ip": ip,
+                    "country": country,
+                    "user_agent": user_agent
+                }
+                if "login_history" not in u:
+                    u["login_history"] = []
+                u["login_history"].append(login_record)
+                save_users(users)
                 return jsonify({"success": True})
             return jsonify({"success": False, "message": "Incorrect password."})
     return jsonify({"success": False, "message": "Email not registered."})
@@ -135,6 +155,22 @@ def disable_all():
             u['enabled'] = False
     save_users(users)
     return jsonify({"success": True})
+
+# ---------------- Login Analytics ----------------
+@app.route('/login_analytics')
+def login_analytics():
+    users = load_users()
+    analytics = []
+    for u in users:
+        if isinstance(u, dict):
+            analytics.append({
+                "name": u.get("name"),
+                "email": u.get("email"),
+                "enabled": u.get("enabled"),
+                "total_logins": len(u.get("login_history", [])),
+                "last_login": u.get("login_history", [])[-1] if u.get("login_history") else None
+            })
+    return jsonify(analytics)
 
 # ---------------- APK Endpoints ----------------
 @app.route('/check_update')
@@ -186,7 +222,6 @@ def download_apk():
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK available."}), 404
 
-    # Fetch APK from GitHub and stream with correct headers
     r = requests.get(apk_data["download_url"], stream=True)
     if r.status_code != 200:
         return jsonify({"success": False, "message": "Failed to fetch APK"}), 500
@@ -211,14 +246,12 @@ def update_apk():
     })
     return jsonify({"success": True})
 
-# ---------------- Delete APK ----------------
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
     apk_data = load_apk()
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK to delete."})
 
-    # Reset apk.json
     save_apk({"version": None, "changelog": "", "download_url": ""})
     return jsonify({"success": True, "message": "APK deleted."})
 
