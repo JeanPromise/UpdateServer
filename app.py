@@ -204,7 +204,7 @@ def upload_apk():
 
     file = request.files['apk']
     version = request.form['version']
-    filename = secure_filename(file.filename)
+    filename = f"app-v{version}.apk"
     apk_bytes = file.read()
 
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
