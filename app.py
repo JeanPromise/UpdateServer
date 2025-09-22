@@ -1,3 +1,4 @@
+
 import base64, json, requests, os
 from flask import Flask, request, jsonify, send_from_directory, Response, session, redirect, url_for
 from werkzeug.utils import secure_filename
@@ -204,15 +205,17 @@ def upload_apk():
 
     file = request.files['apk']
     version = request.form['version']
-    filename = f"app-v{version}.apk"
+    filename = secure_filename(file.filename)
     apk_bytes = file.read()
 
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
+    # Check if file already exists
     r_get = requests.get(url, headers=headers)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
+    # Upload or overwrite
     data = {
         "message": f"Upload APK {filename} version {version}",
         "content": base64.b64encode(apk_bytes).decode(),
@@ -225,9 +228,23 @@ def upload_apk():
     if r.status_code not in [200, 201]:
         return jsonify({"success": False, "message": f"GitHub upload failed: {r.text}"}), 500
 
+    resp_json = r.json()
+    file_sha = resp_json.get("content", {}).get("sha")
+
     download_url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/main/{APK_FOLDER}/{filename}?v={version}"
-    save_apk({"version": version, "changelog": f"Uploaded version {version}", "download_url": download_url})
+
+    # Save APK metadata (includes sha + filename)
+    save_apk({
+        "version": version,
+        "changelog": f"Uploaded version {version}",
+        "download_url": download_url,
+        "sha": file_sha,
+        "filename": filename
+    })
     return jsonify({"success": True, "message": "APK uploaded.", "url": download_url})
+
+
+
 
 @app.route('/download_apk')
 def download_apk():
@@ -262,35 +279,24 @@ def update_apk():
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
     apk_data = load_apk()
-    if not apk_data.get("download_url"):
+    filename = apk_data.get("filename")
+    sha = apk_data.get("sha")
+
+    if not filename or not sha:
         return jsonify({"success": False, "message": "No APK to delete."})
 
-    # extract file name from URL
-    filename = apk_data["download_url"].split("/")[-1].split("?")[0]
-    file_path = f"{APK_FOLDER}/{filename}"
-
-    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{file_path}"
+    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
-    # get SHA
-    r_get = requests.get(url, headers=headers)
-    if r_get.status_code != 200:
-        return jsonify({"success": False, "message": f"File not found on GitHub: {r_get.text}"}), 500
-    sha = r_get.json().get("sha")
+    data = {"message": f"Delete {filename}", "sha": sha, "branch": BRANCH}
 
-    # delete the file from GitHub
-    r = requests.delete(url, headers=headers, json={
-        "message": f"Delete APK {filename}",
-        "sha": sha,
-        "branch": BRANCH
-    })
+    r = requests.delete(url, headers=headers, json=data)
     if r.status_code not in [200, 204]:
         return jsonify({"success": False, "message": f"GitHub delete failed: {r.text}"}), 500
 
-    # clear metadata
-    save_apk({"version": None, "changelog": "", "download_url": ""})
-    return jsonify({"success": True, "message": "APK deleted."})
-
+    # Reset metadata
+    save_apk({"version": None, "changelog": "", "download_url": "", "sha": None, "filename": None})
+    return jsonify({"success": True, "message": f"APK {filename} deleted."})
 # ---------------- Run ----------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))  # Render requires binding to $PORT
@@ -300,3 +306,5 @@ if __name__ == "__main__":
         debug=False,
         use_reloader=False
     )
+
+
