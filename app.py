@@ -265,6 +265,30 @@ def delete_apk():
     if not apk_data.get("download_url"):
         return jsonify({"success": False, "message": "No APK to delete."})
 
+    # figure out file path from URL
+    filename = apk_data["download_url"].split("/")[-1].split("?")[0]
+    file_path = f"{APK_FOLDER}/{filename}"
+
+    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{file_path}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
+
+    # get SHA first
+    r_get = requests.get(url, headers=headers)
+    if r_get.status_code != 200:
+        return jsonify({"success": False, "message": f"Failed to find APK file on GitHub: {r_get.text}"}), 500
+    sha = r_get.json().get("sha")
+
+    # delete the file
+    r = requests.delete(url, headers=headers, json={
+        "message": f"Delete APK {filename}",
+        "sha": sha,
+        "branch": BRANCH
+    })
+
+    if r.status_code not in [200, 204]:
+        return jsonify({"success": False, "message": f"GitHub delete failed: {r.text}"}), 500
+
+    # clear metadata
     save_apk({"version": None, "changelog": "", "download_url": ""})
     return jsonify({"success": True, "message": "APK deleted."})
 
