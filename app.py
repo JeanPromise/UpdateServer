@@ -19,12 +19,16 @@ APK_FOLDER = "apks"
 
 # ---------------- GitHub Helpers ----------------
 def github_get_file(filename, default):
+    """
+    Fetch a file from the repo's contents API and return decoded JSON content,
+    or default if not present / parse fails.
+    """
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
     r = requests.get(url, headers=headers)
     if r.status_code == 200:
         try:
-            content = base64.b64decode(r.json()["content"]).decode()
+            content = base64.b64decode(r.json().get("content", "")).decode()
             data = json.loads(content)
             return data if isinstance(data, (dict, list)) else default
         except Exception as e:
@@ -33,15 +37,19 @@ def github_get_file(filename, default):
     return default
 
 def github_push_file(filename, content, message=None):
+    """
+    Push (create/update) a file to the repo using the contents API.
+    'content' is a string (will be JSON-encoded/encoded to bytes inside).
+    """
     url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
 
-    # Get SHA if file exists
+    # Get SHA if file exists (so we can update)
     r_get = requests.get(url, headers=headers)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
 
     data = {
-        "message": message or f"Update {filename} at {datetime.utcnow()}",
+        "message": message or f"Update {filename} at {datetime.utcnow().isoformat()}",
         "content": base64.b64encode(content.encode()).decode(),
         "branch": BRANCH
     }
@@ -50,7 +58,7 @@ def github_push_file(filename, content, message=None):
 
     r = requests.put(url, headers=headers, json=data)
     if r.status_code not in [200, 201]:
-        print(f"❌ Failed to push {filename}: {r.text}")
+        print(f"❌ Failed to push {filename}: {r.status_code} {r.text}")
         return False
     return True
 
@@ -62,17 +70,27 @@ def load_users():
 def save_users(users_list):
     github_push_file(USERS_FILE, json.dumps(users_list, indent=2), "Update users")
 
+# ensure default apk.json includes filename and sha keys
 def load_apk():
-    return github_get_file(APK_FILE, {"version": None, "changelog": "", "download_url": ""})
+    return github_get_file(APK_FILE, {"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
 
 def save_apk(apk_obj):
-    github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
+    # ensure keys exist
+    apk_obj_out = {
+        "version": apk_obj.get("version"),
+        "changelog": apk_obj.get("changelog", ""),
+        "download_url": apk_obj.get("download_url", ""),
+        "filename": apk_obj.get("filename"),
+        "sha": apk_obj.get("sha")
+    }
+    github_push_file(APK_FILE, json.dumps(apk_obj_out, indent=2), "Update APK data")
 
 # ---------------- Private Site Enforcement ----------------
 @app.before_request
 def require_login():
+    # allow public endpoints
     if request.endpoint in ['login', 'register', 'index', 'static', 'check_update', 'download_apk', 'get_apk']:
-        return  # allow these
+        return
     if 'user_email' not in session:
         return redirect(url_for('index'))
 
@@ -108,10 +126,8 @@ def login():
             if not u.get('enabled', True):
                 return jsonify({"success": False, "message": "User is disabled."})
             if check_password_hash(u.get('password'), password):
-                # login success → save session
                 session['user_email'] = email
 
-                # ---------------- Log login ----------------
                 ip = request.headers.get('X-Forwarded-For', request.remote_addr)
                 user_agent = request.headers.get("User-Agent", "")
                 try:
@@ -187,6 +203,8 @@ def login_analytics():
     return jsonify(analytics)
 
 # ---------------- APK Endpoints ----------------
+
+# Download and stream the current APK (serves filename saved in metadata)
 @app.route('/download_apk')
 def download_apk():
     apk_data = load_apk()
@@ -197,7 +215,7 @@ def download_apk():
     if r.status_code != 200:
         return jsonify({"success": False, "message": "Failed to fetch APK"}), 500
 
-    # 🔑 Use saved filename if available, fallback to app-latest.apk
+    # Use saved filename if available, fallback to app-latest.apk
     filename = apk_data.get("filename") or "app-latest.apk"
 
     return Response(
@@ -206,16 +224,93 @@ def download_apk():
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
 
+# Upload: versioned filename, save metadata + sha
+@app.route('/upload_apk', methods=['POST'])
+def upload_apk():
+    if 'apk' not in request.files or 'version' not in request.form:
+        return jsonify({"success": False, "message": "APK file and version required."}), 400
+
+    file = request.files['apk']
+    version = request.form['version'].strip()
+    if not version:
+        return jsonify({"success": False, "message": "Version cannot be empty."}), 400
+
+    # Always save with versioned filename to avoid raw CDN cache problems
+    filename = secure_filename(f"app-v{version}.apk")
+    apk_bytes = file.read()
+
+    api_path = f"{APK_FOLDER}/{filename}"
+    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{api_path}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
+
+    data = {
+        "message": f"Upload APK {filename} version {version}",
+        "content": base64.b64encode(apk_bytes).decode(),
+        "branch": BRANCH
+    }
+
+    r = requests.put(url, headers=headers, json=data)
+    if r.status_code not in [200, 201]:
+        return jsonify({"success": False, "message": f"GitHub upload failed: {r.status_code} {r.text}"}), 500
+
+    # Extract SHA if returned (useful for force-deletes)
+    try:
+        resp_json = r.json()
+        file_sha = resp_json.get("content", {}).get("sha")
+    except Exception:
+        file_sha = None
+
+    download_url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{BRANCH}/{APK_FOLDER}/{filename}"
+
+    # Save metadata including filename + sha
+    save_apk({
+        "version": version,
+        "changelog": f"Uploaded version {version}",
+        "download_url": download_url,
+        "filename": filename,
+        "sha": file_sha
+    })
+
+    return jsonify({"success": True, "message": "APK uploaded.", "url": download_url})
+
+# Metadata-only delete (clears apk.json so clients no longer see update)
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
     apk_data = load_apk()
     if not apk_data.get("download_url"):
-        return jsonify({"success": False, "message": "No APK to delete."})
+        return jsonify({"success": False, "message": "No APK to delete."}), 400
 
-    # Just clear metadata; old files stay in repo
-    save_apk({"version": None, "changelog": "", "download_url": "", "filename": None})
+    # Clear metadata only; file remains in repo
+    save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
     return jsonify({"success": True, "message": "APK metadata deleted."})
 
+# Force delete: remove actual APK file from GitHub (requires GITHUB_TOKEN with repo permissions)
+@app.route('/delete_apk_force', methods=['POST'])
+def delete_apk_force():
+    apk_data = load_apk()
+    filename = apk_data.get("filename")
+    sha = apk_data.get("sha")
+
+    if not filename or not sha:
+        return jsonify({"success": False, "message": "No filename/sha saved - cannot force delete."}), 400
+
+    api_path = f"{APK_FOLDER}/{filename}"
+    url = f"https://api.github.com/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{api_path}"
+    if not GITHUB_TOKEN:
+        return jsonify({"success": False, "message": "GITHUB_TOKEN is required to force delete."}), 400
+
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    payload = {"message": f"Delete APK {filename}", "sha": sha, "branch": BRANCH}
+
+    r = requests.delete(url, headers=headers, json=payload)
+    if r.status_code not in [200, 204]:
+        return jsonify({"success": False, "message": f"GitHub delete failed: {r.status_code} {r.text}"}), 500
+
+    # Clear metadata after successful delete
+    save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
+    return jsonify({"success": True, "message": f"APK {filename} deleted from GitHub."})
+
+# Check update endpoint
 @app.route('/check_update')
 def check_update():
     apk_data = load_apk()
@@ -225,7 +320,6 @@ def check_update():
         "apk_version": apk_data.get("version") if has_apk else None,
         "url": apk_data.get("download_url") if has_apk else None
     })
-
 
 @app.route('/get_apk')
 def get_apk():
@@ -237,10 +331,11 @@ def update_apk():
     save_apk({
         "version": data.get('version'),
         "changelog": data.get('changelog'),
-        "download_url": data.get('download_url')
+        "download_url": data.get('download_url'),
+        "filename": data.get('filename'),
+        "sha": data.get('sha')
     })
     return jsonify({"success": True})
-
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
@@ -251,5 +346,3 @@ if __name__ == "__main__":
         debug=False,
         use_reloader=False
     )
-
-
