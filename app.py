@@ -225,21 +225,7 @@ def check_update():
         "apk_version": apk_data.get("version") if has_apk else None,
         "url": apk_data.get("download_url") if has_apk else None
     })
-@app.route('/download_apk')
-def download_apk():
-    apk_data = load_apk()
-    if not apk_data.get("download_url"):
-        return jsonify({"success": False, "message": "No APK available."}), 404
 
-    r = requests.get(apk_data["download_url"], stream=True)
-    if r.status_code != 200:
-        return jsonify({"success": False, "message": "Failed to fetch APK"}), 500
-
-    return Response(
-        r.iter_content(chunk_size=8192),
-        content_type="application/vnd.android.package-archive",
-        headers={"Content-Disposition": "attachment; filename=app-latest.apk"}
-    )
 
 @app.route('/get_apk')
 def get_apk():
