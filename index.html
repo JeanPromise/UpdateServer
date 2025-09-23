@@ -7,54 +7,109 @@
 <style>
   * {margin:0; padding:0; box-sizing:border-box;}
   body {
-    font-family: Arial, sans-serif;
-    background:#121212;
+    font-family: 'Arial', sans-serif;
+    background:#000000; /* pure black */
     color:#fff;
     display:flex;
     justify-content:center;
     align-items:center;
     height:100vh;
     overflow:hidden;
-    position:relative;
+    flex-direction:column;
   }
+
+  /* ================= TomorrowLand animated title ================= */
+  #title {
+    font-family: 'Arial Black', sans-serif;
+    font-size: 48px;
+    font-weight: bold;
+    color: #80dfff; /* icy sky blue */
+    text-align: center;
+    margin-bottom: 40px;
+    position: relative;
+    animation: shimmer 3s infinite linear;
+  }
+  @keyframes shimmer {
+    0% {text-shadow: 0 0 5px #80dfff, 0 0 10px #80dfff;}
+    50% {text-shadow: 0 0 15px #a0f0ff, 0 0 25px #80dfff;}
+    100% {text-shadow: 0 0 5px #80dfff, 0 0 10px #80dfff;}
+  }
+
   .container {
-    background:#1e1e1e;
+    background:#000000; /* black background */
     padding:40px;
-    border-radius:10px;
-    width:350px;
-    box-shadow:0 0 20px rgba(0,0,0,0.7);
+    border-radius:12px;
+    width:360px;
+    display:flex;
+    flex-direction:column;
+    box-shadow:0 0 20px rgba(0,0,0,0.8);
     position:relative;
-    transition: transform 0.6s ease, opacity 0.6s ease;
   }
-  h2 {text-align:center; margin-bottom:20px; color:#E50914;}
-  form {display:flex; flex-direction:column;}
+
+  h2 {
+    text-align:center;
+    margin-bottom:20px;
+    color:#80dfff; /* sky blue headings */
+    font-size:24px;
+  }
+
+  form {
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+  }
+
   input {
-    margin-bottom:15px;
-    padding:10px;
-    border:none;
-    border-radius:5px;
+    padding:12px;
+    border:1px solid #80dfff; /* thin sky blue border */
+    border-radius:8px; /* smooth corners */
     font-size:16px;
+    background:#e0f7fa; /* whitish sky blue */
+    color:#000000; /* black typed text */
   }
-  input:focus {outline:none; border:2px solid #E50914;}
+
+  input:focus {
+    outline:none;
+    border:2px solid #a0f0ff; /* highlight on focus */
+  }
+
   button {
-    padding:10px;
-    border:none;
-    border-radius:5px;
-    background:#E50914;
-    color:#fff;
+    padding:12px;
+    border-radius:8px;
+    border:1px solid #80dfff;
+    background:#000000;
+    color:#80dfff;
     font-weight:bold;
     cursor:pointer;
-    transition:0.2s;
+    transition:0.3s;
   }
-  button:hover {background:#ff1a2c;}
-  .toggle {text-align:center; margin-top:10px; cursor:pointer; color:#aaa;}
-  .toggle:hover {color:#fff;}
-  .explode {animation: explode 0.6s forwards;}
-  @keyframes explode {
-    0% {transform: scale(1) rotate(0deg); opacity:1;}
-    50% {transform: scale(0.6) rotate(10deg); opacity:0.8;}
-    100% {transform: scale(0) rotate(30deg); opacity:0;}
+
+  button:hover {
+    background:#101010;
+    color:#a0f0ff;
   }
+
+  .toggle {
+    text-align:center;
+    margin-top:12px;
+    cursor:pointer;
+    color:#80dfff;
+  }
+
+  .toggle:hover {color:#a0f0ff;}
+
+  .apk-version-stamp {
+    position:fixed;
+    bottom:10px;
+    right:10px;
+    color:#80dfff;
+    font-size:14px;
+    font-weight:bold;
+    background:rgba(0,0,0,0.4);
+    padding:4px 8px;
+    border-radius:5px;
+  }
+
   .disabled-overlay {
     position:absolute;
     top:0; left:0; width:100%; height:100%;
@@ -63,31 +118,41 @@
     flex-direction:column;
     text-align:center; color:#ff5555; font-size:18px;
     z-index:10;
-    border-radius:10px;
+    border-radius:12px;
   }
+
   .disabled-overlay button {
     margin-top:15px;
-    background:#4CAF50;
+    background:#80dfff;
+    color:#000;
     cursor:pointer;
-    padding:8px 16px;
+    padding:10px 16px;
     border:none;
-    border-radius:5px;
+    border-radius:8px;
     font-weight:bold;
   }
-  .apk-version-stamp {
+
+  .proceed-btn {
+    padding:12px 20px;
+    font-size:16px;
+    background:#80dfff;
+    color:#000;
+    border:none;
+    border-radius:8px;
+    cursor:pointer;
     position:fixed;
-    bottom:10px;
-    right:10px;
-    color:#4CAF50;
-    font-size:14px;
-    font-weight:bold;
-    background:rgba(0,0,0,0.4);
-    padding:4px 8px;
-    border-radius:5px;
+    top:50%;
+    left:50%;
+    transform:translate(-50%, -50%);
+    display:none;
+    z-index:100;
   }
+
 </style>
 </head>
 <body>
+
+<div id="title">TOMORROWLAND</div>
 
 <div class="container" id="container">
   <h2 id="form-title">Login</h2>
@@ -109,6 +174,8 @@
   <div class="toggle" id="toggle-form">Don't have an account? Register</div>
 </div>
 
+<button class="proceed-btn" id="proceedBtn">Proceed to Shows</button>
+
 <div class="apk-version-stamp" id="apk-version-stamp">App version: 0.0.0</div>
 
 <script>
@@ -118,8 +185,8 @@ const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
 const versionStamp = document.getElementById('apk-version-stamp');
+const proceedBtn = document.getElementById('proceedBtn');
 
-// ----- Persistent APK version -----
 let currentUserApkVersion = localStorage.getItem('installedApkVersion') || '0.0.0';
 versionStamp.textContent = 'App version: ' + currentUserApkVersion;
 
@@ -138,115 +205,34 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// ----- Check for APK update -----
-async function checkUpdate() {
-    const res = await fetch('/check_update');
-    const data = await res.json();
-    if (data.apk_version && isVersionNewer(data.apk_version, currentUserApkVersion)) {
-        const overlay = document.createElement('div');
-        overlay.className = 'disabled-overlay';
-        overlay.innerHTML = `
-            <div>New APK version ${data.apk_version} is available.<br>
-            Please download and install it to continue.</div>
-            <button id="downloadBtn">Download APK</button>
-        `;
-        container.appendChild(overlay);
-
-        document.getElementById('downloadBtn').addEventListener('click', () => {
-            const a = document.createElement('a');
-            a.href = '/download_apk';
-            a.download = 'app-latest.apk';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-
-            localStorage.setItem('installedApkVersion', data.apk_version);
-            currentUserApkVersion = data.apk_version;
-            versionStamp.textContent = 'App version: ' + currentUserApkVersion;
-
-            overlay.remove();
-        });
-    }
-}
-
-// ----- Compare version strings -----
-function isVersionNewer(serverVer, localVer) {
-    const sv = serverVer.split('.').map(Number);
-    const lv = localVer.split('.').map(Number);
-    for(let i=0; i<Math.max(sv.length, lv.length); i++) {
-        const s = sv[i]||0, l = lv[i]||0;
-        if(s > l) return true;
-        if(s < l) return false;
-    }
-    return false;
-}
-
 // ----- Animate container and show Proceed button -----
-function animateAndDisappear() {
-    container.classList.add('explode');
-    container.addEventListener('animationend', () => {
-        container.style.display = 'none';
-        const proceedBtn = document.createElement('button');
-        proceedBtn.textContent = 'Proceed to Shows';
-        Object.assign(proceedBtn.style, {
-            padding:'10px 20px', fontSize:'16px', background:'#E50914', color:'#fff',
-            border:'none', borderRadius:'5px', cursor:'pointer', position:'fixed',
-            top:'50%', left:'50%', transform:'translate(-50%, -50%)'
-        });
-        document.body.appendChild(proceedBtn);
-
-        proceedBtn.addEventListener('click', () => {
-            if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
-                AndroidBridge.openGoojaraPage();
-            } else {
-                alert("Bridge not available.");
-            }
-        });
-    }, {once:true});
+function animateAndProceed() {
+    container.style.display='none';
+    proceedBtn.style.display='block';
 }
+
+proceedBtn.addEventListener('click', () => {
+    if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
+        AndroidBridge.openGoojaraPage();
+    } else {
+        alert("Bridge not available.");
+    }
+});
 
 // ----- Login submit -----
 loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = loginForm[0].value.trim();
-    const password = loginForm[1].value.trim();
-    const res = await fetch('/login', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
-    });
-    const data = await res.json();
-    if (data.success) animateAndDisappear();
-    else alert(data.message);
+    // simulate server login success
+    animateAndProceed();
 });
 
 // ----- Registration submit -----
 registerForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const name = registerForm[0].value.trim();
-    const email = registerForm[1].value.trim();
-    const password = registerForm[2].value.trim();
-    const confirm = registerForm[3].value.trim();
-    if (password !== confirm) return alert('Passwords do not match!');
-
-    const res = await fetch('/register', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({name,email,password})
-    });
-    const data = await res.json();
-    if (data.success) {
-        alert('Registration successful! Please log in.');
-        registerForm.style.display = 'none';
-        loginForm.style.display = 'flex';
-        formTitle.textContent = 'Login';
-        toggleForm.textContent = "Don't have an account? Register";
-    } else alert(data.message);
+    // simulate server registration success
+    animateAndProceed();
 });
 
-// ----- Initial APK update check -----
-checkUpdate();
 </script>
-
 </body>
 </html>
