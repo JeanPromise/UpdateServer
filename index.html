@@ -16,6 +16,7 @@
     height:100vh;
     overflow:hidden;
     flex-direction:column;
+    position:relative;
   }
 
   /* ================= Lively TomorrowLand Title ================= */
@@ -24,7 +25,6 @@
     font-weight: bold;
     font-size: 48px;
     letter-spacing: 2px;
-    color: white;
     text-align: center;
     margin-bottom: 40px;
     position: relative;
@@ -40,8 +40,28 @@
     100% {background-position: 0% 0%;}
   }
 
+  /* sparkle particle container */
+  #sparkle-container {
+    position:absolute;
+    top:calc(50% - 70px);
+    left:50%;
+    transform:translateX(-50%);
+    width:100%;
+    height:100px;
+    pointer-events:none;
+  }
+
+  .sparkle {
+    position:absolute;
+    width:3px;
+    height:3px;
+    background:white;
+    border-radius:50%;
+    opacity:0;
+  }
+
   .container {
-    background:#000000; /* black background */
+    background:#000000;
     padding:40px;
     border-radius:12px;
     width:360px;
@@ -54,7 +74,7 @@
   h2 {
     text-align:center;
     margin-bottom:20px;
-    color:#80dfff; /* sky blue headings */
+    color:#80dfff;
     font-size:24px;
   }
 
@@ -66,33 +86,27 @@
 
   input {
     padding:12px;
-    border:1px solid #80dfff; /* thin sky blue border */
-    border-radius:8px; /* smooth corners */
+    border:1px solid #80dfff;
+    border-radius:8px;
     font-size:16px;
-    background:#e0f7fa; /* whitish sky blue */
-    color:#000000; /* black typed text */
+    background:#e0f7fa;
+    color:#000;
   }
 
-  input:focus {
-    outline:none;
-    border:2px solid #a0f0ff; /* highlight on focus */
-  }
+  input:focus {outline:none; border:2px solid #a0f0ff;}
 
   button {
     padding:12px;
     border-radius:8px;
     border:1px solid #80dfff;
-    background:#000000;
+    background:#000;
     color:#80dfff;
     font-weight:bold;
     cursor:pointer;
     transition:0.3s;
   }
 
-  button:hover {
-    background:#101010;
-    color:#a0f0ff;
-  }
+  button:hover {background:#101010; color:#a0f0ff;}
 
   .toggle {
     text-align:center;
@@ -158,6 +172,7 @@
 <body>
 
 <div id="title">TOMORROWLAND</div>
+<div id="sparkle-container"></div>
 
 <div class="container" id="container">
   <h2 id="form-title">Login</h2>
@@ -187,30 +202,25 @@
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
-const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
-const versionStamp = document.getElementById('apk-version-stamp');
 const proceedBtn = document.getElementById('proceedBtn');
 
-let currentUserApkVersion = localStorage.getItem('installedApkVersion') || '0.0.0';
-versionStamp.textContent = 'App version: ' + currentUserApkVersion;
-
-// ----- Toggle forms -----
+// Toggle forms
 toggleForm.addEventListener('click', () => {
     if (loginForm.style.display !== 'none') {
         loginForm.style.display = 'none';
         registerForm.style.display = 'flex';
-        formTitle.textContent = 'Register';
+        document.getElementById('form-title').textContent = 'Register';
         toggleForm.textContent = 'Already have an account? Login';
     } else {
         loginForm.style.display = 'flex';
         registerForm.style.display = 'none';
-        formTitle.textContent = 'Login';
+        document.getElementById('form-title').textContent = 'Login';
         toggleForm.textContent = "Don't have an account? Register";
     }
 });
 
-// ----- Animate container and show Proceed button -----
+// Animate container disappearance
 function animateAndProceed() {
     container.style.display='none';
     proceedBtn.style.display='block';
@@ -219,24 +229,37 @@ function animateAndProceed() {
 proceedBtn.addEventListener('click', () => {
     if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
         AndroidBridge.openGoojaraPage();
-    } else {
-        alert("Bridge not available.");
-    }
+    } else { alert("Bridge not available."); }
 });
 
-// ----- Login submit -----
-loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    // simulate server login success
-    animateAndProceed();
-});
+// Simulate login/register success
+loginForm.addEventListener('submit', e => { e.preventDefault(); animateAndProceed(); });
+registerForm.addEventListener('submit', e => { e.preventDefault(); animateAndProceed(); });
 
-// ----- Registration submit -----
-registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    // simulate server registration success
-    animateAndProceed();
-});
+// ================= Sparkle Effect =================
+const sparkleContainer = document.getElementById('sparkle-container');
+const letters = document.getElementById('title').getBoundingClientRect();
+
+function createSparkle() {
+    const sparkle = document.createElement('div');
+    sparkle.className = 'sparkle';
+    sparkle.style.left = (Math.random() * letters.width) + 'px';
+    sparkle.style.top = (Math.random() * letters.height) + 'px';
+    sparkleContainer.appendChild(sparkle);
+
+    const animDuration = 600 + Math.random() * 600;
+    sparkle.animate([
+        {opacity:0, transform:'scale(0.5)'},
+        {opacity:1, transform:'scale(1.2)'},
+        {opacity:0, transform:'scale(0.5)'}
+    ], {duration:animDuration, iterations:1, easing:'ease-out'});
+
+    setTimeout(()=>{ sparkle.remove(); }, animDuration);
+}
+
+// Continuously spawn sparkles
+setInterval(createSparkle, 150);
 </script>
+
 </body>
 </html>
