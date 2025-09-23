@@ -18,21 +18,26 @@
     flex-direction:column;
   }
 
-  /* ================= TomorrowLand animated title ================= */
+  /* ================= Lively TomorrowLand Title ================= */
   #title {
-    font-family: 'Arial Black', sans-serif;
-    font-size: 48px;
+    font-family: 'Arial Narrow', sans-serif;
     font-weight: bold;
-    color: #80dfff; /* icy sky blue */
+    font-size: 48px;
+    letter-spacing: 2px;
+    color: white;
     text-align: center;
     margin-bottom: 40px;
     position: relative;
-    animation: shimmer 3s infinite linear;
+    background: linear-gradient(90deg, #80dfff, #ffffff, #80dfff, #ffffff);
+    background-size: 400% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 4s linear infinite;
   }
   @keyframes shimmer {
-    0% {text-shadow: 0 0 5px #80dfff, 0 0 10px #80dfff;}
-    50% {text-shadow: 0 0 15px #a0f0ff, 0 0 25px #80dfff;}
-    100% {text-shadow: 0 0 5px #80dfff, 0 0 10px #80dfff;}
+    0% {background-position: 0% 0%;}
+    50% {background-position: 100% 0%;}
+    100% {background-position: 0% 0%;}
   }
 
   .container {
@@ -232,7 +237,6 @@ registerForm.addEventListener('submit', async (e) => {
     // simulate server registration success
     animateAndProceed();
 });
-
 </script>
 </body>
 </html>
