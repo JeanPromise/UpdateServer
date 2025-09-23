@@ -19,20 +19,20 @@
     position:relative;
   }
 
-  /* ================= Lively TomorrowLand Title ================= */
+  /* ================= TomorrowLand Title ================= */
   #title {
     font-family: 'Arial Narrow', sans-serif;
     font-weight: bold;
-    font-size: 48px;
-    letter-spacing: 2px;
+    font-size: 10vw; /* scales with screen width */
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 30px;
     position: relative;
     background: linear-gradient(90deg, #80dfff, #ffffff, #80dfff, #ffffff);
     background-size: 400% 100%;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: shimmer 4s linear infinite;
+    z-index:1;
   }
   @keyframes shimmer {
     0% {background-position: 0% 0%;}
@@ -40,42 +40,46 @@
     100% {background-position: 0% 0%;}
   }
 
-  /* sparkle particle container */
+  /* Sparkle container */
   #sparkle-container {
     position:absolute;
-    top:calc(50% - 70px);
+    top:calc(50% - 7vw);
     left:50%;
     transform:translateX(-50%);
     width:100%;
-    height:100px;
+    height:15vw;
     pointer-events:none;
+    z-index:2;
   }
 
   .sparkle {
     position:absolute;
-    width:3px;
-    height:3px;
+    width:2px;
+    height:2px;
     background:white;
     border-radius:50%;
     opacity:0;
   }
 
+  /* Login/Register container */
   .container {
     background:#000000;
-    padding:40px;
+    padding:30px;
     border-radius:12px;
-    width:360px;
+    width:90%;
+    max-width:380px;
     display:flex;
     flex-direction:column;
     box-shadow:0 0 20px rgba(0,0,0,0.8);
     position:relative;
+    z-index:3;
   }
 
   h2 {
     text-align:center;
     margin-bottom:20px;
     color:#80dfff;
-    font-size:24px;
+    font-size:1.5rem;
   }
 
   form {
@@ -88,7 +92,7 @@
     padding:12px;
     border:1px solid #80dfff;
     border-radius:8px;
-    font-size:16px;
+    font-size:1rem;
     background:#e0f7fa;
     color:#000;
   }
@@ -121,12 +125,13 @@
     position:fixed;
     bottom:10px;
     right:10px;
-    color:#80dfff;
+    color:#00ff00; /* luminous green */
     font-size:14px;
     font-weight:bold;
     background:rgba(0,0,0,0.4);
     padding:4px 8px;
     border-radius:5px;
+    z-index:5;
   }
 
   .disabled-overlay {
@@ -166,7 +171,6 @@
     display:none;
     z-index:100;
   }
-
 </style>
 </head>
 <body>
@@ -195,7 +199,6 @@
 </div>
 
 <button class="proceed-btn" id="proceedBtn">Proceed to Shows</button>
-
 <div class="apk-version-stamp" id="apk-version-stamp">App version: 0.0.0</div>
 
 <script>
@@ -236,29 +239,37 @@ proceedBtn.addEventListener('click', () => {
 loginForm.addEventListener('submit', e => { e.preventDefault(); animateAndProceed(); });
 registerForm.addEventListener('submit', e => { e.preventDefault(); animateAndProceed(); });
 
-// ================= Sparkle Effect =================
+// ================= Stardust particle effect =================
 const sparkleContainer = document.getElementById('sparkle-container');
-const letters = document.getElementById('title').getBoundingClientRect();
+const title = document.getElementById('title');
 
-function createSparkle() {
+function createStardust() {
     const sparkle = document.createElement('div');
     sparkle.className = 'sparkle';
-    sparkle.style.left = (Math.random() * letters.width) + 'px';
-    sparkle.style.top = (Math.random() * letters.height) + 'px';
+
+    // follow shimmer along text width
+    const rect = title.getBoundingClientRect();
+    const offsetX = rect.left + Math.random() * rect.width;
+    const offsetY = rect.top + Math.random() * rect.height;
+
+    sparkle.style.left = offsetX + 'px';
+    sparkle.style.top = offsetY + 'px';
+
     sparkleContainer.appendChild(sparkle);
 
-    const animDuration = 600 + Math.random() * 600;
-    sparkle.animate([
-        {opacity:0, transform:'scale(0.5)'},
-        {opacity:1, transform:'scale(1.2)'},
-        {opacity:0, transform:'scale(0.5)'}
-    ], {duration:animDuration, iterations:1, easing:'ease-out'});
+    const duration = 800 + Math.random()*400;
 
-    setTimeout(()=>{ sparkle.remove(); }, animDuration);
+    sparkle.animate([
+        {opacity:0, transform:'scale(0.3) translateY(0px)'},
+        {opacity:1, transform:'scale(1.2) translateY(-3px)'},
+        {opacity:0, transform:'scale(0.3) translateY(0px)'}
+    ], {duration: duration, iterations:1, easing:'ease-out'});
+
+    setTimeout(()=>{ sparkle.remove(); }, duration);
 }
 
-// Continuously spawn sparkles
-setInterval(createSparkle, 150);
+// Continuously spawn stardust particles
+setInterval(createStardust, 120);
 </script>
 
 </body>
