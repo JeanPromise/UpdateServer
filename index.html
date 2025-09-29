@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Login & Registration</title>
 <style>
   * {margin:0; padding:0; box-sizing:border-box;}
@@ -118,6 +118,7 @@
     text-align:center; color:#ff5555; font-size:18px;
     z-index:10;
     border-radius:10px;
+    padding:20px;
   }
   .disabled-overlay button {
     margin-top:15px;
@@ -182,6 +183,8 @@ for(let i=0;i<40;i++){
 <div class="apk-version-stamp" id="apk-version-stamp">App version: 0.0.0</div>
 
 <script>
+/* ---------- Minimal enforcement: block auth while an update exists ---------- */
+
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
@@ -189,57 +192,22 @@ const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
 const versionStamp = document.getElementById('apk-version-stamp');
 
-// ----- Persistent APK version -----
+// persistent installed version
 let currentUserApkVersion = localStorage.getItem('installedApkVersion') || '0.0.0';
 versionStamp.textContent = 'App version: ' + currentUserApkVersion;
 
-// ----- Toggle forms -----
-toggleForm.addEventListener('click', () => {
-    if (loginForm.style.display !== 'none') {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'flex';
-        formTitle.textContent = 'Register';
-        toggleForm.textContent = 'Already have an account? Login';
-    } else {
-        loginForm.style.display = 'flex';
-        registerForm.style.display = 'none';
-        formTitle.textContent = 'Login';
-        toggleForm.textContent = "Don't have an account? Register";
-    }
-});
-
-// ----- Check for APK update -----
-async function checkUpdate() {
-    const res = await fetch('/check_update');
-    const data = await res.json();
-    if (data.apk_version && isVersionNewer(data.apk_version, currentUserApkVersion)) {
-        const overlay = document.createElement('div');
-        overlay.className = 'disabled-overlay';
-        overlay.innerHTML = `
-            <div>New APK version ${data.apk_version} is available.<br>
-            Please download and install it to continue.</div>
-            <button id="downloadBtn">Download APK</button>
-        `;
-        container.appendChild(overlay);
-
-        document.getElementById('downloadBtn').addEventListener('click', () => {
-            const a = document.createElement('a');
-            a.href = '/download_apk';
-            a.download = 'app-latest.apk';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-
-            localStorage.setItem('installedApkVersion', data.apk_version);
-            currentUserApkVersion = data.apk_version;
-            versionStamp.textContent = 'App version: ' + currentUserApkVersion;
-
-            overlay.remove();
-        });
-    }
+// helper: enable/disable auth controls
+function setAuthDisabled(disabled) {
+  const loginControls = loginForm.querySelectorAll('input, button[type="submit"]');
+  const regControls = registerForm.querySelectorAll('input, button[type="submit"]');
+  loginControls.forEach(el => el.disabled = disabled);
+  regControls.forEach(el => el.disabled = disabled);
+  // visually reduce toggle so user sees it's blocked
+  toggleForm.style.pointerEvents = disabled ? 'none' : 'auto';
+  toggleForm.style.opacity = disabled ? '0.5' : '1';
 }
 
-// ----- Compare version strings -----
+// compare versions
 function isVersionNewer(serverVer, localVer) {
     const sv = serverVer.split('.').map(Number);
     const lv = localVer.split('.').map(Number);
@@ -251,7 +219,81 @@ function isVersionNewer(serverVer, localVer) {
     return false;
 }
 
-// ----- Animate container and show Proceed button -----
+// new checkUpdate: show overlay & block auth until user confirms installed
+async function checkUpdate() {
+    try {
+        const res = await fetch('/check_update');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        // If there's a newer APK, block auth and show overlay
+        if (data.apk_version && isVersionNewer(data.apk_version, currentUserApkVersion)) {
+            setAuthDisabled(true);
+
+            // avoid duplicate overlays
+            if (document.querySelector('.disabled-overlay')) return;
+
+            const overlay = document.createElement('div');
+            overlay.className = 'disabled-overlay';
+            overlay.innerHTML = `
+                <div style="max-width:420px; color:#fff;">
+                  <div style="font-size:18px; margin-bottom:12px;">
+                    New APK version <b>${data.apk_version}</b> is available.<br>
+                    Please download and install it to continue.
+                  </div>
+                  <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                    <button id="downloadBtn">Download APK</button>
+                    <button id="installedBtn" disabled style="background:#007bff; color:#fff;">I have installed</button>
+                  </div>
+                  <div style="margin-top:10px; color:#ccc; font-size:13px;">
+                    Tip: After tapping Download, install the APK on your device. Then come back and tap "I have installed".
+                  </div>
+                </div>
+            `;
+            container.appendChild(overlay);
+
+            const downloadBtn = document.getElementById('downloadBtn');
+            const installedBtn = document.getElementById('installedBtn');
+
+            // Download action: start the download but do NOT auto-mark as installed.
+            downloadBtn.addEventListener('click', () => {
+                const a = document.createElement('a');
+                a.href = '/download_apk';
+                a.download = 'app-latest.apk';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+
+                // enable the "I have installed" button after download clicked
+                downloadBtn.disabled = true;
+                downloadBtn.textContent = 'Downloaded';
+                installedBtn.disabled = false;
+                installedBtn.focus();
+            });
+
+            // User confirmation that they installed the APK
+            installedBtn.addEventListener('click', () => {
+                localStorage.setItem('installedApkVersion', data.apk_version);
+                currentUserApkVersion = data.apk_version;
+                versionStamp.textContent = 'App version: ' + currentUserApkVersion;
+
+                overlay.remove();
+                setAuthDisabled(false);
+            });
+
+            return;
+        }
+
+        // no newer APK -> ensure auth enabled
+        setAuthDisabled(false);
+    } catch (err) {
+        console.error('checkUpdate failed', err);
+        // if anything breaks, avoid locking everyone out
+        setAuthDisabled(false);
+    }
+}
+
+// Animate container and show Proceed button (unchanged behavior)
 function animateAndDisappear() {
     container.classList.add('explode');
     container.addEventListener('animationend', () => {
@@ -315,7 +357,22 @@ registerForm.addEventListener('submit', async (e) => {
     } else alert(data.message);
 });
 
-// ----- Initial APK update check -----
+// toggle forms
+toggleForm.addEventListener('click', () => {
+    if (loginForm.style.display !== 'none') {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'flex';
+        formTitle.textContent = 'Register';
+        toggleForm.textContent = 'Already have an account? Login';
+    } else {
+        loginForm.style.display = 'flex';
+        registerForm.style.display = 'none';
+        formTitle.textContent = 'Login';
+        toggleForm.textContent = "Don't have an account? Register";
+    }
+});
+
+// Initial APK update check
 checkUpdate();
 </script>
 </body>
