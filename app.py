@@ -6,15 +6,10 @@ import os
 import logging
 import hashlib
 from werkzeug.security import generate_password_hash, check_password_hash
-
-# Helper to hash email consistently
-def hash_email(email: str) -> str:
-    return hashlib.sha256(email.encode()).hexdigest()
 from flask import (
     Flask, request, jsonify, send_from_directory, Response, session, redirect, url_for
 )
 from werkzeug.utils import secure_filename
-from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
 # --- Basic logging ---
@@ -36,17 +31,17 @@ APK_FOLDER = "apks"
 
 GITHUB_API_BASE = "https://api.github.com"
 
-# --- Helper to build headers for GitHub API calls ---
+# --- Helper to hash email consistently ---
+def hash_email(email: str) -> str:
+    return hashlib.sha256(email.encode()).hexdigest()
+
+# --- GitHub API Helpers ---
 def gh_headers():
-    headers = {
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "UpdateServer-App"
-    }
+    headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "UpdateServer-App"}
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
 
-# ---------------- GitHub Helpers ----------------
 def github_get_file(filename, default):
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
     try:
@@ -54,47 +49,31 @@ def github_get_file(filename, default):
     except Exception as e:
         log.exception("GitHub GET exception for %s", filename)
         return default
-
     if r.status_code == 200:
         body = r.json()
         content = body.get("content", "")
         encoding = body.get("encoding", "base64")
         try:
-            if encoding == "base64":
-                raw = base64.b64decode(content).decode()
-            else:
-                raw = content
+            raw = base64.b64decode(content).decode() if encoding == "base64" else content
             return json.loads(raw)
-        except Exception as e:
-            log.exception("Failed to decode/parse %s: %s", filename, e)
+        except Exception:
             return default
-
-    log.warning("GitHub GET %s returned %s: %s", filename, r.status_code, r.text[:200])
     return default
 
 def github_get_file_metadata(filename):
-    url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
     try:
-        r = requests.get(url, headers=gh_headers(), timeout=20)
-        if r.status_code == 200:
-            return r.json()
-        log.warning("metadata GET %s returned %s", filename, r.status_code)
+        r = requests.get(f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}", headers=gh_headers(), timeout=20)
+        return r.json() if r.status_code == 200 else None
     except Exception:
-        log.exception("metadata GET exception %s", filename)
-    return None
+        return None
 
 def github_push_file(filename, content_str, message=None):
     if not GITHUB_TOKEN:
-        err = "GITHUB_TOKEN missing — cannot push to repo."
-        log.error(err)
-        return False, err
-
+        return False, "GITHUB_TOKEN missing"
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = gh_headers()
-
     r_get = requests.get(url, headers=headers, timeout=20)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
-
     payload = {
         "message": message or f"Update {filename} at {datetime.utcnow().isoformat()}",
         "content": base64.b64encode(content_str.encode()).decode(),
@@ -102,18 +81,11 @@ def github_push_file(filename, content_str, message=None):
     }
     if sha:
         payload["sha"] = sha
-
     try:
         r = requests.put(url, headers=headers, json=payload, timeout=60)
     except Exception as e:
-        log.exception("GitHub PUT exception for %s", filename)
         return False, str(e)
-
-    if r.status_code in (200, 201):
-        return True, r.json()
-    else:
-        log.error("GitHub PUT failed %s: %s", r.status_code, r.text[:500])
-        return False, r.text
+    return (r.status_code in (200, 201), r.json() if r.status_code in (200, 201) else r.text)
 
 # ---------------- Data Helpers ----------------
 def load_users():
@@ -140,7 +112,8 @@ def save_apk(apk_obj):
 def require_login():
     public = {
         'login', 'register', 'index', 'admin', 'get_users',
-        'check_update', 'download_apk', 'get_apk'
+        'check_update', 'download_apk', 'get_apk',
+        'simplemindserverisgone', 'simplemind_login'
     }
     ep = request.endpoint
     if ep in public:
@@ -235,7 +208,6 @@ def disable_all():
     save_users(users)
     return jsonify({"success": True})
 
-# ---------------- Login Analytics ----------------
 @app.route('/login_analytics')
 def login_analytics():
     users = load_users()
@@ -261,7 +233,8 @@ def download_apk():
     if r.status_code != 200:
         return jsonify({"success": False, "message": "Failed to fetch APK"}), 500
     filename = apk_data.get("filename") or "app-latest.apk"
-    return Response(r.iter_content(8192), content_type="application/vnd.android.package-archive", headers={"Content-Disposition": f"attachment; filename={filename}"})
+    return Response(r.iter_content(8192), content_type="application/vnd.android.package-archive",
+                    headers={"Content-Disposition": f"attachment; filename={filename}"})
 
 @app.route('/upload_apk', methods=['POST'])
 def upload_apk():
@@ -289,23 +262,6 @@ def delete_apk():
     save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
     return jsonify({"success": True})
 
-@app.route('/delete_apk_force', methods=['POST'])
-def delete_apk_force():
-    apk_data = load_apk()
-    filename, sha = apk_data.get("filename"), apk_data.get("sha")
-    if not filename:
-        return jsonify({"success": False, "message": "No APK saved."}), 400
-    if not sha:
-        sha = github_get_file_metadata(f"{APK_FOLDER}/{filename}").get("sha")
-    if not sha or not GITHUB_TOKEN:
-        return jsonify({"success": False, "message": "Missing SHA or token."}), 400
-    url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
-    r = requests.delete(url, headers=gh_headers(), json={"message": f"Delete {filename}", "sha": sha, "branch": BRANCH}, timeout=30)
-    if r.status_code not in [200, 204]:
-        return jsonify({"success": False, "message": "GitHub delete failed."}), 500
-    save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
-    return jsonify({"success": True})
-
 @app.route('/check_update')
 def check_update():
     apk_data = load_apk()
@@ -319,84 +275,7 @@ def check_update():
 def get_apk():
     return jsonify(load_apk())
 
-@app.route('/update_apk', methods=['POST'])
-def update_apk():
-    data = request.get_json() or {}
-    save_apk(data)
-    return jsonify({"success": True})
-
-
 # ---------------- Admin Pages ----------------
-@app.route('/simplemindserverisgone')
-def simplemindserverisgone():
-    # Your secure admin login page
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head><title>Admin Login</title></head>
-    <body>
-        <h2>Admin Login</h2>
-        <form method="POST" action="/simplemind_login">
-            <label>Email:</label><br>
-            <input type="email" name="email" required><br>
-            <label>Password:</label><br>
-            <input type="password" name="password" required><br><br>
-            <button type="submit">Login</button>
-        </form>
-    </body>
-    </html>
-    """
-
-@app.route('/simplemind_login', methods=['POST'])
-def simplemind_login():
-    email = request.form.get("email")
-    password = request.form.get("password")
-
-    if not email or not password:
-        return "Email and password required", 400
-
-    email_hash = hash_email(email.strip().lower())
-    users = load_users()
-    admin_user = next((u for u in users if u.get("email_hash") == email_hash), None)
-
-    if not admin_user:
-        # First-time setup for admin
-        admin_user = {
-            "name": "Administrator",
-            "email_hash": email_hash,
-            "password": generate_password_hash(password),
-            "enabled": True,
-            "login_history": []
-        }
-        users.append(admin_user)
-        save_users(users)
-        session['simple_admin'] = True
-        return redirect('/admin')
-
-    if check_password_hash(admin_user.get("password", ""), password):
-        session['simple_admin'] = True
-        return redirect('/admin')
-
-    return "Wrong email or password", 403
-
-# Only one /admin route
-@app.route('/admin')
-def admin_dashboard():
-    if not session.get('simple_admin'):
-        return redirect('/simplemindserverisgone')
-    admin_file_path = os.path.join(os.getcwd(), 'admin.html')
-    if not os.path.exists(admin_file_path):
-        return "Admin file missing", 404
-    with open(admin_file_path, 'r', encoding='utf-8') as f:
-        content = f.read()
-    return Response(content, mimetype='text/html')
-
-# /admin.html should never be directly served
-@app.route('/admin.html')
-def block_direct_admin():
-    return "Forbidden", 403
-
-# Single admin login page
 @app.route('/simplemindserverisgone')
 def admin_login_page():
     return """
@@ -416,7 +295,6 @@ def admin_login_page():
     </html>
     """
 
-# Single /simplemind_login route
 @app.route('/simplemind_login', methods=['POST'])
 def simplemind_login():
     email = request.form.get("email")
@@ -427,11 +305,7 @@ def simplemind_login():
     email_hash = hash_email(email.strip().lower())
     admin_file = 'admin.json'
     if not os.path.exists(admin_file):
-        # First-time setup
-        admin = {
-            "email_hash": email_hash,
-            "password": generate_password_hash(password)
-        }
+        admin = {"email_hash": email_hash, "password": generate_password_hash(password)}
         with open(admin_file, 'w') as f:
             json.dump(admin, f)
     else:
@@ -439,9 +313,23 @@ def simplemind_login():
             admin = json.load(f)
         if admin.get("email_hash") != email_hash or not check_password_hash(admin.get("password", ""), password):
             return "Wrong email or password", 403
-
     session['simple_admin'] = True
     return redirect('/admin')
+
+@app.route('/admin')
+def admin_dashboard():
+    if not session.get('simple_admin'):
+        return redirect('/simplemindserverisgone')
+    admin_file_path = os.path.join(os.getcwd(), 'admin.html')
+    if not os.path.exists(admin_file_path):
+        return "Admin file missing", 404
+    with open(admin_file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    return Response(content, mimetype='text/html')
+
+@app.route('/admin.html')
+def block_direct_admin():
+    return "Forbidden", 403
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
