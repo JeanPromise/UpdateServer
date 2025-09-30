@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Admin Dashboard</title>
   <style>
     body {
@@ -22,7 +22,6 @@
       padding: 10px;
       border: 1px solid #333;
       text-align: left;
-      vertical-align: top;
     }
     th { background: #1e1e1e; }
     tr:nth-child(even) { background: #1a1a1a; }
@@ -44,10 +43,6 @@
     input[type="file"], input[type="text"] {
       margin: 5px 0;
       padding: 6px;
-      background: #222;
-      color: #fff;
-      border: 1px solid #333;
-      border-radius: 4px;
     }
     #delete-apk {
       background: #FF4500;
@@ -60,7 +55,9 @@
       text-decoration: none;
       font-weight: bold;
     }
-    a.download-link:hover { text-decoration: underline; }
+    a.download-link:hover {
+      text-decoration: underline;
+    }
     .analytics-table { margin-top: 40px; }
     #current-version-stamp {
       position: fixed;
@@ -73,36 +70,23 @@
       padding: 4px 8px;
       border-radius: 4px;
     }
-    .muted { color: #9a9a9a; font-size: 13px; }
-    .small { font-size: 12px; color: #bbb; }
-    #admin-status { margin-top: 10px; color: #ffcc00; }
-    #top-bar { display:flex; align-items:center; justify-content:space-between; }
-    #logout-btn { background:#333;color:#fff;padding:8px 12px;border-radius:6px; }
   </style>
 </head>
 <body>
 
 <div id="current-version-stamp">Version: -</div>
 
-<div id="top-bar">
-  <h1>Admin Dashboard</h1>
-  <div>
-    <button id="logout-btn">Logout</button>
-  </div>
-</div>
-
-<!-- small status area -->
-<p id="admin-status" class="muted"></p>
+<h1>Admin Dashboard</h1>
 
 <!-- APK Management -->
 <h2>Upload New APK</h2>
-<form id="upload-apk-form" style="margin-bottom:12px;">
-  <input type="file" id="apk-file" accept=".apk" required />
-  <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required />
+<form id="upload-apk-form">
+  <input type="file" id="apk-file" accept=".apk" required>
+  <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required>
   <button type="submit">Upload APK</button>
   <button type="button" id="delete-apk">Delete APK</button>
 </form>
-<p id="latest-apk" style="margin-top:10px;" class="muted"></p>
+<p id="latest-apk" style="margin-top:10px;"></p>
 
 <!-- User Management -->
 <h2>Users Management</h2>
@@ -112,15 +96,13 @@
 <table>
   <thead>
     <tr>
-      <th style="width:22%;">Name</th>
-      <th style="width:26%;">Email</th>
-      <th style="width:12%;">Status</th>
-      <th style="width:40%;">Actions</th>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Status</th>
+      <th>Actions</th>
     </tr>
   </thead>
-  <tbody id="users-tbody">
-    <!-- filled by JS -->
-  </tbody>
+  <tbody id="users-tbody"></tbody>
 </table>
 
 <!-- Login Analytics -->
@@ -128,153 +110,76 @@
 <table class="analytics-table">
   <thead>
     <tr>
-      <th style="width:14%;">Name</th>
-      <th style="width:18%;">Email</th>
-      <th style="width:8%;">Total Logins</th>
-      <th style="width:18%;">Last Login Timestamp (UTC)</th>
-      <th style="width:12%;">IP</th>
-      <th style="width:10%;">Country</th>
-      <th style="width:20%;">User-Agent</th>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Total Logins</th>
+      <th>Last Login Timestamp (UTC)</th>
+      <th>IP</th>
+      <th>Country</th>
+      <th>User-Agent</th>
     </tr>
   </thead>
-  <tbody id="analytics-tbody">
-    <!-- filled by JS -->
-  </tbody>
+  <tbody id="analytics-tbody"></tbody>
 </table>
 
 <script>
-  // ---------- Helper: fetchJson ----------
-  // sends same-origin cookies. IMPORTANT: do NOT auto-redirect on 401.
-  async function fetchJson(path, opts = {}) {
-    opts = Object.assign({}, opts);
-    opts.credentials = opts.credentials || 'same-origin';
-    opts.headers = opts.headers || {};
-    try {
-      const res = await fetch(path, opts);
-      // If unauthorized, return a sentinel object rather than redirecting
-      if (res.status === 401) {
-        return { __unauthorized: true };
-      }
-      const text = await res.text();
-      if (!text) return null;
-      try {
-        return JSON.parse(text);
-      } catch (e) {
-        return text;
-      }
-    } catch (err) {
-      console.error('fetchJson error', path, err);
-      return { __error: String(err) };
-    }
-  }
-
-  // ---------- Status UI ----------
-  function showStatus(msg, timeout=5000) {
-    const el = document.getElementById('admin-status');
-    if (!el) return;
-    el.textContent = msg;
-    if (timeout) {
-      setTimeout(()=>{ if (el.textContent===msg) el.textContent = ''; }, timeout);
-    }
-  }
-
-  // ---------- Users ----------
+  // ----- Fetch and display users -----
   async function loadUsers() {
-    const res = await fetchJson('/get_users');
-    if (!res) return;
-    if (res.__unauthorized) {
-      showStatus('Not logged in — sign in on the index page to access user data.');
-      renderUsers([]); // show empty table
-      return;
-    }
-    if (res.__error) {
-      showStatus('Error fetching users: ' + res.__error);
-      renderUsers([]);
-      return;
-    }
-    renderUsers(Array.isArray(res) ? res : []);
-  }
-
-  function renderUsers(users) {
+    const res = await fetch('/get_users');
+    const users = await res.json();
     const tbody = document.getElementById('users-tbody');
     tbody.innerHTML = '';
     users.forEach(u => {
-      const name = u.name || '-';
-      const email = u.email || '-';
-      const enabled = !!u.enabled;
       const tr = document.createElement('tr');
-
       tr.innerHTML = `
-        <td>${escapeHtml(name)}</td>
-        <td>${escapeHtml(email)}</td>
-        <td>${enabled ? 'Enabled' : 'Disabled'}</td>
+        <td>${u.name}</td>
+        <td>${u.email}</td>
+        <td>${u.enabled ? 'Enabled' : 'Disabled'}</td>
         <td>
-          <button class="${enabled ? 'disable' : 'enable'}" onclick="toggleUser('${escapeJs(email)}', ${!enabled})">
-            ${enabled ? 'Disable' : 'Enable'}
+          <button class="${u.enabled ? 'disable' : 'enable'}"
+                  onclick="toggleUser('${u.email}', ${!u.enabled})">
+            ${u.enabled ? 'Disable' : 'Enable'}
           </button>
-          <button onclick="showLoginHistory('${escapeJs(email)}')">View History</button>
         </td>
       `;
       tbody.appendChild(tr);
     });
   }
 
+  // ----- Toggle individual user -----
   async function toggleUser(email, enable) {
-    const res = await fetchJson('/toggle_user', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
+    await fetch('/toggle_user', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
       body: JSON.stringify({email, enable})
     });
-    if (!res) return;
-    if (res.__unauthorized) {
-      showStatus('Not logged in — cannot change user.');
-      return;
-    }
-    if (res.success === false) {
-      showStatus(res.message || 'Failed to toggle user');
-    } else {
-      showStatus('User updated');
-      loadUsers();
-      loadAnalytics();
-    }
+    loadUsers();
+    loadAnalytics();
   }
 
-  // ---------- Enable / Disable all ----------
+  // ----- Enable all / Disable all -----
   document.getElementById('enable-all').addEventListener('click', async () => {
-    if (!confirm('Enable ALL users?')) return;
-    const res = await fetchJson('/enable_all', { method: 'POST' });
-    if (!res) return;
-    if (res.__unauthorized) return showStatus('Not logged in — cannot enable all.');
-    loadUsers(); loadAnalytics();
+    await fetch('/enable_all', {method:'POST'});
+    loadUsers();
+    loadAnalytics();
   });
   document.getElementById('disable-all').addEventListener('click', async () => {
-    if (!confirm('Disable ALL users?')) return;
-    const res = await fetchJson('/disable_all', { method: 'POST' });
-    if (!res) return;
-    if (res.__unauthorized) return showStatus('Not logged in — cannot disable all.');
-    loadUsers(); loadAnalytics();
+    await fetch('/disable_all', {method:'POST'});
+    loadUsers();
+    loadAnalytics();
   });
 
-  // ---------- APK ----------
+  // ----- Show latest APK info -----
   async function loadLatestAPK() {
-    const apk = await fetchJson('/get_apk');
-    if (!apk) return;
-    if (apk.__unauthorized) {
-      // not logged in, but we still show whether an APK exists (the endpoint is public)
-      showStatus('Not logged in — limited view.');
-      return;
-    }
-    if (apk.__error) {
-      showStatus('Error fetching APK: ' + apk.__error);
-      return;
-    }
+    const res = await fetch('/get_apk');
+    const apk = await res.json();
     const p = document.getElementById('latest-apk');
     const delBtn = document.getElementById('delete-apk');
     const stamp = document.getElementById('current-version-stamp');
 
-    if (apk && apk.download_url) {
-      p.innerHTML = `Latest APK: Version <b>${escapeHtml(apk.version)}</b> - 
-        <a class="download-link" href="${escapeHtml(apk.download_url)}" download="${escapeHtml(apk.filename || 'app-latest.apk')}">Download</a>`;
+    if(apk.download_url) {
+      p.innerHTML = `Latest APK: Version <b>${apk.version}</b> - 
+        <a class="download-link" href="${apk.download_url}" download="app-latest.apk">Download</a>`;
       delBtn.style.display = 'inline-block';
       stamp.innerText = `Version: ${apk.version}`;
     } else {
@@ -284,127 +189,65 @@
     }
   }
 
-  // Upload APK (form-data)
+  // ----- Upload APK -----
   document.getElementById('upload-apk-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fileInput = document.getElementById('apk-file');
     const versionInput = document.getElementById('apk-version');
     const file = fileInput.files[0];
     const version = versionInput.value.trim();
-    if (!file || !version) return showStatus('File and version required.');
+    if(!file || !version) return alert('File and version required.');
+
     const formData = new FormData();
     formData.append('apk', file);
     formData.append('version', version);
 
-    try {
-      const resRaw = await fetch('/upload_apk', { method: 'POST', credentials: 'same-origin', body: formData });
-      if (resRaw.status === 401) return showStatus('Not logged in — cannot upload APK.');
-      const json = await resRaw.json();
-      showStatus(json.message || 'Upload complete');
-      fileInput.value = '';
-      versionInput.value = '';
-      loadLatestAPK();
-    } catch (err) {
-      console.error('Upload failed', err);
-      showStatus('Upload failed (see console).');
-    }
-  });
+    const res = await fetch('/upload_apk', {method:'POST', body: formData});
+    const data = await res.json();
+    alert(data.message || (data.success ? "Uploaded" : "Error"));
 
-  // Delete APK (soft)
-  document.getElementById('delete-apk').addEventListener('click', async () => {
-    if (!confirm('Are you sure you want to delete the APK?')) return;
-    const res = await fetchJson('/delete_apk', { method: 'POST' });
-    if (!res) return;
-    if (res.__unauthorized) return showStatus('Not logged in — cannot delete APK.');
-    showStatus(res.message || 'Deleted');
+    fileInput.value = '';
+    versionInput.value = '';
+
     loadLatestAPK();
   });
 
-  // ---------- Analytics ----------
-  async function loadAnalytics() {
-    const analytics = await fetchJson('/login_analytics');
-    if (!analytics) return;
-    if (analytics.__unauthorized) {
-      // not logged in -> clear analytics and message
-      showStatus('Not logged in — no analytics available.');
-      renderAnalytics([]);
-      return;
-    }
-    if (analytics.__error) {
-      showStatus('Error fetching analytics: ' + analytics.__error);
-      renderAnalytics([]);
-      return;
-    }
-    renderAnalytics(Array.isArray(analytics) ? analytics : []);
-  }
+  // ----- Delete APK -----
+  document.getElementById('delete-apk').addEventListener('click', async () => {
+    if(!confirm('Are you sure you want to delete the APK?')) return;
+    const res = await fetch('/delete_apk', {method:'POST'});
+    const data = await res.json();
+    alert(data.message || (data.success ? "Deleted" : "Error"));
+    loadLatestAPK();
+  });
 
-  function renderAnalytics(analytics) {
+  // ----- Load login analytics -----
+  async function loadAnalytics() {
+    const res = await fetch('/login_analytics');
+    const analytics = await res.json();
     const tbody = document.getElementById('analytics-tbody');
     tbody.innerHTML = '';
+
     analytics.forEach(u => {
       const last = u.last_login || {};
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td>${escapeHtml(u.name || '-')}</td>
-        <td>${escapeHtml(u.email || '-')}</td>
-        <td>${escapeHtml(String(u.total_logins || 0))}</td>
-        <td>${escapeHtml(last.timestamp || '-')}</td>
-        <td>${escapeHtml(last.ip || '-')}</td>
-        <td>${escapeHtml(last.country || '-')}</td>
-        <td class="small">${escapeHtml(last.user_agent || '-')}</td>
+        <td>${u.name}</td>
+        <td>${u.email}</td>
+        <td>${u.total_logins}</td>
+        <td>${last.timestamp || '-'}</td>
+        <td>${last.ip || '-'}</td>
+        <td>${last.country || '-'}</td>
+        <td>${last.user_agent || '-'}</td>
       `;
       tbody.appendChild(tr);
     });
   }
 
-  // ---------- Small helpers ----------
-  function escapeHtml(s) {
-    if (s === null || s === undefined) return '';
-    return String(s)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  }
-  function escapeJs(s) {
-    if (s === null || s === undefined) return '';
-    return String(s).replace(/'/g, "\\'");
-  }
-
-  // View history quick modal-ish alert (simple)
-  async function showLoginHistory(email) {
-    const users = await fetchJson('/get_users');
-    if (!users || users.__unauthorized) return showStatus('Not logged in — cannot view history.');
-    if (!Array.isArray(users)) return alert('No data');
-    const u = users.find(x => x.email === email);
-    if (!u) return alert('User not found');
-    const history = u.login_history || [];
-    if (!history.length) return alert('No login history for ' + email);
-    const lines = history.slice(-10).reverse().map(h => `${h.timestamp} — ${h.ip} — ${h.country} — ${h.user_agent}`);
-    alert('Last logins (most recent first):\n\n' + lines.join('\n\n'));
-  }
-
-  // ---------- Logout ----------
-  document.getElementById('logout-btn').addEventListener('click', async () => {
-    try {
-      await fetch('/logout', { credentials: 'same-origin' });
-    } catch (e) {
-      console.warn('Logout error', e);
-    }
-    showStatus('Logged out. Return to index to sign in again.');
-  });
-
-  // ---------- Initial load ----------
-  // Load APK first (public), then try users/analytics (which will not force redirect)
-  (async function init(){
-    await loadLatestAPK();
-    await loadUsers();
-    await loadAnalytics();
-  })();
-
-  // Optional: auto-refresh every 3 minutes
-  // setInterval(() => { loadLatestAPK(); loadUsers(); loadAnalytics(); }, 1000*60*3);
+  // Initial load
+  loadUsers();
+  loadLatestAPK();
+  loadAnalytics();
 </script>
 
 </body>
