@@ -12,10 +12,9 @@ def hash_email(email: str) -> str:
     return hashlib.sha256(email.encode()).hexdigest()
 
 from flask import (
-    Flask, request, jsonify, send_from_directory, Response,
+    Flask, request, jsonify, send_from_directory,
     session, redirect, url_for, abort, render_template
 )
-from werkzeug.utils import secure_filename
 from datetime import datetime
 
 # --- Basic logging ---
@@ -33,7 +32,6 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 USERS_FILE = "users.json"
 APK_FILE = "apk.json"
-APK_FOLDER = "apks"
 
 GITHUB_API_BASE = "https://api.github.com"
 
@@ -72,17 +70,6 @@ def github_get_file(filename, default):
 
     log.warning("GitHub GET %s returned %s: %s", filename, r.status_code, r.text[:200])
     return default
-
-def github_get_file_metadata(filename):
-    url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
-    try:
-        r = requests.get(url, headers=gh_headers(), timeout=20)
-        if r.status_code == 200:
-            return r.json()
-        log.warning("metadata GET %s returned %s", filename, r.status_code)
-    except Exception:
-        log.exception("metadata GET exception %s", filename)
-    return None
 
 def github_push_file(filename, content_str, message=None):
     if not GITHUB_TOKEN:
@@ -124,18 +111,6 @@ def load_users():
 def save_users(users_list):
     return github_push_file(USERS_FILE, json.dumps(users_list, indent=2), "Update users")
 
-def load_apk():
-    default = {"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None}
-    data = github_get_file(APK_FILE, default)
-    if not isinstance(data, dict):
-        return default
-    for k in default:
-        data.setdefault(k, default[k])
-    return data
-
-def save_apk(apk_obj):
-    return github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
-
 # ---------------- Public/Private Enforcement ----------------
 @app.before_request
 def require_login():
@@ -163,21 +138,40 @@ ALLOWED_ADMIN_PATH = "https://tomorrow-au2q.onrender.com//simplemindserverisgone
 
 @app.route('/admin')
 def admin_dashboard():
-    # Strict URL enforcement
     if request.url != ALLOWED_ADMIN_PATH:
         abort(403)
     if not session.get('simple_admin'):
         return redirect('/simplemindserverisgone')
-    return render_template("admin_dashboard.html")
+    # ✅ serve admin.html (your only admin file)
+    return send_from_directory('.', 'admin.html')
 
 @app.route('/admin.html')
 def block_direct_admin():
     return "Not today buddy", 403
 
-# ---------------- User Endpoints ----------------
-# (register, login, logout, toggle, enable_all, disable_all, analytics, apk upload/download)
-# ... your existing endpoints unchanged ...
+# ---------------- Simplemind Login Page ----------------
+@app.route('/simplemindserverisgone')
+def simplemindserverisgone():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Secure Admin Login</title>
+    </head>
+    <body>
+        <h2>Admin Login</h2>
+        <form method="POST" action="/simplemind_login">
+            <label>Email:</label><br>
+            <input type="email" name="email" required><br>
+            <label>Password:</label><br>
+            <input type="password" name="password" required><br><br>
+            <button type="submit">Login</button>
+        </form>
+    </body>
+    </html>
+    """
 
+# ---------------- Login Logic ----------------
 @app.route('/simplemind_login', methods=['POST'])
 def simplemind_login():
     email = request.form.get("email")
@@ -190,8 +184,8 @@ def simplemind_login():
     users = load_users()
     admin_user = next((u for u in users if u.get("email_hash") == email_hash), None)
 
-    # First-time setup → create admin with chosen email & password
     if not admin_user:
+        # First-time setup
         admin_user = {
             "name": "Administrator",
             "email_hash": email_hash,
@@ -204,13 +198,11 @@ def simplemind_login():
         session['simple_admin'] = True
         return redirect('/admin')
 
-    # Existing admin login
     if check_password_hash(admin_user.get("password", ""), password):
         session['simple_admin'] = True
         return redirect('/admin')
 
     return "Wrong email or password", 403
-
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
