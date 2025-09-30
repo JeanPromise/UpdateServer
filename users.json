@@ -12,5 +12,12 @@
     "password": "scrypt:32768:8:1$YpDRjKWfkkErqY3Q$3ddcc99cd7205ccc0670aeb78d64fd0a0219a6390c6e5e57ee16d5019f89e6614969c26ef2efccf28415d2129ed76bc432e98702d43d6a1ae1127402ba1b74e8",
     "enabled": true,
     "login_history": []
+  },
+  {
+    "name": "123",
+    "email": "Jeangift128@gmail.com",
+    "password": "scrypt:32768:8:1$6x9QhdZFzhizEN6S$04e6efad204136bc5716120b5388f1b4225dbb4ce3552153f934107ed8537877ae571842d5f4bcf165c64f721a276cd4477f9b01657cfd7cf51130ee61de591c",
+    "enabled": true,
+    "login_history": []
   }
 ]
