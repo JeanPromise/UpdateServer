@@ -388,9 +388,18 @@ def simplemind_login():
 @app.route('/admin')
 @app.route('/admin.html')
 def admin_dashboard():
+    # session check
     if not session.get('simple_admin'):
         return redirect('/simplemindserverisgone')
-    return send_from_directory('.', 'admin.html')
+    
+    # Serve the file manually from disk
+    admin_file_path = os.path.join(os.getcwd(), 'admin.html')
+    if not os.path.exists(admin_file_path):
+        return "Admin file missing", 404
+
+    with open(admin_file_path, 'r', encoding='utf-8') as f:
+        content = f.read()
+    return Response(content, mimetype='text/html')
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
