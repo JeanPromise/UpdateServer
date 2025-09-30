@@ -26,5 +26,12 @@
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
       }
     ]
+  },
+  {
+    "name": "Jean",
+    "email": "jeangift128@gmail.com",
+    "password": "scrypt:32768:8:1$lRzJI2iSdvDim8oo$db59c6c657851e5ca5ff3843adad26ceb18449e294668d2c1d00ed7c591e5616d9489b3900ea6aa7d6a4bd28f638b1491b9052cd57ef7f440485e7cd0ccb3829",
+    "enabled": true,
+    "login_history": []
   }
 ]
