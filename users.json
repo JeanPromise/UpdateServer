@@ -3,14 +3,14 @@
     "name": "Jean Gift",
     "email": "jeanpromise6@gmail.com",
     "password": "123",
-    "enabled": true,
+    "enabled": false,
     "apk_version": "1.0.2"
   },
   {
     "name": "Jean",
     "email": "jeangift128@gmail.com",
     "password": "scrypt:32768:8:1$C4ppust93cbMkkGD$8a42c712e7ad10b997e987caa075bf73c8fa6e6d846cc293d9cfe8776ef463c653f7982368de620d1d8502e0d2c926623cf406091777ebd3aff141da8540f3bc",
-    "enabled": true,
+    "enabled": false,
     "login_history": [
       {
         "timestamp": "2025-09-19T15:33:25.523134",
@@ -1770,7 +1770,7 @@
     "name": "Jean",
     "email": "jean@gmail.com",
     "password": "scrypt:32768:8:1$JHctF32H3LRlPdn0$20f12277bd54a20e7c0df6e12faef8a89bd0b00538fdb1f414827ab7bb7e9cae06a9746285d68da751edac4b7399545c8b9c944ddbbbba996905fdd1668f2150",
-    "enabled": true,
+    "enabled": false,
     "login_history": [
       {
         "timestamp": "2025-09-25T21:30:52.751305",
@@ -1784,14 +1784,14 @@
     "name": "Administrator",
     "email_hash": "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
     "password": "scrypt:32768:8:1$O2N4p55sCuPyLvjR$4110e3bb63d48af644b752b25c164f032e9e35b8e4add2c6c696a4d94afd6e1cc45648dbe14dadae72335ce0057e27d112cad42b78e8c9c77f104ce6b5acc1e5",
-    "enabled": true,
+    "enabled": false,
     "login_history": []
   },
   {
     "name": "Administrator",
     "email_hash": "a0de0ebab592f88c08fa62ee1c0f2613f1a3c23cb9b6c5ff8a350a3b71efd025",
     "password": "scrypt:32768:8:1$YpDRjKWfkkErqY3Q$3ddcc99cd7205ccc0670aeb78d64fd0a0219a6390c6e5e57ee16d5019f89e6614969c26ef2efccf28415d2129ed76bc432e98702d43d6a1ae1127402ba1b74e8",
-    "enabled": true,
+    "enabled": false,
     "login_history": []
   }
 ]
