@@ -138,8 +138,6 @@ ALLOWED_ADMIN_PATH = "https://tomorrow-au2q.onrender.com//simplemindserverisgone
 
 @app.route('/admin')
 def admin_dashboard():
-    if request.url != ALLOWED_ADMIN_PATH:
-        abort(403)
     if not session.get('simple_admin'):
         return redirect('/simplemindserverisgone')
     # ✅ serve admin.html (your only admin file)
