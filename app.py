@@ -1,4 +1,5 @@
-# app.py (ready-to-paste)
+
+# app.py (replacement)
 import base64
 import json
 import requests
@@ -168,8 +169,8 @@ def save_apk(apk_obj):
 # ---------------- Private Site Enforcement ----------------
 @app.before_request
 def require_login():
-    # allow public endpoints (index and admin page allowed)
-    public = {'login', 'register', 'index', 'admin', 'check_update', 'download_apk', 'get_apk'}
+    # allow public endpoints
+    public = {'login', 'register', 'index', 'static', 'check_update', 'download_apk', 'get_apk'}
     ep = request.endpoint
     if ep in public:
         return
@@ -184,9 +185,7 @@ def require_login():
 def index():
     return send_from_directory('.', 'index.html')
 
-# serve both /admin and /admin.html from repo root
 @app.route('/admin')
-@app.route('/admin.html')
 def admin():
     return send_from_directory('.', 'admin.html')
 
@@ -248,13 +247,7 @@ def logout():
 @app.route('/get_users')
 def get_users():
     users = load_users()
-    out = []
-    for u in users:
-        if isinstance(u, dict):
-            # hide password before returning
-            u_copy = {k: v for k, v in u.items() if k != 'password'}
-            out.append(u_copy)
-    return jsonify(out)
+    return jsonify(users)
 
 @app.route('/toggle_user', methods=['POST'])
 def toggle_user():
@@ -472,3 +465,6 @@ if __name__ == "__main__":
         debug=False,
         use_reloader=False
     )
+
+
+ 
