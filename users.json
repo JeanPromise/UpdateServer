@@ -32,6 +32,13 @@
     "email": "jeangift128@gmail.com",
     "password": "scrypt:32768:8:1$lRzJI2iSdvDim8oo$db59c6c657851e5ca5ff3843adad26ceb18449e294668d2c1d00ed7c591e5616d9489b3900ea6aa7d6a4bd28f638b1491b9052cd57ef7f440485e7cd0ccb3829",
     "enabled": true,
-    "login_history": []
+    "login_history": [
+      {
+        "timestamp": "2025-09-30T18:25:03.206220",
+        "ip": "154.159.164.37, 162.158.146.206, 10.223.82.61",
+        "country": "Unknown",
+        "user_agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36"
+      }
+    ]
   }
 ]
