@@ -1,3 +1,6 @@
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -314,7 +317,7 @@ registerForm.addEventListener('submit', async (e) => {
         toggleForm.textContent = "Don't have an account? Register";
     } else alert(data.message);
 });
-
+<!-- Inside your existing <script> tag, add this at the top (after const container = ...) -->
 // ----- Password visibility toggle and minimum length enforcement -----
 document.querySelectorAll('input[type="password"]').forEach((input) => {
     // Wrap each password input in a container with a small toggle button
@@ -325,18 +328,14 @@ document.querySelectorAll('input[type="password"]').forEach((input) => {
 
     const toggle = document.createElement('button');
     toggle.type = 'button';
-    toggle.innerHTML = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
-            <circle cx="12" cy="12" r="3"/>
-        </svg>
-    `;
+    toggle.innerHTML = '&#128065;'; // simple eye icon
     toggle.style.position = 'absolute';
     toggle.style.top = '50%';
     toggle.style.right = '10px';
     toggle.style.transform = 'translateY(-50%)';
     toggle.style.background = 'none';
     toggle.style.border = 'none';
+    toggle.style.color = '#aaa';
     toggle.style.cursor = 'pointer';
     toggle.addEventListener('click', () => {
         input.type = input.type === 'password' ? 'text' : 'password';
