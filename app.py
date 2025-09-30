@@ -155,11 +155,6 @@ def require_login():
 def index():
     return send_from_directory('.', 'index.html')
 
-@app.route('/admin')
-@app.route('/admin.html')
-def admin():
-    return send_from_directory('.', 'admin.html')
-
 # ---------------- User Endpoints ----------------
 @app.route('/register', methods=['POST'])
 def register():
