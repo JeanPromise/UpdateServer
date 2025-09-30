@@ -4,6 +4,12 @@ import json
 import requests
 import os
 import logging
+import hashlib
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# Helper to hash email consistently
+def hash_email(email: str) -> str:
+    return hashlib.sha256(email.encode()).hexdigest()
 from flask import (
     Flask, request, jsonify, send_from_directory, Response, session, redirect, url_for
 )
@@ -323,6 +329,67 @@ def update_apk():
     data = request.get_json() or {}
     save_apk(data)
     return jsonify({"success": True})
+
+
+# ---------------- Admin Pages ----------------
+@app.route('/simplemindserverisgone')
+def simplemindserverisgone():
+    # Your secure admin login page
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head><title>Admin Login</title></head>
+    <body>
+        <h2>Admin Login</h2>
+        <form method="POST" action="/simplemind_login">
+            <label>Email:</label><br>
+            <input type="email" name="email" required><br>
+            <label>Password:</label><br>
+            <input type="password" name="password" required><br><br>
+            <button type="submit">Login</button>
+        </form>
+    </body>
+    </html>
+    """
+
+@app.route('/simplemind_login', methods=['POST'])
+def simplemind_login():
+    email = request.form.get("email")
+    password = request.form.get("password")
+
+    if not email or not password:
+        return "Email and password required", 400
+
+    email_hash = hash_email(email.strip().lower())
+    users = load_users()
+    admin_user = next((u for u in users if u.get("email_hash") == email_hash), None)
+
+    if not admin_user:
+        # First-time setup for admin
+        admin_user = {
+            "name": "Administrator",
+            "email_hash": email_hash,
+            "password": generate_password_hash(password),
+            "enabled": True,
+            "login_history": []
+        }
+        users.append(admin_user)
+        save_users(users)
+        session['simple_admin'] = True
+        return redirect('/admin')
+
+    if check_password_hash(admin_user.get("password", ""), password):
+        session['simple_admin'] = True
+        return redirect('/admin')
+
+    return "Wrong email or password", 403
+
+# ---------------- Protect admin.html ----------------
+@app.route('/admin')
+def admin_dashboard():
+    if not session.get('simple_admin'):
+        return redirect('/simplemindserverisgone')
+    return send_from_directory('.', 'admin.html')
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
