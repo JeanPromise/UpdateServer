@@ -75,13 +75,24 @@
     }
     .muted { color: #9a9a9a; font-size: 13px; }
     .small { font-size: 12px; color: #bbb; }
+    #admin-status { margin-top: 10px; color: #ffcc00; }
+    #top-bar { display:flex; align-items:center; justify-content:space-between; }
+    #logout-btn { background:#333;color:#fff;padding:8px 12px;border-radius:6px; }
   </style>
 </head>
 <body>
 
 <div id="current-version-stamp">Version: -</div>
 
-<h1>Admin Dashboard</h1>
+<div id="top-bar">
+  <h1>Admin Dashboard</h1>
+  <div>
+    <button id="logout-btn">Logout</button>
+  </div>
+</div>
+
+<!-- small status area -->
+<p id="admin-status" class="muted"></p>
 
 <!-- APK Management -->
 <h2>Upload New APK</h2>
@@ -133,118 +144,143 @@
 
 <script>
   // ---------- Helper: fetchJson ----------
-  // sends same-origin cookies, handles 401 by redirecting to / (login).
+  // sends same-origin cookies. IMPORTANT: do NOT auto-redirect on 401.
   async function fetchJson(path, opts = {}) {
     opts = Object.assign({}, opts);
     opts.credentials = opts.credentials || 'same-origin';
     opts.headers = opts.headers || {};
     try {
       const res = await fetch(path, opts);
+      // If unauthorized, return a sentinel object rather than redirecting
       if (res.status === 401) {
-        // not authenticated -> go back to index/login
-        window.location.href = '/';
-        throw new Error('Not authenticated (401)');
+        return { __unauthorized: true };
       }
-      // try to parse JSON; if empty body, return null
       const text = await res.text();
       if (!text) return null;
       try {
         return JSON.parse(text);
       } catch (e) {
-        // not JSON; return raw text
         return text;
       }
     } catch (err) {
       console.error('fetchJson error', path, err);
-      throw err;
+      return { __error: String(err) };
+    }
+  }
+
+  // ---------- Status UI ----------
+  function showStatus(msg, timeout=5000) {
+    const el = document.getElementById('admin-status');
+    if (!el) return;
+    el.textContent = msg;
+    if (timeout) {
+      setTimeout(()=>{ if (el.textContent===msg) el.textContent = ''; }, timeout);
     }
   }
 
   // ---------- Users ----------
   async function loadUsers() {
-    try {
-      const users = await fetchJson('/get_users');
-      const tbody = document.getElementById('users-tbody');
-      tbody.innerHTML = '';
-      if (!Array.isArray(users)) return;
-      users.forEach(u => {
-        const name = u.name || '-';
-        const email = u.email || '-';
-        const enabled = !!u.enabled;
-        const tr = document.createElement('tr');
-
-        tr.innerHTML = `
-          <td>${escapeHtml(name)}</td>
-          <td>${escapeHtml(email)}</td>
-          <td>${enabled ? 'Enabled' : 'Disabled'}</td>
-          <td>
-            <button class="${enabled ? 'disable' : 'enable'}" onclick="toggleUser('${escapeJs(email)}', ${!enabled})">
-              ${enabled ? 'Disable' : 'Enable'}
-            </button>
-            <button onclick="showLoginHistory('${escapeJs(email)}')">View History</button>
-          </td>
-        `;
-        tbody.appendChild(tr);
-      });
-    } catch (err) {
-      console.warn('loadUsers failed:', err);
+    const res = await fetchJson('/get_users');
+    if (!res) return;
+    if (res.__unauthorized) {
+      showStatus('Not logged in — sign in on the index page to access user data.');
+      renderUsers([]); // show empty table
+      return;
     }
+    if (res.__error) {
+      showStatus('Error fetching users: ' + res.__error);
+      renderUsers([]);
+      return;
+    }
+    renderUsers(Array.isArray(res) ? res : []);
+  }
+
+  function renderUsers(users) {
+    const tbody = document.getElementById('users-tbody');
+    tbody.innerHTML = '';
+    users.forEach(u => {
+      const name = u.name || '-';
+      const email = u.email || '-';
+      const enabled = !!u.enabled;
+      const tr = document.createElement('tr');
+
+      tr.innerHTML = `
+        <td>${escapeHtml(name)}</td>
+        <td>${escapeHtml(email)}</td>
+        <td>${enabled ? 'Enabled' : 'Disabled'}</td>
+        <td>
+          <button class="${enabled ? 'disable' : 'enable'}" onclick="toggleUser('${escapeJs(email)}', ${!enabled})">
+            ${enabled ? 'Disable' : 'Enable'}
+          </button>
+          <button onclick="showLoginHistory('${escapeJs(email)}')">View History</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
 
   async function toggleUser(email, enable) {
-    try {
-      const payload = { email: email, enable: !!enable };
-      await fetchJson('/toggle_user', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
-      });
-      await loadUsers();
-      await loadAnalytics();
-    } catch (err) {
-      console.warn('toggleUser error', err);
-      alert('Failed to toggle user. Check console for details.');
+    const res = await fetchJson('/toggle_user', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({email, enable})
+    });
+    if (!res) return;
+    if (res.__unauthorized) {
+      showStatus('Not logged in — cannot change user.');
+      return;
+    }
+    if (res.success === false) {
+      showStatus(res.message || 'Failed to toggle user');
+    } else {
+      showStatus('User updated');
+      loadUsers();
+      loadAnalytics();
     }
   }
 
   // ---------- Enable / Disable all ----------
   document.getElementById('enable-all').addEventListener('click', async () => {
     if (!confirm('Enable ALL users?')) return;
-    try {
-      await fetchJson('/enable_all', { method: 'POST' });
-      await loadUsers();
-      await loadAnalytics();
-    } catch (e) { console.warn(e); }
+    const res = await fetchJson('/enable_all', { method: 'POST' });
+    if (!res) return;
+    if (res.__unauthorized) return showStatus('Not logged in — cannot enable all.');
+    loadUsers(); loadAnalytics();
   });
   document.getElementById('disable-all').addEventListener('click', async () => {
     if (!confirm('Disable ALL users?')) return;
-    try {
-      await fetchJson('/disable_all', { method: 'POST' });
-      await loadUsers();
-      await loadAnalytics();
-    } catch (e) { console.warn(e); }
+    const res = await fetchJson('/disable_all', { method: 'POST' });
+    if (!res) return;
+    if (res.__unauthorized) return showStatus('Not logged in — cannot disable all.');
+    loadUsers(); loadAnalytics();
   });
 
   // ---------- APK ----------
   async function loadLatestAPK() {
-    try {
-      const apk = await fetchJson('/get_apk');
-      const p = document.getElementById('latest-apk');
-      const delBtn = document.getElementById('delete-apk');
-      const stamp = document.getElementById('current-version-stamp');
+    const apk = await fetchJson('/get_apk');
+    if (!apk) return;
+    if (apk.__unauthorized) {
+      // not logged in, but we still show whether an APK exists (the endpoint is public)
+      showStatus('Not logged in — limited view.');
+      return;
+    }
+    if (apk.__error) {
+      showStatus('Error fetching APK: ' + apk.__error);
+      return;
+    }
+    const p = document.getElementById('latest-apk');
+    const delBtn = document.getElementById('delete-apk');
+    const stamp = document.getElementById('current-version-stamp');
 
-      if (apk && apk.download_url) {
-        p.innerHTML = `Latest APK: Version <b>${escapeHtml(apk.version)}</b> - 
-          <a class="download-link" href="${escapeHtml(apk.download_url)}" download="${escapeHtml(apk.filename || 'app-latest.apk')}">Download</a>`;
-        delBtn.style.display = 'inline-block';
-        stamp.innerText = `Version: ${apk.version}`;
-      } else {
-        p.innerHTML = `No APK uploaded yet.`;
-        delBtn.style.display = 'none';
-        stamp.innerText = `Version: -`;
-      }
-    } catch (err) {
-      console.warn('loadLatestAPK failed', err);
+    if (apk && apk.download_url) {
+      p.innerHTML = `Latest APK: Version <b>${escapeHtml(apk.version)}</b> - 
+        <a class="download-link" href="${escapeHtml(apk.download_url)}" download="${escapeHtml(apk.filename || 'app-latest.apk')}">Download</a>`;
+      delBtn.style.display = 'inline-block';
+      stamp.innerText = `Version: ${apk.version}`;
+    } else {
+      p.innerHTML = `No APK uploaded yet.`;
+      delBtn.style.display = 'none';
+      stamp.innerText = `Version: -`;
     }
   }
 
@@ -255,70 +291,73 @@
     const versionInput = document.getElementById('apk-version');
     const file = fileInput.files[0];
     const version = versionInput.value.trim();
-    if (!file || !version) return alert('File and version required.');
-
+    if (!file || !version) return showStatus('File and version required.');
     const formData = new FormData();
     formData.append('apk', file);
     formData.append('version', version);
 
     try {
-      // Use fetch directly so form-data is sent properly
-      const res = await fetch('/upload_apk', {
-        method: 'POST',
-        credentials: 'same-origin',
-        body: formData
-      });
-      const json = await res.json();
-      alert(json.message || JSON.stringify(json));
+      const resRaw = await fetch('/upload_apk', { method: 'POST', credentials: 'same-origin', body: formData });
+      if (resRaw.status === 401) return showStatus('Not logged in — cannot upload APK.');
+      const json = await resRaw.json();
+      showStatus(json.message || 'Upload complete');
       fileInput.value = '';
       versionInput.value = '';
       loadLatestAPK();
     } catch (err) {
       console.error('Upload failed', err);
-      alert('Upload failed (see console).');
+      showStatus('Upload failed (see console).');
     }
   });
 
   // Delete APK (soft)
   document.getElementById('delete-apk').addEventListener('click', async () => {
     if (!confirm('Are you sure you want to delete the APK?')) return;
-    try {
-      const data = await fetchJson('/delete_apk', { method: 'POST' });
-      alert(data.message || 'Deleted');
-      loadLatestAPK();
-    } catch (err) {
-      console.warn(err);
-    }
+    const res = await fetchJson('/delete_apk', { method: 'POST' });
+    if (!res) return;
+    if (res.__unauthorized) return showStatus('Not logged in — cannot delete APK.');
+    showStatus(res.message || 'Deleted');
+    loadLatestAPK();
   });
 
   // ---------- Analytics ----------
   async function loadAnalytics() {
-    try {
-      const analytics = await fetchJson('/login_analytics');
-      const tbody = document.getElementById('analytics-tbody');
-      tbody.innerHTML = '';
-      if (!Array.isArray(analytics)) return;
-      analytics.forEach(u => {
-        const last = u.last_login || {};
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${escapeHtml(u.name || '-')}</td>
-          <td>${escapeHtml(u.email || '-')}</td>
-          <td>${escapeHtml(String(u.total_logins || 0))}</td>
-          <td>${escapeHtml(last.timestamp || '-')}</td>
-          <td>${escapeHtml(last.ip || '-')}</td>
-          <td>${escapeHtml(last.country || '-')}</td>
-          <td class="small">${escapeHtml(last.user_agent || '-')}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    } catch (err) {
-      console.warn('loadAnalytics failed', err);
+    const analytics = await fetchJson('/login_analytics');
+    if (!analytics) return;
+    if (analytics.__unauthorized) {
+      // not logged in -> clear analytics and message
+      showStatus('Not logged in — no analytics available.');
+      renderAnalytics([]);
+      return;
     }
+    if (analytics.__error) {
+      showStatus('Error fetching analytics: ' + analytics.__error);
+      renderAnalytics([]);
+      return;
+    }
+    renderAnalytics(Array.isArray(analytics) ? analytics : []);
+  }
+
+  function renderAnalytics(analytics) {
+    const tbody = document.getElementById('analytics-tbody');
+    tbody.innerHTML = '';
+    analytics.forEach(u => {
+      const last = u.last_login || {};
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${escapeHtml(u.name || '-')}</td>
+        <td>${escapeHtml(u.email || '-')}</td>
+        <td>${escapeHtml(String(u.total_logins || 0))}</td>
+        <td>${escapeHtml(last.timestamp || '-')}</td>
+        <td>${escapeHtml(last.ip || '-')}</td>
+        <td>${escapeHtml(last.country || '-')}</td>
+        <td class="small">${escapeHtml(last.user_agent || '-')}</td>
+      `;
+      tbody.appendChild(tr);
+    });
   }
 
   // ---------- Small helpers ----------
-  // very small escaping helpers to avoid breaking HTML when inserting values
   function escapeHtml(s) {
     if (s === null || s === undefined) return '';
     return String(s)
@@ -328,7 +367,6 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
-  // email is used inside single-quoted attribute string; escape simple chars
   function escapeJs(s) {
     if (s === null || s === undefined) return '';
     return String(s).replace(/'/g, "\\'");
@@ -336,28 +374,37 @@
 
   // View history quick modal-ish alert (simple)
   async function showLoginHistory(email) {
-    try {
-      const users = await fetchJson('/get_users');
-      if (!Array.isArray(users)) return alert('No data');
-      const u = users.find(x => x.email === email);
-      if (!u) return alert('User not found');
-      const history = u.login_history || [];
-      if (!history.length) return alert('No login history for ' + email);
-      const lines = history.slice(-10).reverse().map(h => `${h.timestamp} — ${h.ip} — ${h.country} — ${h.user_agent}`);
-      alert('Last logins (most recent first):\n\n' + lines.join('\n\n'));
-    } catch (err) {
-      console.warn(err);
-      alert('Failed to get history');
-    }
+    const users = await fetchJson('/get_users');
+    if (!users || users.__unauthorized) return showStatus('Not logged in — cannot view history.');
+    if (!Array.isArray(users)) return alert('No data');
+    const u = users.find(x => x.email === email);
+    if (!u) return alert('User not found');
+    const history = u.login_history || [];
+    if (!history.length) return alert('No login history for ' + email);
+    const lines = history.slice(-10).reverse().map(h => `${h.timestamp} — ${h.ip} — ${h.country} — ${h.user_agent}`);
+    alert('Last logins (most recent first):\n\n' + lines.join('\n\n'));
   }
 
-  // ---------- Initial load ----------
-  loadUsers();
-  loadLatestAPK();
-  loadAnalytics();
+  // ---------- Logout ----------
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    try {
+      await fetch('/logout', { credentials: 'same-origin' });
+    } catch (e) {
+      console.warn('Logout error', e);
+    }
+    showStatus('Logged out. Return to index to sign in again.');
+  });
 
-  // Optional: refresh every X minutes (uncomment if desired)
-  // setInterval(() => { loadUsers(); loadLatestAPK(); loadAnalytics(); }, 1000 * 60 * 3);
+  // ---------- Initial load ----------
+  // Load APK first (public), then try users/analytics (which will not force redirect)
+  (async function init(){
+    await loadLatestAPK();
+    await loadUsers();
+    await loadAnalytics();
+  })();
+
+  // Optional: auto-refresh every 3 minutes
+  // setInterval(() => { loadLatestAPK(); loadUsers(); loadAnalytics(); }, 1000*60*3);
 </script>
 
 </body>
