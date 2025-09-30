@@ -334,6 +334,35 @@ def admin_dashboard():
 @app.route('/admin.html')
 def block_admin_direct():
     return "Forbidden", 403
+# Search users by name or email
+@app.route('/admin_search_users', methods=['GET'])
+def admin_search_users():
+    if not session.get('simple_admin'):
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    query = request.args.get('q', '').lower()
+    users = load_users()
+    filtered = [
+        {k: v for k, v in u.items() if k != 'password'}
+        for u in users
+        if isinstance(u, dict) and (query in u.get('name', '').lower() or query in u.get('email', '').lower())
+    ]
+    return jsonify(filtered)
+
+# Delete a user by email
+@app.route('/admin_delete_user', methods=['POST'])
+def admin_delete_user():
+    if not session.get('simple_admin'):
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    data = request.get_json() or {}
+    email = data.get('email')
+    if not email:
+        return jsonify({"success": False, "message": "Email required"}), 400
+    users = load_users()
+    new_users = [u for u in users if u.get('email') != email]
+    if len(new_users) == len(users):
+        return jsonify({"success": False, "message": "User not found"}), 404
+    ok, resp = save_users(new_users)
+    return (jsonify({"success": True}) if ok else jsonify({"success": False, "message": resp}), 500)[not ok]
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
