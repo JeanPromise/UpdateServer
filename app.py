@@ -379,22 +379,69 @@ def simplemind_login():
 
     return "Wrong email or password", 403
 
-# ---------------- Protect admin.html ----------------
+# Only one /admin route
 @app.route('/admin')
-@app.route('/admin.html')
 def admin_dashboard():
-    # session check
     if not session.get('simple_admin'):
         return redirect('/simplemindserverisgone')
-    
-    # Serve the file manually from disk
     admin_file_path = os.path.join(os.getcwd(), 'admin.html')
     if not os.path.exists(admin_file_path):
         return "Admin file missing", 404
-
     with open(admin_file_path, 'r', encoding='utf-8') as f:
         content = f.read()
     return Response(content, mimetype='text/html')
+
+# /admin.html should never be directly served
+@app.route('/admin.html')
+def block_direct_admin():
+    return "Forbidden", 403
+
+# Single admin login page
+@app.route('/simplemindserverisgone')
+def admin_login_page():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head><title>Admin Login</title></head>
+    <body>
+        <h2>Admin Login</h2>
+        <form method="POST" action="/simplemind_login">
+            <label>Email:</label><br>
+            <input type="email" name="email" required><br>
+            <label>Password:</label><br>
+            <input type="password" name="password" required><br><br>
+            <button type="submit">Login</button>
+        </form>
+    </body>
+    </html>
+    """
+
+# Single /simplemind_login route
+@app.route('/simplemind_login', methods=['POST'])
+def simplemind_login():
+    email = request.form.get("email")
+    password = request.form.get("password")
+    if not email or not password:
+        return "Email and password required", 400
+
+    email_hash = hash_email(email.strip().lower())
+    admin_file = 'admin.json'
+    if not os.path.exists(admin_file):
+        # First-time setup
+        admin = {
+            "email_hash": email_hash,
+            "password": generate_password_hash(password)
+        }
+        with open(admin_file, 'w') as f:
+            json.dump(admin, f)
+    else:
+        with open(admin_file, 'r') as f:
+            admin = json.load(f)
+        if admin.get("email_hash") != email_hash or not check_password_hash(admin.get("password", ""), password):
+            return "Wrong email or password", 403
+
+    session['simple_admin'] = True
+    return redirect('/admin')
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
