@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -314,6 +313,44 @@ registerForm.addEventListener('submit', async (e) => {
         formTitle.textContent = 'Login';
         toggleForm.textContent = "Don't have an account? Register";
     } else alert(data.message);
+});
+
+// ----- Password visibility toggle and minimum length enforcement -----
+document.querySelectorAll('input[type="password"]').forEach((input) => {
+    // Wrap each password input in a container with a small toggle button
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+    input.parentNode.insertBefore(wrapper, input);
+    wrapper.appendChild(input);
+
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+        </svg>
+    `;
+    toggle.style.position = 'absolute';
+    toggle.style.top = '50%';
+    toggle.style.right = '10px';
+    toggle.style.transform = 'translateY(-50%)';
+    toggle.style.background = 'none';
+    toggle.style.border = 'none';
+    toggle.style.cursor = 'pointer';
+    toggle.addEventListener('click', () => {
+        input.type = input.type === 'password' ? 'text' : 'password';
+    });
+    wrapper.appendChild(toggle);
+
+    // Enforce minimum length on submit
+    input.form.addEventListener('submit', (e) => {
+        if (input.value.length < 6) {
+            e.preventDefault();
+            alert('Password must be at least 6 characters long for security.');
+            input.focus();
+        }
+    });
 });
 
 // ----- Initial APK update check -----
