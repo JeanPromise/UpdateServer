@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Admin Dashboard</title>
   <style>
     body {
@@ -22,6 +22,7 @@
       padding: 10px;
       border: 1px solid #333;
       text-align: left;
+      vertical-align: top;
     }
     th { background: #1e1e1e; }
     tr:nth-child(even) { background: #1a1a1a; }
@@ -43,6 +44,10 @@
     input[type="file"], input[type="text"] {
       margin: 5px 0;
       padding: 6px;
+      background: #222;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 4px;
     }
     #delete-apk {
       background: #FF4500;
@@ -55,12 +60,8 @@
       text-decoration: none;
       font-weight: bold;
     }
-    a.download-link:hover {
-      text-decoration: underline;
-    }
-    .analytics-table {
-      margin-top: 40px;
-    }
+    a.download-link:hover { text-decoration: underline; }
+    .analytics-table { margin-top: 40px; }
     #current-version-stamp {
       position: fixed;
       bottom: 5px;
@@ -72,6 +73,8 @@
       padding: 4px 8px;
       border-radius: 4px;
     }
+    .muted { color: #9a9a9a; font-size: 13px; }
+    .small { font-size: 12px; color: #bbb; }
   </style>
 </head>
 <body>
@@ -82,13 +85,13 @@
 
 <!-- APK Management -->
 <h2>Upload New APK</h2>
-<form id="upload-apk-form">
-  <input type="file" id="apk-file" accept=".apk" required>
-  <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required>
+<form id="upload-apk-form" style="margin-bottom:12px;">
+  <input type="file" id="apk-file" accept=".apk" required />
+  <input type="text" id="apk-version" placeholder="Version (e.g., 1.0.1)" required />
   <button type="submit">Upload APK</button>
   <button type="button" id="delete-apk">Delete APK</button>
 </form>
-<p id="latest-apk" style="margin-top:10px;"></p>
+<p id="latest-apk" style="margin-top:10px;" class="muted"></p>
 
 <!-- User Management -->
 <h2>Users Management</h2>
@@ -98,13 +101,15 @@
 <table>
   <thead>
     <tr>
-      <th>Name</th>
-      <th>Email</th>
-      <th>Status</th>
-      <th>Actions</th>
+      <th style="width:22%;">Name</th>
+      <th style="width:26%;">Email</th>
+      <th style="width:12%;">Status</th>
+      <th style="width:40%;">Actions</th>
     </tr>
   </thead>
-  <tbody id="users-tbody"></tbody>
+  <tbody id="users-tbody">
+    <!-- filled by JS -->
+  </tbody>
 </table>
 
 <!-- Login Analytics -->
@@ -112,144 +117,247 @@
 <table class="analytics-table">
   <thead>
     <tr>
-      <th>Name</th>
-      <th>Email</th>
-      <th>Total Logins</th>
-      <th>Last Login Timestamp (UTC)</th>
-      <th>IP</th>
-      <th>Country</th>
-      <th>User-Agent</th>
+      <th style="width:14%;">Name</th>
+      <th style="width:18%;">Email</th>
+      <th style="width:8%;">Total Logins</th>
+      <th style="width:18%;">Last Login Timestamp (UTC)</th>
+      <th style="width:12%;">IP</th>
+      <th style="width:10%;">Country</th>
+      <th style="width:20%;">User-Agent</th>
     </tr>
   </thead>
-  <tbody id="analytics-tbody"></tbody>
+  <tbody id="analytics-tbody">
+    <!-- filled by JS -->
+  </tbody>
 </table>
 
 <script>
-  // ----- Fetch and display users -----
-  async function loadUsers() {
-    const res = await fetch('/get_users');
-    const users = await res.json();
-    const tbody = document.getElementById('users-tbody');
-    tbody.innerHTML = '';
-    users.forEach(u => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${u.name}</td>
-        <td>${u.email}</td>
-        <td>${u.enabled ? 'Enabled' : 'Disabled'}</td>
-        <td>
-          <button class="${u.enabled ? 'disable' : 'enable'}"
-                  onclick="toggleUser('${u.email}', ${!u.enabled})">
-            ${u.enabled ? 'Disable' : 'Enable'}
-          </button>
-        </td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-  // ----- Toggle individual user -----
-  async function toggleUser(email, enable) {
-    await fetch('/toggle_user', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email, enable})
-    });
-    loadUsers();
-    loadAnalytics();
-  }
-
-  // ----- Enable all / Disable all -----
-  document.getElementById('enable-all').addEventListener('click', async () => {
-    await fetch('/enable_all', {method:'POST'});
-    loadUsers();
-    loadAnalytics();
-  });
-  document.getElementById('disable-all').addEventListener('click', async () => {
-    await fetch('/disable_all', {method:'POST'});
-    loadUsers();
-    loadAnalytics();
-  });
-
-  // ----- Show latest APK info -----
-  async function loadLatestAPK() {
-    const res = await fetch('/get_apk');
-    const apk = await res.json();
-    const p = document.getElementById('latest-apk');
-    const delBtn = document.getElementById('delete-apk');
-    const stamp = document.getElementById('current-version-stamp');
-
-    if(apk.download_url) {
-      p.innerHTML = `Latest APK: Version <b>${apk.version}</b> - 
-        <a class="download-link" href="${apk.download_url}" download="app-latest.apk">Download</a>`;
-      delBtn.style.display = 'inline-block';
-      stamp.innerText = `Version: ${apk.version}`;
-    } else {
-      p.innerHTML = `No APK uploaded yet.`;
-      delBtn.style.display = 'none';
-      stamp.innerText = `Version: -`;
+  // ---------- Helper: fetchJson ----------
+  // sends same-origin cookies, handles 401 by redirecting to / (login).
+  async function fetchJson(path, opts = {}) {
+    opts = Object.assign({}, opts);
+    opts.credentials = opts.credentials || 'same-origin';
+    opts.headers = opts.headers || {};
+    try {
+      const res = await fetch(path, opts);
+      if (res.status === 401) {
+        // not authenticated -> go back to index/login
+        window.location.href = '/';
+        throw new Error('Not authenticated (401)');
+      }
+      // try to parse JSON; if empty body, return null
+      const text = await res.text();
+      if (!text) return null;
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        // not JSON; return raw text
+        return text;
+      }
+    } catch (err) {
+      console.error('fetchJson error', path, err);
+      throw err;
     }
   }
 
-  // ----- Upload APK -----
+  // ---------- Users ----------
+  async function loadUsers() {
+    try {
+      const users = await fetchJson('/get_users');
+      const tbody = document.getElementById('users-tbody');
+      tbody.innerHTML = '';
+      if (!Array.isArray(users)) return;
+      users.forEach(u => {
+        const name = u.name || '-';
+        const email = u.email || '-';
+        const enabled = !!u.enabled;
+        const tr = document.createElement('tr');
+
+        tr.innerHTML = `
+          <td>${escapeHtml(name)}</td>
+          <td>${escapeHtml(email)}</td>
+          <td>${enabled ? 'Enabled' : 'Disabled'}</td>
+          <td>
+            <button class="${enabled ? 'disable' : 'enable'}" onclick="toggleUser('${escapeJs(email)}', ${!enabled})">
+              ${enabled ? 'Disable' : 'Enable'}
+            </button>
+            <button onclick="showLoginHistory('${escapeJs(email)}')">View History</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (err) {
+      console.warn('loadUsers failed:', err);
+    }
+  }
+
+  async function toggleUser(email, enable) {
+    try {
+      const payload = { email: email, enable: !!enable };
+      await fetchJson('/toggle_user', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+      });
+      await loadUsers();
+      await loadAnalytics();
+    } catch (err) {
+      console.warn('toggleUser error', err);
+      alert('Failed to toggle user. Check console for details.');
+    }
+  }
+
+  // ---------- Enable / Disable all ----------
+  document.getElementById('enable-all').addEventListener('click', async () => {
+    if (!confirm('Enable ALL users?')) return;
+    try {
+      await fetchJson('/enable_all', { method: 'POST' });
+      await loadUsers();
+      await loadAnalytics();
+    } catch (e) { console.warn(e); }
+  });
+  document.getElementById('disable-all').addEventListener('click', async () => {
+    if (!confirm('Disable ALL users?')) return;
+    try {
+      await fetchJson('/disable_all', { method: 'POST' });
+      await loadUsers();
+      await loadAnalytics();
+    } catch (e) { console.warn(e); }
+  });
+
+  // ---------- APK ----------
+  async function loadLatestAPK() {
+    try {
+      const apk = await fetchJson('/get_apk');
+      const p = document.getElementById('latest-apk');
+      const delBtn = document.getElementById('delete-apk');
+      const stamp = document.getElementById('current-version-stamp');
+
+      if (apk && apk.download_url) {
+        p.innerHTML = `Latest APK: Version <b>${escapeHtml(apk.version)}</b> - 
+          <a class="download-link" href="${escapeHtml(apk.download_url)}" download="${escapeHtml(apk.filename || 'app-latest.apk')}">Download</a>`;
+        delBtn.style.display = 'inline-block';
+        stamp.innerText = `Version: ${apk.version}`;
+      } else {
+        p.innerHTML = `No APK uploaded yet.`;
+        delBtn.style.display = 'none';
+        stamp.innerText = `Version: -`;
+      }
+    } catch (err) {
+      console.warn('loadLatestAPK failed', err);
+    }
+  }
+
+  // Upload APK (form-data)
   document.getElementById('upload-apk-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const fileInput = document.getElementById('apk-file');
     const versionInput = document.getElementById('apk-version');
     const file = fileInput.files[0];
     const version = versionInput.value.trim();
-    if(!file || !version) return alert('File and version required.');
+    if (!file || !version) return alert('File and version required.');
 
     const formData = new FormData();
     formData.append('apk', file);
     formData.append('version', version);
 
-    const res = await fetch('/upload_apk', {method:'POST', body: formData});
-    const data = await res.json();
-    alert(data.message);
-
-    fileInput.value = '';
-    versionInput.value = '';
-
-    loadLatestAPK(); // refresh version stamp
+    try {
+      // Use fetch directly so form-data is sent properly
+      const res = await fetch('/upload_apk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: formData
+      });
+      const json = await res.json();
+      alert(json.message || JSON.stringify(json));
+      fileInput.value = '';
+      versionInput.value = '';
+      loadLatestAPK();
+    } catch (err) {
+      console.error('Upload failed', err);
+      alert('Upload failed (see console).');
+    }
   });
 
-  // ----- Delete APK -----
+  // Delete APK (soft)
   document.getElementById('delete-apk').addEventListener('click', async () => {
-    if(!confirm('Are you sure you want to delete the APK?')) return;
-    const res = await fetch('/delete_apk', {method:'POST'});
-    const data = await res.json();
-    alert(data.message);
-    loadLatestAPK();
+    if (!confirm('Are you sure you want to delete the APK?')) return;
+    try {
+      const data = await fetchJson('/delete_apk', { method: 'POST' });
+      alert(data.message || 'Deleted');
+      loadLatestAPK();
+    } catch (err) {
+      console.warn(err);
+    }
   });
 
-  // ----- Load login analytics -----
+  // ---------- Analytics ----------
   async function loadAnalytics() {
-    const res = await fetch('/login_analytics');
-    const analytics = await res.json();
-    const tbody = document.getElementById('analytics-tbody');
-    tbody.innerHTML = '';
-
-    analytics.forEach(u => {
-      const last = u.last_login || {};
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${u.name}</td>
-        <td>${u.email}</td>
-        <td>${u.total_logins}</td>
-        <td>${last.timestamp || '-'}</td>
-        <td>${last.ip || '-'}</td>
-        <td>${last.country || '-'}</td>
-        <td>${last.user_agent || '-'}</td>
-      `;
-      tbody.appendChild(tr);
-    });
+    try {
+      const analytics = await fetchJson('/login_analytics');
+      const tbody = document.getElementById('analytics-tbody');
+      tbody.innerHTML = '';
+      if (!Array.isArray(analytics)) return;
+      analytics.forEach(u => {
+        const last = u.last_login || {};
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${escapeHtml(u.name || '-')}</td>
+          <td>${escapeHtml(u.email || '-')}</td>
+          <td>${escapeHtml(String(u.total_logins || 0))}</td>
+          <td>${escapeHtml(last.timestamp || '-')}</td>
+          <td>${escapeHtml(last.ip || '-')}</td>
+          <td>${escapeHtml(last.country || '-')}</td>
+          <td class="small">${escapeHtml(last.user_agent || '-')}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } catch (err) {
+      console.warn('loadAnalytics failed', err);
+    }
   }
 
-  // Initial load
+  // ---------- Small helpers ----------
+  // very small escaping helpers to avoid breaking HTML when inserting values
+  function escapeHtml(s) {
+    if (s === null || s === undefined) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  // email is used inside single-quoted attribute string; escape simple chars
+  function escapeJs(s) {
+    if (s === null || s === undefined) return '';
+    return String(s).replace(/'/g, "\\'");
+  }
+
+  // View history quick modal-ish alert (simple)
+  async function showLoginHistory(email) {
+    try {
+      const users = await fetchJson('/get_users');
+      if (!Array.isArray(users)) return alert('No data');
+      const u = users.find(x => x.email === email);
+      if (!u) return alert('User not found');
+      const history = u.login_history || [];
+      if (!history.length) return alert('No login history for ' + email);
+      const lines = history.slice(-10).reverse().map(h => `${h.timestamp} — ${h.ip} — ${h.country} — ${h.user_agent}`);
+      alert('Last logins (most recent first):\n\n' + lines.join('\n\n'));
+    } catch (err) {
+      console.warn(err);
+      alert('Failed to get history');
+    }
+  }
+
+  // ---------- Initial load ----------
   loadUsers();
   loadLatestAPK();
   loadAnalytics();
+
+  // Optional: refresh every X minutes (uncomment if desired)
+  // setInterval(() => { loadUsers(); loadLatestAPK(); loadAnalytics(); }, 1000 * 60 * 3);
 </script>
 
 </body>
