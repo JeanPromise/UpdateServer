@@ -386,6 +386,7 @@ def simplemind_login():
 
 # ---------------- Protect admin.html ----------------
 @app.route('/admin')
+@app.route('/admin.html')
 def admin_dashboard():
     if not session.get('simple_admin'):
         return redirect('/simplemindserverisgone')
