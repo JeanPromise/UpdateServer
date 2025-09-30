@@ -178,20 +178,19 @@ def block_direct_admin():
 # (register, login, logout, toggle, enable_all, disable_all, analytics, apk upload/download)
 # ... your existing endpoints unchanged ...
 
-# ---------------- Simple Admin Gate ----------------
-@app.route('/simplemindserverisgone')
-def simplemindserverisgone():
-    return send_from_directory('.', 'simplemindserverisgone.html')
-
 @app.route('/simplemind_login', methods=['POST'])
 def simplemind_login():
+    email = request.form.get("email")
     password = request.form.get("password")
-    email = "admin"  # fixed admin identity, but only hash is stored
-    email_hash = hash_email(email)
 
+    if not email or not password:
+        return "Email and password required", 400
+
+    email_hash = hash_email(email.strip().lower())
     users = load_users()
     admin_user = next((u for u in users if u.get("email_hash") == email_hash), None)
 
+    # First-time setup → create admin with chosen email & password
     if not admin_user:
         admin_user = {
             "name": "Administrator",
@@ -205,11 +204,13 @@ def simplemind_login():
         session['simple_admin'] = True
         return redirect('/admin')
 
+    # Existing admin login
     if check_password_hash(admin_user.get("password", ""), password):
         session['simple_admin'] = True
         return redirect('/admin')
 
-    return "Wrong password", 403
+    return "Wrong email or password", 403
+
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
