@@ -313,10 +313,12 @@ def simplemind_login():
             admin = json.load(f)
         if admin.get("email_hash") != email_hash or not check_password_hash(admin.get("password", ""), password):
             return "Wrong email or password", 403
-    session['simple_admin'] = True
-    return redirect('/admin')
 
-@app.route('/admin')
+    session['simple_admin'] = True
+    return redirect('/admin-dashboard')  # <-- new route
+
+# Only accessible after login
+@app.route('/admin-dashboard')
 def admin_dashboard():
     if not session.get('simple_admin'):
         return redirect('/simplemindserverisgone')
@@ -327,8 +329,10 @@ def admin_dashboard():
         content = f.read()
     return Response(content, mimetype='text/html')
 
+# Block direct access completely
+@app.route('/admin')
 @app.route('/admin.html')
-def block_direct_admin():
+def block_admin_direct():
     return "Forbidden", 403
 
 # ---------------- Run ----------------
