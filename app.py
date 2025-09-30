@@ -1,5 +1,3 @@
-
-
 # app.py (public admin.html, no login redirect)
 import base64
 import json
