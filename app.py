@@ -1,22 +1,36 @@
-# app.py (replacement)
+# app.py (ready-to-paste — keeps html files at repo root)
 import base64
 import json
 import requests
 import os
 import logging
+import threading
 from flask import (
     Flask, request, jsonify, send_from_directory, Response, session, redirect, url_for
 )
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 from datetime import datetime
 
 # --- Basic logging ---
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("UpdateServer")
 
-app = Flask(__name__, static_url_path='', static_folder='.')
+# ---------- App & security config ----------
+# Keep HTML files at repo root (index.html, admin.html) as you requested
+app = Flask(__name__)  # do NOT use static_folder='.' — we'll serve only the files we want
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+
+# Secure cookie settings (set SESSION_COOKIE_SECURE=False for local HTTP dev/testing)
+app.config.update(
+    SESSION_COOKIE_SECURE=True,      # set False if testing locally over HTTP
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax'
+)
+
+# If behind a reverse proxy (nginx, Heroku, Cloud Run), enable ProxyFix appropriately:
+# app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 
 # ---------------- Config ----------------
 GITHUB_OWNER = "JeanPromise"
@@ -30,6 +44,12 @@ APK_FOLDER = "apks"
 
 GITHUB_API_BASE = "https://api.github.com"
 
+# small threading lock to avoid concurrent writes overwriting each other
+_users_lock = threading.Lock()
+
+# Limit APK uploads to avoid GitHub size errors (adjust as needed)
+MAX_APK_BYTES = 90 * 1024 * 1024  # 90 MB
+
 # --- Helper to build headers for GitHub API calls ---
 def gh_headers():
     headers = {
@@ -42,10 +62,6 @@ def gh_headers():
 
 # ---------------- GitHub Helpers ----------------
 def github_get_file(filename, default):
-    """
-    Fetch a file's JSON content from the repo. Returns 'default' if not found
-    or parse fails. Logs helpful messages for debugging.
-    """
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
     try:
         r = requests.get(url, headers=gh_headers(), timeout=20)
@@ -54,26 +70,24 @@ def github_get_file(filename, default):
         return default
 
     if r.status_code == 200:
-        body = r.json()
-        content = body.get("content", "")
-        encoding = body.get("encoding", "base64")
         try:
-            if encoding == "base64":
-                raw = base64.b64decode(content).decode()
-            else:
-                raw = content
+            body = r.json()
+            content = body.get("content", "")
+            encoding = body.get("encoding", "base64")
+            if not content:
+                log.warning("GitHub content for %s was empty", filename)
+                return default
+            raw = base64.b64decode(content).decode() if encoding == "base64" else content
             data = json.loads(raw)
             return data
         except Exception as e:
             log.exception("Failed to decode/parse %s from GitHub: %s", filename, e)
             return default
 
-    # 404 => file not present; 403/401 => auth or rate-limit issue
     log.warning("GitHub GET %s returned %s: %s", filename, r.status_code, r.text[:200])
     return default
 
 def github_get_file_metadata(filename):
-    """Return GitHub content API metadata object (json) or None."""
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
     try:
         r = requests.get(url, headers=gh_headers(), timeout=20)
@@ -85,10 +99,6 @@ def github_get_file_metadata(filename):
     return None
 
 def github_push_file(filename, content_str, message=None):
-    """
-    Push create/update to repo. Returns tuple (success:bool, response_json_or_text).
-    Requires GITHUB_TOKEN for authenticated push.
-    """
     if not GITHUB_TOKEN:
         err = "GITHUB_TOKEN missing — cannot push to repo."
         log.error(err)
@@ -97,10 +107,14 @@ def github_push_file(filename, content_str, message=None):
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = gh_headers()
 
-    # get existing sha (if any)
-    r_get = requests.get(url, headers=headers, timeout=20)
+    try:
+        r_get = requests.get(url, headers=headers, timeout=20)
+    except Exception as e:
+        log.exception("Failed to GET existing file metadata for %s", filename)
+        r_get = None
+
     sha = None
-    if r_get.status_code == 200:
+    if r_get and r_get.status_code == 200:
         try:
             sha = r_get.json().get("sha")
         except Exception:
@@ -135,7 +149,8 @@ def load_users():
     return data
 
 def save_users(users_list):
-    ok, resp = github_push_file(USERS_FILE, json.dumps(users_list, indent=2), "Update users")
+    with _users_lock:
+        ok, resp = github_push_file(USERS_FILE, json.dumps(users_list, indent=2), "Update users")
     if not ok:
         log.error("Failed saving users.json: %s", resp)
         return False, resp
@@ -146,7 +161,6 @@ def load_apk():
     data = github_get_file(APK_FILE, default)
     if not isinstance(data, dict):
         return default
-    # ensure keys exist
     for k in default:
         data.setdefault(k, default[k])
     return data
@@ -168,24 +182,28 @@ def save_apk(apk_obj):
 # ---------------- Private Site Enforcement ----------------
 @app.before_request
 def require_login():
-    # allow public endpoints
-    public = {'login', 'register', 'index', 'static', 'check_update', 'download_apk', 'get_apk'}
+    # public endpoints (index is public; admin requires login)
+    public = {
+        'login', 'register', 'index', 'check_update',
+        'download_apk', 'get_apk', 'whoami', 'debug_users_raw'
+    }
     ep = request.endpoint
     if ep in public:
         return
     if 'user_email' not in session:
-        # return a JSON error for API calls and redirect for page loads
         if request.path.startswith('/api') or request.is_json or request.path.startswith('/get_') or request.path.startswith('/login_analytics'):
             return jsonify({"success": False, "message": "Authentication required."}), 401
         return redirect(url_for('index'))
 
-# ---------------- Pages ----------------
+# ---------------- Pages (serve only these from repo root) ----------------
 @app.route('/')
 def index():
+    # serve index.html from repo root
     return send_from_directory('.', 'index.html')
 
 @app.route('/admin')
 def admin():
+    # admin is a protected page (require_login will enforce session)
     return send_from_directory('.', 'admin.html')
 
 # ---------------- User Endpoints ----------------
@@ -232,7 +250,6 @@ def login():
                 u.setdefault("login_history", []).append(login_record)
                 ok, resp = save_users(users)
                 if not ok:
-                    # still allow login but warn
                     log.error("Failed to save login history: %s", resp)
                 return jsonify({"success": True})
             return jsonify({"success": False, "message": "Incorrect password."})
@@ -245,8 +262,14 @@ def logout():
 
 @app.route('/get_users')
 def get_users():
+    # return users but hide password hashes
     users = load_users()
-    return jsonify(users)
+    out = []
+    for u in users:
+        if isinstance(u, dict):
+            u_copy = {k: v for k, v in u.items() if k != 'password'}
+            out.append(u_copy)
+    return jsonify(out)
 
 @app.route('/toggle_user', methods=['POST'])
 def toggle_user():
@@ -306,7 +329,6 @@ def login_analytics():
     return jsonify(analytics)
 
 # ---------------- APK Endpoints ----------------
-
 @app.route('/download_apk')
 def download_apk():
     apk_data = load_apk()
@@ -320,7 +342,8 @@ def download_apk():
     return Response(
         r.iter_content(chunk_size=8192),
         content_type="application/vnd.android.package-archive",
-        headers={"Content-Disposition": f"attachment; filename={filename}"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+        direct_passthrough=True
     )
 
 @app.route('/upload_apk', methods=['POST'])
@@ -332,8 +355,11 @@ def upload_apk():
     if not version:
         return jsonify({"success": False, "message": "Version cannot be empty."}), 400
 
-    filename = secure_filename(f"app-v{version}.apk")
     apk_bytes = file.read()
+    if len(apk_bytes) > MAX_APK_BYTES:
+        return jsonify({"success": False, "message": "APK too large. Max 90MB."}), 400
+
+    filename = secure_filename(f"app-v{version}.apk")
     api_path = f"{APK_FOLDER}/{filename}"
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{api_path}"
     headers = gh_headers()
@@ -352,7 +378,6 @@ def upload_apk():
         log.error("GitHub upload failed: %s %s", r.status_code, r.text[:500])
         return jsonify({"success": False, "message": f"GitHub upload failed: {r.status_code}"}), 500
 
-    # Get sha from response or from metadata GET if missing
     file_sha = None
     try:
         resp_json = r.json()
@@ -361,7 +386,6 @@ def upload_apk():
         file_sha = None
 
     if not file_sha:
-        # try to fetch metadata explicitly
         meta = github_get_file_metadata(api_path)
         if meta:
             file_sha = meta.get("sha")
@@ -399,7 +423,6 @@ def delete_apk_force():
         return jsonify({"success": False, "message": "No filename saved - cannot force delete."}), 400
 
     api_path = f"{APK_FOLDER}/{filename}"
-    # Try to fetch SHA if not present
     if not sha:
         meta = github_get_file_metadata(api_path)
         if meta:
@@ -420,7 +443,6 @@ def delete_apk_force():
         log.error("GitHub delete failed: %s %s", r.status_code, r.text[:500])
         return jsonify({"success": False, "message": f"GitHub delete failed: {r.status_code}"}), 500
 
-    # clear apk.json metadata
     ok, resp = save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
     if not ok:
         return jsonify({"success": False, "message": f"Deleted file but failed to clear apk.json: {resp}"}), 500
@@ -454,6 +476,16 @@ def update_apk():
     if not ok:
         return jsonify({"success": False, "message": resp}), 500
     return jsonify({"success": True})
+
+@app.route('/whoami')
+def whoami():
+    return jsonify({"email": session.get('user_email')})
+
+@app.route('/debug_users_raw')
+def debug_users_raw():
+    # WARNING: may return password hashes if users.json contains them — debug only
+    data = github_get_file(USERS_FILE, None)
+    return jsonify({"fetched": data})
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
