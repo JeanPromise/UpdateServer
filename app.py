@@ -4,6 +4,12 @@ import json
 import requests
 import os
 import logging
+from werkzeug.security import generate_password_hash, check_password_hash
+import hashlib
+
+# Helper to hash email in a stable way
+def hash_email(email: str) -> str:
+    return hashlib.sha256(email.encode()).hexdigest()
 from flask import (
     Flask, request, jsonify, send_from_directory, Response, session, redirect, url_for
 )
@@ -323,6 +329,53 @@ def update_apk():
     data = request.get_json() or {}
     save_apk(data)
     return jsonify({"success": True})
+
+
+
+# ---------------- Simple Admin Gate ----------------
+@app.route('/simplemindserverisgone')
+def simplemindserverisgone():
+    return send_from_directory('.', 'simplemindserverisgone.html')
+
+@app.route('/simplemind_login', methods=['POST'])
+def simplemind_login():
+    password = request.form.get("password")
+    email = "admin"  # fixed admin identity, but we'll only save its hash
+    email_hash = hash_email(email)
+
+    users = load_users()
+    admin_user = next((u for u in users if u.get("email_hash") == email_hash), None)
+
+    # If no admin yet, create it with the chosen password
+    if not admin_user:
+        admin_user = {
+            "name": "Administrator",
+            "email_hash": email_hash,
+            "password": generate_password_hash(password),
+            "enabled": True,
+            "login_history": []
+        }
+        users.append(admin_user)
+        save_users(users)
+        session['simple_admin'] = True
+        return redirect('/real_admin')
+
+    # If admin exists, check password
+    if check_password_hash(admin_user.get("password", ""), password):
+        session['simple_admin'] = True
+        return redirect('/real_admin')
+
+    return "Wrong password", 403
+
+@app.route('/real_admin')
+def real_admin():
+    if not session.get('simple_admin'):
+        return redirect('/simplemindserverisgone')
+    return send_from_directory('.', 'admin.html')
+
+@app.route('/admin.html')
+def block_direct_admin():
+    return "Not today buddy", 403
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
