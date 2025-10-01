@@ -3,7 +3,7 @@
     "name": "Jean",
     "email": "jeangift128@gmail.com",
     "password": "scrypt:32768:8:1$HjLhbJv4PZ4HI6L7$fac20f35c50a80800c23939f4179cebf26142a217992fa4c3eb3b49bb7c62f2fdc9ba7cf46fad365dd02aff960d6deccb1069d4e63c5071dd671c60c74898908",
-    "enabled": true,
+    "enabled": false,
     "login_history": [
       {
         "timestamp": "2025-10-01T17:08:38.187661",
