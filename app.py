@@ -32,12 +32,10 @@ APK_FOLDER = "apks"
 GITHUB_API_BASE = "https://api.github.com"
 
 # --- Single admin email enforcement ---
-# Set ADMIN_EMAIL (case-insensitive) in environment to lock admin to a single email.
-# Optionally set ADMIN_PASSWORD_HASH (a werkzeug hashed password string) to avoid using admin.json.
-ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")  # e.g. "admin@example.com"
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
 if ADMIN_EMAIL:
     ADMIN_EMAIL = ADMIN_EMAIL.strip().lower()
-ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")  # optional: hashed password (generate_password_hash on your password)
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")  # optional hashed admin password
 
 # --- Helper to hash email consistently ---
 def hash_email(email: str) -> str:
@@ -45,10 +43,7 @@ def hash_email(email: str) -> str:
 
 # --- GitHub API Helpers ---
 def gh_headers():
-    headers = {
-        "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "UpdateServer-App"
-    }
+    headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "UpdateServer-App"}
     if GITHUB_TOKEN:
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
@@ -60,47 +55,33 @@ def github_get_file(filename, default):
     except Exception:
         log.exception("GitHub GET exception for %s", filename)
         return default
-
     if r.status_code == 200:
         body = r.json()
         content = body.get("content", "")
         encoding = body.get("encoding", "base64")
         try:
-            if encoding == "base64":
-                raw = base64.b64decode(content).decode()
-            else:
-                raw = content
+            raw = base64.b64decode(content).decode() if encoding == "base64" else content
             return json.loads(raw)
         except Exception:
             log.exception("Failed to decode/parse %s", filename)
             return default
-
-    log.debug("GitHub GET %s returned %s", filename, r.status_code)
     return default
 
 def github_get_file_metadata(filename):
-    url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
     try:
-        r = requests.get(url, headers=gh_headers(), timeout=20)
-        if r.status_code == 200:
-            return r.json()
-        log.debug("metadata GET %s returned %s", filename, r.status_code)
+        r = requests.get(f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}", headers=gh_headers(), timeout=20)
+        return r.json() if r.status_code == 200 else None
     except Exception:
         log.exception("metadata GET exception %s", filename)
     return None
 
 def github_push_file(filename, content_str, message=None):
     if not GITHUB_TOKEN:
-        err = "GITHUB_TOKEN missing — cannot push to repo."
-        log.error(err)
-        return False, err
-
+        return False, "GITHUB_TOKEN missing"
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = gh_headers()
-
     r_get = requests.get(url, headers=headers, timeout=20)
     sha = r_get.json().get("sha") if r_get.status_code == 200 else None
-
     payload = {
         "message": message or f"Update {filename} at {datetime.utcnow().isoformat()}",
         "content": base64.b64encode(content_str.encode()).decode(),
@@ -108,18 +89,12 @@ def github_push_file(filename, content_str, message=None):
     }
     if sha:
         payload["sha"] = sha
-
     try:
         r = requests.put(url, headers=headers, json=payload, timeout=60)
     except Exception as e:
         log.exception("GitHub PUT exception for %s", filename)
         return False, str(e)
-
-    if r.status_code in (200, 201):
-        return True, r.json()
-    else:
-        log.error("GitHub PUT failed %s: %s", r.status_code, r.text[:500])
-        return False, r.text
+    return (r.status_code in (200, 201), r.json() if r.status_code in (200, 201) else r.text)
 
 # ---------------- Data Helpers ----------------
 def load_users():
@@ -144,18 +119,18 @@ def save_apk(apk_obj):
 # ---------------- Public/Private Enforcement ----------------
 @app.before_request
 def require_login():
-    # Keep the regular site (index/login/register/etc.) public
+    # leave user-facing endpoints public
     public = {
         'login', 'register', 'index', 'get_users',
         'check_update', 'download_apk', 'get_apk',
-        # admin login page and its POST must be accessible publicly
+        # admin login page and its POST must be accessible
         'admin_login_page', 'simplemind_login'
     }
     ep = request.endpoint
     if ep in public:
         return
 
-    # normal user session enforcement (unchanged)
+    # otherwise require normal user session for site API calls
     if 'user_email' not in session:
         if request.path.startswith('/api') or request.is_json or request.path.startswith('/get_') or request.path.startswith('/login_analytics'):
             return jsonify({"success": False, "message": "Authentication required."}), 401
@@ -220,8 +195,18 @@ def get_users():
     users = load_users()
     return jsonify([{k: v for k, v in u.items() if k != 'password'} for u in users if isinstance(u, dict)])
 
+# ---------------- Admin-affecting endpoints (require simple_admin) ----------------
+def require_simple_admin_json():
+    if not session.get('simple_admin'):
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    return None
+
 @app.route('/toggle_user', methods=['POST'])
 def toggle_user():
+    # used by admin UI; must be admin (or could be extended to let users toggle themselves)
+    admin_check = require_simple_admin_json()
+    if admin_check:
+        return admin_check
     data = request.get_json() or {}
     email, enable = data.get('email'), data.get('enable', True)
     users = load_users()
@@ -234,6 +219,9 @@ def toggle_user():
 
 @app.route('/enable_all', methods=['POST'])
 def enable_all():
+    admin_check = require_simple_admin_json()
+    if admin_check:
+        return admin_check
     users = load_users()
     for u in users:
         u['enabled'] = True
@@ -242,15 +230,18 @@ def enable_all():
 
 @app.route('/disable_all', methods=['POST'])
 def disable_all():
+    admin_check = require_simple_admin_json()
+    if admin_check:
+        return admin_check
     users = load_users()
     for u in users:
         u['enabled'] = False
     save_users(users)
     return jsonify({"success": True})
 
-# ---------------- Login Analytics ----------------
 @app.route('/login_analytics')
 def login_analytics():
+    # this returns login analytics for admin UI; allow public as JSON but only full data for admin
     users = load_users()
     analytics = []
     for u in users:
@@ -264,7 +255,7 @@ def login_analytics():
         })
     return jsonify(analytics)
 
-# ---------------- APK Endpoints ----------------
+# ---------------- APK Endpoints (admin-only for uploads/deletes) ----------------
 @app.route('/download_apk')
 def download_apk():
     apk_data = load_apk()
@@ -279,6 +270,9 @@ def download_apk():
 
 @app.route('/upload_apk', methods=['POST'])
 def upload_apk():
+    admin_check = require_simple_admin_json()
+    if admin_check:
+        return admin_check
     if 'apk' not in request.files or 'version' not in request.form:
         return jsonify({"success": False, "message": "APK file and version required."}), 400
     file = request.files['apk']
@@ -293,24 +287,31 @@ def upload_apk():
     r = requests.put(url, headers=gh_headers(), json=data, timeout=120)
     if r.status_code not in [200, 201]:
         return jsonify({"success": False, "message": f"GitHub upload failed {r.status_code}"}), 500
-    sha = r.json().get("content", {}).get("sha") or github_get_file_metadata(api_path).get("sha")
+    sha = r.json().get("content", {}).get("sha") or (github_get_file_metadata(api_path) or {}).get("sha")
     download_url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{BRANCH}/{APK_FOLDER}/{filename}"
     save_apk({"version": version, "changelog": f"Uploaded v{version}", "download_url": download_url, "filename": filename, "sha": sha})
     return jsonify({"success": True, "url": download_url})
 
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
+    admin_check = require_simple_admin_json()
+    if admin_check:
+        return admin_check
     save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
     return jsonify({"success": True})
 
 @app.route('/delete_apk_force', methods=['POST'])
 def delete_apk_force():
+    admin_check = require_simple_admin_json()
+    if admin_check:
+        return admin_check
     apk_data = load_apk()
     filename, sha = apk_data.get("filename"), apk_data.get("sha")
     if not filename:
         return jsonify({"success": False, "message": "No APK saved."}), 400
     if not sha:
-        sha = github_get_file_metadata(f"{APK_FOLDER}/{filename}").get("sha")
+        meta = github_get_file_metadata(f"{APK_FOLDER}/{filename}")
+        sha = (meta or {}).get("sha")
     if not sha or not GITHUB_TOKEN:
         return jsonify({"success": False, "message": "Missing SHA or token."}), 400
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{APK_FOLDER}/{filename}"
@@ -335,12 +336,14 @@ def get_apk():
 
 @app.route('/update_apk', methods=['POST'])
 def update_apk():
+    admin_check = require_simple_admin_json()
+    if admin_check:
+        return admin_check
     data = request.get_json() or {}
     save_apk(data)
     return jsonify({"success": True})
 
 # ---------------- Admin Pages ----------------
-# Serve admin login page on both paths; this is the ONLY way to reach admin login
 @app.route('/simplemindserverisgone')
 @app.route('/simplemindserverisgone.html')
 def admin_login_page():
@@ -371,35 +374,29 @@ def simplemind_login():
     email = email_raw.strip().lower()
     email_hash = hash_email(email)
 
-    # Enforce single admin email if ADMIN_EMAIL is set
-    if ADMIN_EMAIL:
-        if email != ADMIN_EMAIL:
-            return "Wrong email or password", 403
+    # If ADMIN_EMAIL set, enforce it
+    if ADMIN_EMAIL and email != ADMIN_EMAIL:
+        return "Wrong email or password", 403
 
-    # Password verification order:
-    # 1) If ADMIN_PASSWORD_HASH env var is set, check against it (recommended)
-    # 2) Else check admin.json if present (legacy)
-    # 3) Else allow first-time setup: create admin.json with provided password (only if ADMIN_EMAIL matches or ADMIN_EMAIL not set)
     password_ok = False
 
+    # 1) Check ADMIN_PASSWORD_HASH if provided
     if ADMIN_PASSWORD_HASH:
-        # ADMIN_PASSWORD_HASH should be a werkzeug generate_password_hash string
         try:
             if check_password_hash(ADMIN_PASSWORD_HASH, password):
                 password_ok = True
         except Exception:
             password_ok = False
 
+    # 2) Else check admin.json if exists
     admin_json_path = 'admin.json'
     admin_data = None
     if not password_ok and os.path.exists(admin_json_path):
         try:
             with open(admin_json_path, 'r') as f:
                 admin_data = json.load(f)
-            # If admin.json stores email_hash, ensure it matches (extra safety)
             stored_email_hash = admin_data.get('email_hash')
             if stored_email_hash and stored_email_hash != email_hash:
-                # email doesn't match stored admin
                 return "Wrong email or password", 403
             stored_pass = admin_data.get('password', '')
             if stored_pass and check_password_hash(stored_pass, password):
@@ -407,16 +404,13 @@ def simplemind_login():
         except Exception:
             password_ok = False
 
-    # If still not ok and no ADMIN_PASSWORD_HASH and admin.json missing -> first-time setup
+    # 3) If still not ok and no ADMIN_PASSWORD_HASH and admin.json missing -> allow first-time setup
     if not password_ok and not ADMIN_PASSWORD_HASH and not os.path.exists(admin_json_path):
-        # allow creating admin.json only if either ADMIN_EMAIL is unset or matches the provided email
+        # create admin.json for first-time setup (only allow when ADMIN_EMAIL unset or matches)
         if ADMIN_EMAIL and email != ADMIN_EMAIL:
             return "Wrong email or password", 403
         try:
-            admin_record = {
-                "email_hash": email_hash,
-                "password": generate_password_hash(password)
-            }
+            admin_record = {"email_hash": email_hash, "password": generate_password_hash(password)}
             with open(admin_json_path, 'w') as f:
                 json.dump(admin_record, f)
             password_ok = True
@@ -426,20 +420,18 @@ def simplemind_login():
     if not password_ok:
         return "Wrong email or password", 403
 
-    # Successful admin login -> set admin session + one-time allow token and redirect to admin-dashboard
+    # success: set admin session + one-time allow to admin-dashboard
     session['simple_admin'] = True
     session['allow_admin'] = True
     return redirect('/admin-dashboard')
 
 @app.route('/admin-dashboard')
 def admin_dashboard():
-    # require both flags: logged-in admin and one-time allow token
+    # require both flags: simple_admin and allow_admin (one-time)
     if not session.get('simple_admin') or not session.get('allow_admin'):
-        # consume token if any and redirect to admin login page only
         session.pop('allow_admin', None)
         return redirect('/simplemindserverisgone')
-
-    # consume allow token immediately so direct pasting won't grant access
+    # consume allow token to prevent direct paste later
     session.pop('allow_admin', None)
 
     admin_file_path = os.path.join(os.getcwd(), 'admin.html')
