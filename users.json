@@ -1,1 +1,9 @@
-[]
+[
+  {
+    "name": "jean",
+    "email": "jeangift128@gmail.com",
+    "password": "scrypt:32768:8:1$HviMGVU014WXGEmo$dd7f1b748d405fc3927e5f669ec8a50768a70a3de014097f876506ca7115cb3581cb78078b6b66c2cf8ebc027b94c8856bf19d01de9a8b66fbad2defae0c6e12",
+    "enabled": true,
+    "login_history": []
+  }
+]
