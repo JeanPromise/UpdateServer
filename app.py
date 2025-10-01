@@ -107,13 +107,12 @@ def load_apk():
 def save_apk(apk_obj):
     return github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
 
-# ---------------- Public/Private Enforcement ----------------
 @app.before_request
 def require_login():
     public = {
-        'login', 'register', 'index', 'admin', 'get_users',
+        'login', 'register', 'index', 'admin_dashboard', 'get_users',
         'check_update', 'download_apk', 'get_apk',
-        'simplemindserverisgone', 'simplemind_login'
+        'admin_login_page', 'simplemind_login'
     }
     ep = request.endpoint
     if ep in public:
