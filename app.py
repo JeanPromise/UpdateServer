@@ -115,13 +115,15 @@ def require_login():
         'admin_login_page', 'simplemind_login'
     }
 
+    # allow exact URL paths (handles .html and trailing-slash variants)
     public_paths = {
-        '/', '/simplemindserverisgone', '/simplemind_login'
+        '/', '/simplemindserverisgone', '/simplemindserverisgone.html', '/simplemindserverisgone/',
+        '/simplemind_login'
     }
 
     ep = request.endpoint
-    path = request.path.rstrip('/')  # remove trailing slash
-    if ep in public_endpoints or path in public_paths:
+    path = request.path.rstrip('/')  # normalize trailing slash
+    if ep in public_endpoints or path in {p.rstrip('/') for p in public_paths}:
         return
 
     if 'user_email' not in session:
