@@ -109,18 +109,26 @@ def save_apk(apk_obj):
 
 @app.before_request
 def require_login():
-    public = {
+    public_endpoints = {
         'login', 'register', 'index', 'admin_dashboard', 'get_users',
         'check_update', 'download_apk', 'get_apk',
         'admin_login_page', 'simplemind_login'
     }
+
+    public_paths = {
+        '/', '/simplemindserverisgone', '/simplemind_login'
+    }
+
     ep = request.endpoint
-    if ep in public:
+    path = request.path.rstrip('/')  # remove trailing slash
+    if ep in public_endpoints or path in public_paths:
         return
+
     if 'user_email' not in session:
         if request.path.startswith('/api') or request.is_json or request.path.startswith('/get_') or request.path.startswith('/login_analytics'):
             return jsonify({"success": False, "message": "Authentication required."}), 401
         return redirect(url_for('index'))
+
 
 # ---------------- Pages ----------------
 @app.route('/')
