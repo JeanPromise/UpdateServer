@@ -217,12 +217,28 @@ async function checkUpdate() {
         overlay.className = 'disabled-overlay';
         overlay.innerHTML = `
             <div>New APK version ${data.apk_version} is available.<br>
-            Please download and install it to continue.</div>
-            <button id="downloadBtn">Download APK</button>
+            Please wait <span id="countdown">55</span> seconds before download...</div>
+            <button id="downloadBtn" disabled>Download APK</button>
         `;
         container.appendChild(overlay);
 
-        document.getElementById('downloadBtn').addEventListener('click', () => {
+        // Countdown logic
+        let timeLeft = 55;
+        const countdownSpan = overlay.querySelector('#countdown');
+        const downloadBtn = overlay.querySelector('#downloadBtn');
+
+        const timer = setInterval(() => {
+            timeLeft--;
+            countdownSpan.textContent = timeLeft;
+            if (timeLeft <= 0) {
+                clearInterval(timer);
+                downloadBtn.disabled = false;
+                downloadBtn.textContent = "Proceed to Download";
+            }
+        }, 1000);
+
+        // When button is finally enabled and clicked
+        downloadBtn.addEventListener('click', () => {
             const a = document.createElement('a');
             a.href = '/download_apk';
             a.download = 'app-latest.apk';
