@@ -96,6 +96,47 @@ def github_push_file(filename, content_str, message=None):
         return False, str(e)
     return (r.status_code in (200, 201), r.json() if r.status_code in (200, 201) else r.text)
 
+# ---------------- Admin persistence helpers ----------------
+def load_admin():
+    """
+    Try to load admin.json from GitHub (preferred). If not present or fails,
+    fall back to a local admin.json file if it exists. Returns dict or None.
+    """
+    try:
+        if GITHUB_TOKEN:
+            data = github_get_file('admin.json', None)
+            if isinstance(data, dict):
+                return data
+        # fallback to local file
+        admin_json_path = 'admin.json'
+        if os.path.exists(admin_json_path):
+            with open(admin_json_path, 'r') as f:
+                return json.load(f)
+    except Exception:
+        log.exception("load_admin failed")
+    return None
+
+def save_admin(admin_obj):
+    """
+    Save admin_obj (dict) to GitHub if token available; otherwise write local file.
+    Returns (ok, resp) where ok is True on success.
+    """
+    try:
+        content = json.dumps(admin_obj, indent=2)
+        if GITHUB_TOKEN:
+            ok, resp = github_push_file('admin.json', content, "Update admin.json")
+            if ok:
+                return True, resp
+            log.error("github_push_file for admin.json failed: %s", resp)
+        # fallback: write to local file
+        admin_json_path = 'admin.json'
+        with open(admin_json_path, 'w') as f:
+            f.write(content)
+        return True, "written-local"
+    except Exception as e:
+        log.exception("save_admin exception")
+        return False, str(e)
+
 # ---------------- Data Helpers ----------------
 def load_users():
     data = github_get_file(USERS_FILE, [])
@@ -395,12 +436,10 @@ def simplemind_login():
     if ADMIN_EMAIL and email != ADMIN_EMAIL:
         return "Wrong email or password", 403
 
-    # 1) prefer admin.json if present (backwards compatible)
-    admin_json_path = 'admin.json'
-    if os.path.exists(admin_json_path):
+    # 1) prefer admin.json if present (GitHub or local via load_admin)
+    admin_data = load_admin()
+    if admin_data:
         try:
-            with open(admin_json_path, 'r') as f:
-                admin_data = json.load(f)
             stored_hash = admin_data.get('password', '')
             stored_email_hash = admin_data.get('email_hash', '')
             if stored_email_hash and stored_email_hash != hash_email(email):
@@ -411,7 +450,7 @@ def simplemind_login():
                 return redirect('/admin-dashboard')
             return "Wrong email or password", 403
         except Exception:
-            log.exception("reading admin.json failed")
+            log.exception("checking admin_data failed")
 
     # 2) check users.json for a user marked is_admin (or matches ADMIN_EMAIL)
     users = load_users()
@@ -428,7 +467,7 @@ def simplemind_login():
             return redirect('/admin-dashboard')
         return "Wrong email or password", 403
 
-    # 3) no admin found anywhere -> first-time setup: add admin to users.json
+    # 3) no admin found anywhere -> first-time setup: add admin to users.json AND save admin.json
     updated = False
     for u in users:
         if isinstance(u, dict) and u.get('email', '').strip().lower() == email:
@@ -455,9 +494,17 @@ def simplemind_login():
         log.error("Failed to persist admin user to users.json: %s", resp)
         return "Server error saving admin", 500
 
+    # Also persist admin.json as a direct admin record so it's always available
+    admin_record = {"email_hash": hash_email(email), "password": generate_password_hash(password)}
+    ok2, resp2 = save_admin(admin_record)
+    if not ok2:
+        log.error("Failed to persist admin.json: %s", resp2)
+        # We don't block login if users.json saved — admin still logs in, but admin.json wasn't pushed.
+
     session['simple_admin'] = True
     session['allow_admin'] = True
     return redirect('/admin-dashboard')
+
 
 @app.route('/admin-dashboard')
 def admin_dashboard():
