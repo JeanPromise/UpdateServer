@@ -374,13 +374,13 @@ def simplemind_login():
     email = email_raw.strip().lower()
     email_hash = hash_email(email)
 
-    # If ADMIN_EMAIL set, enforce it
+    # Enforce single admin email if configured
     if ADMIN_EMAIL and email != ADMIN_EMAIL:
         return "Wrong email or password", 403
 
     password_ok = False
 
-    # 1) Check ADMIN_PASSWORD_HASH if provided
+    # 1) If ADMIN_PASSWORD_HASH env var is set, prefer it
     if ADMIN_PASSWORD_HASH:
         try:
             if check_password_hash(ADMIN_PASSWORD_HASH, password):
@@ -388,42 +388,61 @@ def simplemind_login():
         except Exception:
             password_ok = False
 
-    # 2) Else check admin.json if exists
-    admin_json_path = 'admin.json'
+    # 2) Try to read admin.json from GitHub (preferred)
     admin_data = None
-    if not password_ok and os.path.exists(admin_json_path):
-        try:
-            with open(admin_json_path, 'r') as f:
-                admin_data = json.load(f)
-            stored_email_hash = admin_data.get('email_hash')
-            if stored_email_hash and stored_email_hash != email_hash:
-                return "Wrong email or password", 403
-            stored_pass = admin_data.get('password', '')
-            if stored_pass and check_password_hash(stored_pass, password):
-                password_ok = True
-        except Exception:
-            password_ok = False
+    try:
+        admin_data = github_get_file('admin.json', None)
+        # github_get_file returns None if not found (per your helper usage)
+    except Exception:
+        admin_data = None
 
-    # 3) If still not ok and no ADMIN_PASSWORD_HASH and admin.json missing -> allow first-time setup
-    if not password_ok and not ADMIN_PASSWORD_HASH and not os.path.exists(admin_json_path):
-        # create admin.json for first-time setup (only allow when ADMIN_EMAIL unset or matches)
-        if ADMIN_EMAIL and email != ADMIN_EMAIL:
+    if admin_data:
+        # If admin_data is found in repo, validate it
+        stored_email_hash = admin_data.get('email_hash')
+        if stored_email_hash and stored_email_hash != email_hash:
             return "Wrong email or password", 403
-        try:
-            admin_record = {"email_hash": email_hash, "password": generate_password_hash(password)}
-            with open(admin_json_path, 'w') as f:
-                json.dump(admin_record, f)
+        stored_pass = admin_data.get('password', '')
+        if stored_pass and check_password_hash(stored_pass, password):
             password_ok = True
-        except Exception:
-            password_ok = False
 
+    # 3) If not yet ok, allow first-time setup: create admin.json in repo (only if ADMIN_PASSWORD_HASH not set)
+    if not password_ok and not ADMIN_PASSWORD_HASH and not admin_data:
+        # create admin record and push to GitHub (preferred) or local fallback
+        admin_record = {"email_hash": email_hash, "password": generate_password_hash(password)}
+        # Try GitHub push if token exists
+        if GITHUB_TOKEN:
+            ok, resp = github_push_file('admin.json', json.dumps(admin_record, indent=2), "Create admin.json")
+            if ok:
+                password_ok = True
+            else:
+                # Push failed: fall back to local file and set password_ok if local write works
+                log.error("Failed to write admin.json to GitHub: %s", resp)
+                try:
+                    with open('admin.json', 'w') as f:
+                        json.dump(admin_record, f)
+                    password_ok = True
+                except Exception as e:
+                    log.exception("Failed to write local admin.json: %s", e)
+                    password_ok = False
+        else:
+            # No GITHUB_TOKEN -> local write fallback
+            try:
+                with open('admin.json', 'w') as f:
+                    json.dump(admin_record, f)
+                password_ok = True
+            except Exception as e:
+                log.exception("Failed to write local admin.json: %s", e)
+                password_ok = False
+
+    # 4) If still not ok, final rejection
     if not password_ok:
         return "Wrong email or password", 403
 
-    # success: set admin session + one-time allow to admin-dashboard
+    # SUCCESS: set admin session and one-time allow_admin token
     session['simple_admin'] = True
     session['allow_admin'] = True
     return redirect('/admin-dashboard')
+
 
 @app.route('/admin-dashboard')
 def admin_dashboard():
