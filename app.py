@@ -1,7 +1,4 @@
-
-
-
-# app.py (public admin.html, admin only via /simplemindserverisgone) 
+# app.py (public admin.html, admin only via /simplemindserverisgone)
 import base64
 import json
 import requests
@@ -34,7 +31,7 @@ APK_FOLDER = "apks"
 
 GITHUB_API_BASE = "https://api.github.com"
 
-# --- Single admin email enforcement ---
+# --- Single admin email enforcement (optional) ---
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
 if ADMIN_EMAIL:
     ADMIN_EMAIL = ADMIN_EMAIL.strip().lower()
@@ -122,22 +119,27 @@ def save_apk(apk_obj):
 # ---------------- Public/Private Enforcement ----------------
 @app.before_request
 def require_login():
-    # leave user-facing endpoints public
-    public = {
+    # endpoints allowed to proceed to their handler regardless of 'user_email' session
+    public_endpoints = {
         'login', 'register', 'index', 'get_users',
         'check_update', 'download_apk', 'get_apk',
-        # admin login page and its POST must be accessible
-        'admin_login_page', 'simplemind_login'
+        # admin login page, its POST handler, and admin-dashboard MUST be allowed so their logic runs
+        'admin_login_page', 'simplemind_login', 'admin_dashboard'
     }
+
     ep = request.endpoint
-    if ep in public:
+
+    # allow if endpoint is public
+    if ep in public_endpoints:
         return
 
-    # otherwise require normal user session for site API calls
+    # For API-ish calls (prefixes) return JSON auth error
     if 'user_email' not in session:
         if request.path.startswith('/api') or request.is_json or request.path.startswith('/get_') or request.path.startswith('/login_analytics'):
             return jsonify({"success": False, "message": "Authentication required."}), 401
-        return redirect(url_for('index'))
+
+        # for non-public pages requested without session, return 404 (do not redirect to index)
+        return Response("Not found", status=404)
 
 # ---------------- Pages ----------------
 @app.route('/')
@@ -206,7 +208,6 @@ def require_simple_admin_json():
 
 @app.route('/toggle_user', methods=['POST'])
 def toggle_user():
-    # used by admin UI; must be admin (or could be extended to let users toggle themselves)
     admin_check = require_simple_admin_json()
     if admin_check:
         return admin_check
@@ -244,7 +245,6 @@ def disable_all():
 
 @app.route('/login_analytics')
 def login_analytics():
-    # this returns login analytics for admin UI; allow public as JSON but only full data for admin
     users = load_users()
     analytics = []
     for u in users:
@@ -369,11 +369,9 @@ def admin_login_page():
 
 # Helper: find admin user in users list (by is_admin flag or by ADMIN_EMAIL)
 def find_admin_in_users(users, email=None):
-    # prefer explicit is_admin flag
     for u in users:
         if isinstance(u, dict) and u.get('is_admin'):
             return u
-    # fallback: if ADMIN_EMAIL is set or email provided, find by email
     if email:
         for u in users:
             if isinstance(u, dict) and u.get('email', '').strip().lower() == email:
@@ -397,13 +395,30 @@ def simplemind_login():
     if ADMIN_EMAIL and email != ADMIN_EMAIL:
         return "Wrong email or password", 403
 
-    users = load_users()  # list
+    # 1) prefer admin.json if present (backwards compatible)
+    admin_json_path = 'admin.json'
+    if os.path.exists(admin_json_path):
+        try:
+            with open(admin_json_path, 'r') as f:
+                admin_data = json.load(f)
+            stored_hash = admin_data.get('password', '')
+            stored_email_hash = admin_data.get('email_hash', '')
+            if stored_email_hash and stored_email_hash != hash_email(email):
+                return "Wrong email or password", 403
+            if stored_hash and check_password_hash(stored_hash, password):
+                session['simple_admin'] = True
+                session['allow_admin'] = True
+                return redirect('/admin-dashboard')
+            return "Wrong email or password", 403
+        except Exception:
+            log.exception("reading admin.json failed")
+
+    # 2) check users.json for a user marked is_admin (or matches ADMIN_EMAIL)
+    users = load_users()
     admin_user = find_admin_in_users(users, email=email)
 
-    # If admin exists, verify it
     if admin_user:
         stored_email = admin_user.get('email', '').strip().lower()
-        # ensure the login email is the admin email
         if stored_email != email:
             return "Wrong email or password", 403
         stored_pass = admin_user.get('password', '')
@@ -413,8 +428,7 @@ def simplemind_login():
             return redirect('/admin-dashboard')
         return "Wrong email or password", 403
 
-    # No admin user exists yet -> create one (first-time setup)
-    # If a normal user with this email already exists, upgrade them to admin and set password
+    # 3) no admin found anywhere -> first-time setup: add admin to users.json
     updated = False
     for u in users:
         if isinstance(u, dict) and u.get('email', '').strip().lower() == email:
@@ -426,7 +440,6 @@ def simplemind_login():
             break
 
     if not updated:
-        # add a new admin user record to users list
         new_admin = {
             "name": "Admin",
             "email": email,
@@ -439,23 +452,21 @@ def simplemind_login():
 
     ok, resp = save_users(users)
     if not ok:
-        # if saving failed, return an error so you know something went wrong
         log.error("Failed to persist admin user to users.json: %s", resp)
         return "Server error saving admin", 500
 
-    # success
     session['simple_admin'] = True
     session['allow_admin'] = True
     return redirect('/admin-dashboard')
-
 
 @app.route('/admin-dashboard')
 def admin_dashboard():
     # require both flags: simple_admin and allow_admin (one-time)
     if not session.get('simple_admin') or not session.get('allow_admin'):
         session.pop('allow_admin', None)
+        # Not allowed: send user to admin login page (not index), per your requirement
         return redirect('/simplemindserverisgone')
-    # consume allow token to prevent direct paste later
+    # consume allow token so direct paste later won't work
     session.pop('allow_admin', None)
 
     admin_file_path = os.path.join(os.getcwd(), 'admin.html')
