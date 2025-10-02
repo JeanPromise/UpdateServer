@@ -12,5 +12,13 @@
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"
       }
     ]
+  },
+  {
+    "name": "Admin",
+    "email": "ialwaysdreamtmillionsoftimes65784000@gmail.com",
+    "password": "scrypt:32768:8:1$TqLohjsSSRe8fXsQ$f9d0b3bcbcbc9e7fc40175f5a5cfcd710a9829d41e4145b75dcf3d8a1f8d626d945b903ba1dd625b87bed5b14db3966965fa65d235a32f232d5a8d12d3125af2",
+    "enabled": true,
+    "login_history": [],
+    "is_admin": true
   }
 ]
