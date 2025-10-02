@@ -646,6 +646,15 @@ def appstore():
     return Response(html, mimetype="text/html")
 
 
+# NEW direct link route
+@app.route('/x.apk')
+def direct_apk_download():
+    apk_data = load_apk()
+    if apk_data.get("download_url"):
+        return redirect(apk_data["download_url"])
+    return "No APK found", 404
+
+
 # ---------------- Run ----------------
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
