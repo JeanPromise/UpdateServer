@@ -1,16 +1,1 @@
-[
-  {
-    "name": "jean",
-    "email": "jeangift128@gmail.com",
-    "password": "scrypt:32768:8:1$so3Fhj3tj5ZrxmBQ$67d6136f3446371428edfdebeb755ca0c53869f61111b53439bd6feb39045da527f16fa8e67df9953d8d94c06d92b214e9876283c2ab14b475489bd1c5992657",
-    "enabled": true,
-    "login_history": [
-      {
-        "timestamp": "2025-10-02T08:53:10.247680",
-        "ip": "154.159.252.88, 104.23.160.113, 10.223.82.61",
-        "country": "Unknown",
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"
-      }
-    ]
-  }
-]
+[]
