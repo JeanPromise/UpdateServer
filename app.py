@@ -557,6 +557,92 @@ def admin_delete_user():
         return jsonify({"success": False, "message": "User not found"}), 404
     ok, resp = save_users(new_users)
     return (jsonify({"success": True}) if ok else jsonify({"success": False, "message": resp}), 500)[not ok]
+@app.route('/appstore')
+@app.route('/appstore.html')
+def appstore():
+    apk_data = load_apk()
+    apps = []
+    if apk_data.get("download_url"):
+        # map filename into friendly app name
+        fname = apk_data.get("filename", "app-latest.apk")
+        # for now hardcode Tomorrow Entertainment as first app
+        app_name = "Tomorrow Entertainment"
+        apps.append({
+            "name": app_name,
+            "version": apk_data.get("version") or "N/A",
+            "url": apk_data.get("download_url"),
+            "filename": fname
+        })
+
+    html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>My App Store</title>
+      <style>
+        body {
+          background-color: #121212;
+          color: #fff;
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 20px;
+        }
+        h1 {
+          text-align: center;
+          margin-bottom: 20px;
+        }
+        .app-card {
+          background: #1e1e1e;
+          border-radius: 8px;
+          padding: 15px;
+          margin: 10px 0;
+          box-shadow: 0 0 8px rgba(0,0,0,0.5);
+        }
+        .app-name {
+          font-size: 18px;
+          font-weight: bold;
+        }
+        .app-version {
+          color: #aaa;
+          font-size: 14px;
+        }
+        .download-btn {
+          display: inline-block;
+          margin-top: 10px;
+          padding: 8px 16px;
+          background: #2196f3;
+          color: #fff;
+          border-radius: 5px;
+          text-decoration: none;
+        }
+        .download-btn:hover {
+          background: #1976d2;
+        }
+      </style>
+    </head>
+    <body>
+      <h1>My App Store</h1>
+    """
+
+    if not apps:
+        html += "<p>No apps available yet.</p>"
+    else:
+        for app in apps:
+            html += f"""
+            <div class="app-card">
+              <div class="app-name">{app['name']}</div>
+              <div class="app-version">Version: {app['version']}</div>
+              <a class="download-btn" href="{app['url']}">Download</a>
+            </div>
+            """
+
+    html += """
+    </body>
+    </html>
+    """
+    return Response(html, mimetype="text/html")
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
