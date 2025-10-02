@@ -557,6 +557,7 @@ def admin_delete_user():
         return jsonify({"success": False, "message": "User not found"}), 404
     ok, resp = save_users(new_users)
     return (jsonify({"success": True}) if ok else jsonify({"success": False, "message": resp}), 500)[not ok]
+
 @app.route('/appstore')
 @app.route('/appstore.html')
 def appstore():
@@ -643,6 +644,7 @@ def appstore():
     </html>
     """
     return Response(html, mimetype="text/html")
+
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
