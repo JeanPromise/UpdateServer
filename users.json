@@ -4,6 +4,13 @@
     "email": "jeangift128@gmail.com",
     "password": "scrypt:32768:8:1$GziKQslAEYQrm7ts$5e97c962babe97c2606529c1808d422de2d9c0e322a95a208e51c7d23daeaee206708f2cdf4bd059cd01ea522eafe67e80652a8615482a38a5a34706517f8592",
     "enabled": true,
-    "login_history": []
+    "login_history": [
+      {
+        "timestamp": "2025-10-02T09:39:19.187768",
+        "ip": "154.159.252.88, 197.234.243.85, 10.223.18.217",
+        "country": "Unknown",
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"
+      }
+    ]
   }
 ]
