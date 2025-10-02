@@ -164,5 +164,12 @@
         "user_agent": "Mozilla/5.0 (Linux; Android 15; TECNO CM6 Build/AP3A.240905.015.A2; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/139.0.7258.158 Mobile Safari/537.36"
       }
     ]
+  },
+  {
+    "name": "Karen Rop",
+    "email": "karenkerry226@gmail.com",
+    "password": "scrypt:32768:8:1$itWhBimv8mUAT5jx$a08ace0af1fce1f1258960f4e4c62d87d477eb054f36730d66ed8e695b5313ec218ca19a769308aa4153a9ad5a31d8413f1024c151f07e7b6703fd655292e278",
+    "enabled": true,
+    "login_history": []
   }
 ]
