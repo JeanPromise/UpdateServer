@@ -495,16 +495,16 @@ def simplemind_login():
         return "Server error saving admin", 500
 
     # Also persist admin.json as a direct admin record so it's always available
+    # 3) no admin found anywhere -> first-time setup: create admin.json only (do NOT touch users.json)
     admin_record = {"email_hash": hash_email(email), "password": generate_password_hash(password)}
     ok2, resp2 = save_admin(admin_record)
     if not ok2:
         log.error("Failed to persist admin.json: %s", resp2)
-        # We don't block login if users.json saved — admin still logs in, but admin.json wasn't pushed.
+        return "Server error saving admin", 500
 
     session['simple_admin'] = True
     session['allow_admin'] = True
     return redirect('/admin-dashboard')
-
 
 @app.route('/admin-dashboard')
 def admin_dashboard():
