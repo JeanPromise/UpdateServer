@@ -170,6 +170,13 @@
     "email": "karenkerry226@gmail.com",
     "password": "scrypt:32768:8:1$itWhBimv8mUAT5jx$a08ace0af1fce1f1258960f4e4c62d87d477eb054f36730d66ed8e695b5313ec218ca19a769308aa4153a9ad5a31d8413f1024c151f07e7b6703fd655292e278",
     "enabled": true,
-    "login_history": []
+    "login_history": [
+      {
+        "timestamp": "2025-10-02T20:57:41.146554",
+        "ip": "105.160.119.215, 172.71.150.74, 10.223.82.61",
+        "country": "Unknown",
+        "user_agent": "Mozilla/5.0 (Linux; Android 13; 23106RN0DA Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/140.0.7339.155 Mobile Safari/537.36"
+      }
+    ]
   }
 ]
