@@ -1,7 +1,7 @@
 {
-  "version": null,
-  "changelog": "",
-  "download_url": "",
-  "filename": null,
+  "version": "1.0.0",
+  "changelog": "Restored app-debug.apk",
+  "download_url": "https://raw.githubusercontent.com/JeanPromise/UpdateServer/main/apks/app-debug.apk",
+  "filename": "app-debug.apk",
   "sha": null
 }
