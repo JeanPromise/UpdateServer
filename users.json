@@ -202,5 +202,12 @@
         "user_agent": "Mozilla/5.0 (Linux; Android 13; 23106RN0DA Build/TP1A.220624.014; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/140.0.7339.155 Mobile Safari/537.36"
       }
     ]
+  },
+  {
+    "name": "Nhhhh",
+    "email": "hhge@gmail.com",
+    "password": "scrypt:32768:8:1$IqXKLiZnS1nNrWXs$bfa5b7068890d42d599e30ca0df46051d9c4db6a5beb9aba1ab7e6d128e51b9c8d3bca972f468a8c011a9919512e66c1bb88c0048f339c9b233d33b707e115c2",
+    "enabled": true,
+    "login_history": []
   }
 ]
