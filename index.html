@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -109,26 +109,6 @@
     100% {transform: scale(0) rotate(30deg); opacity:0;}
   }
 
-  .disabled-overlay {
-    position:absolute;
-    top:0; left:0; width:100%; height:100%;
-    background:rgba(0,0,0,0.9);
-    display:flex; justify-content:center; align-items:center;
-    flex-direction:column;
-    text-align:center; color:#ff5555; font-size:18px;
-    z-index:10;
-    border-radius:10px;
-  }
-  .disabled-overlay button {
-    margin-top:15px;
-    background:#4CAF50;
-    cursor:pointer;
-    padding:8px 16px;
-    border:none;
-    border-radius:5px;
-    font-weight:bold;
-  }
-
   .apk-version-stamp {
     position:fixed;
     bottom:10px;
@@ -208,131 +188,184 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// ----- Check for APK update -----
-async function checkUpdate() {
-    const res = await fetch('/check_update');
-    const data = await res.json();
-    if (data.apk_version && isVersionNewer(data.apk_version, currentUserApkVersion)) {
-        const overlay = document.createElement('div');
-        overlay.className = 'disabled-overlay';
-        overlay.innerHTML = `
-            <div>New APK version ${data.apk_version} is available.<br>
-            Please wait <span id="countdown">55</span> seconds before download...</div>
-            <button id="downloadBtn" disabled>Download APK</button>
-        `;
-        container.appendChild(overlay);
-
-        // Countdown logic
-        let timeLeft = 55;
-        const countdownSpan = overlay.querySelector('#countdown');
-        const downloadBtn = overlay.querySelector('#downloadBtn');
-
-        const timer = setInterval(() => {
-            timeLeft--;
-            countdownSpan.textContent = timeLeft;
-            if (timeLeft <= 0) {
-                clearInterval(timer);
-                downloadBtn.disabled = false;
-                downloadBtn.textContent = "Proceed to Download";
-            }
-        }, 1000);
-
-        // When button is finally enabled and clicked
-        downloadBtn.addEventListener('click', () => {
-            const a = document.createElement('a');
-            a.href = '/download_apk';
-            a.download = 'app-latest.apk';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-
-            localStorage.setItem('installedApkVersion', data.apk_version);
-            currentUserApkVersion = data.apk_version;
-            versionStamp.textContent = 'App version: ' + currentUserApkVersion;
-
-            overlay.remove();
-        });
-    }
+// --- helper: compare semantic versions (keeps your original logic) ---
+function isVersionNewer(serverVer, localVer) {
+  const sv = (serverVer||'').split('.').map(Number);
+  const lv = (localVer||'').split('.').map(Number);
+  for (let i = 0; i < Math.max(sv.length, lv.length); i++) {
+    const s = sv[i] || 0, l = lv[i] || 0;
+    if (s > l) return true;
+    if (s < l) return false;
+  }
+  return false;
 }
 
-// ----- Compare version strings -----
-function isVersionNewer(serverVer, localVer) {
-    const sv = serverVer.split('.').map(Number);
-    const lv = localVer.split('.').map(Number);
-    for(let i=0; i<Math.max(sv.length, lv.length); i++) {
-        const s = sv[i]||0, l = lv[i]||0;
-        if(s > l) return true;
-        if(s < l) return false;
+// --- keys used in localStorage
+const COUNTDOWN_END_KEY = 'apk_countdown_end';
+const COUNTDOWN_VERSION_KEY = 'apk_pending_version';
+
+// Add a non-blocking download UI when update exists
+async function checkUpdate() {
+  try {
+    const res = await fetch('/check_update');
+    if (!res.ok) return;
+    const data = await res.json();
+    const serverVer = data.apk_version;
+    if (!serverVer || !isVersionNewer(serverVer, currentUserApkVersion)) {
+      resumeCountdownIfAny();
+      return;
     }
-    return false;
+    if (!document.getElementById('apk-update-note')) {
+      const note = document.createElement('div');
+      note.id = 'apk-update-note';
+      Object.assign(note.style, {
+        position: 'fixed', left: '12px', bottom: '80px',
+        background: 'rgba(0,0,0,0.7)', color: '#fff',
+        padding: '10px 12px', borderRadius: '8px', zIndex: 9999
+      });
+      note.innerHTML = `
+        <div style="margin-bottom:8px">New APK available: <b>${serverVer}</b></div>
+        <button id="startDownloadBtn" style="padding:8px 12px; border-radius:6px; cursor:pointer;">
+          Download APK
+        </button>
+      `;
+      document.body.appendChild(note);
+      document.getElementById('startDownloadBtn').addEventListener('click', () => {
+        startDownloadAndSilentCount(serverVer);
+      });
+    }
+  } catch (err) {
+    console.warn('checkUpdate error', err);
+    resumeCountdownIfAny();
+  }
+}
+
+function startDownloadAndSilentCount(serverVer) {
+  const a = document.createElement('a');
+  a.href = '/download_apk';
+  a.download = 'app-latest.apk';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  const existingEnd = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
+  const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
+  const now = Date.now();
+  if (pendingVer === serverVer && existingEnd && existingEnd > now) {
+    startLocalTimer();
+    return;
+  }
+  const endTs = now + 55 * 1000;
+  localStorage.setItem(COUNTDOWN_END_KEY, String(endTs));
+  localStorage.setItem(COUNTDOWN_VERSION_KEY, serverVer);
+  startLocalTimer();
+}
+
+let _timerInterval = null;
+function startLocalTimer() {
+  if (_timerInterval) return;
+  _timerInterval = setInterval(() => {
+    const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
+    const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
+    if (!end || !pendingVer) {
+      clearInterval(_timerInterval); _timerInterval = null; return;
+    }
+    const now = Date.now();
+    if (now >= end) {
+      localStorage.setItem('installedApkVersion', pendingVer);
+      currentUserApkVersion = pendingVer;
+      versionStamp.textContent = 'App version: ' + currentUserApkVersion;
+      localStorage.removeItem(COUNTDOWN_END_KEY);
+      localStorage.removeItem(COUNTDOWN_VERSION_KEY);
+      const note = document.getElementById('apk-update-note');
+      if (note) note.remove();
+      clearInterval(_timerInterval); _timerInterval = null;
+    }
+  }, 1000);
+}
+
+function resumeCountdownIfAny() {
+  const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
+  const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
+  if (end && pendingVer) {
+    if (Date.now() >= end) {
+      localStorage.setItem('installedApkVersion', pendingVer);
+      currentUserApkVersion = pendingVer;
+      versionStamp.textContent = 'App version: ' + currentUserApkVersion;
+      localStorage.removeItem(COUNTDOWN_END_KEY);
+      localStorage.removeItem(COUNTDOWN_VERSION_KEY);
+      const note = document.getElementById('apk-update-note');
+      if (note) note.remove();
+    } else {
+      startLocalTimer();
+    }
+  }
 }
 
 // ----- Animate container and show Proceed button -----
 function animateAndDisappear() {
-    container.classList.add('explode');
-    container.addEventListener('animationend', () => {
-        container.style.display = 'none';
-        const proceedBtn = document.createElement('button');
-        proceedBtn.textContent = 'Proceed to Shows';
-        Object.assign(proceedBtn.style, {
-            padding:'10px 20px', fontSize:'16px', background:'#E50914', color:'#fff',
-            border:'none', borderRadius:'5px', cursor:'pointer', position:'fixed',
-            top:'50%', left:'50%', transform:'translate(-50%, -50%)',
-            boxShadow:'0 0 15px #00ffc2, 0 0 30px #00ffc2'
-        });
-        document.body.appendChild(proceedBtn);
-
-        proceedBtn.addEventListener('click', () => {
-            if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
-                AndroidBridge.openGoojaraPage();
-            } else {
-                alert("Bridge not available.");
-            }
-        });
-    }, {once:true});
+  container.classList.add('explode');
+  container.addEventListener('animationend', () => {
+    container.style.display = 'none';
+    const proceedBtn = document.createElement('button');
+    proceedBtn.textContent = 'Proceed to Shows';
+    Object.assign(proceedBtn.style, {
+      padding:'10px 20px', fontSize:'16px', background:'#E50914', color:'#fff',
+      border:'none', borderRadius:'5px', cursor:'pointer', position:'fixed',
+      top:'50%', left:'50%', transform:'translate(-50%, -50%)',
+      boxShadow:'0 0 15px #00ffc2, 0 0 30px #00ffc2'
+    });
+    document.body.appendChild(proceedBtn);
+    proceedBtn.addEventListener('click', () => {
+      if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
+        AndroidBridge.openGoojaraPage();
+      } else {
+        alert("Bridge not available.");
+      }
+    });
+  }, {once:true});
 }
 
 // ----- Login submit -----
 loginForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = loginForm[0].value.trim();
-    const password = loginForm[1].value.trim();
-    const res = await fetch('/login', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
-    });
-    const data = await res.json();
-    if (data.success) animateAndDisappear();
-    else alert(data.message);
+  e.preventDefault();
+  const email = loginForm[0].value.trim();
+  const password = loginForm[1].value.trim();
+  const res = await fetch('/login', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
+  });
+  const data = await res.json();
+  if (data.success) animateAndDisappear();
+  else alert(data.message);
 });
 
 // ----- Registration submit -----
 registerForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const name = registerForm[0].value.trim();
-    const email = registerForm[1].value.trim();
-    const password = registerForm[2].value.trim();
-    const confirm = registerForm[3].value.trim();
-    if (password !== confirm) return alert('Passwords do not match!');
-
-    const res = await fetch('/register', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({name,email,password})
-    });
-    const data = await res.json();
-    if (data.success) {
-        alert('Registration successful! Please log in.');
-        registerForm.style.display = 'none';
-        loginForm.style.display = 'flex';
-        formTitle.textContent = 'Login';
-        toggleForm.textContent = "Don't have an account? Register";
-    } else alert(data.message);
+  e.preventDefault();
+  const name = registerForm[0].value.trim();
+  const email = registerForm[1].value.trim();
+  const password = registerForm[2].value.trim();
+  const confirm = registerForm[3].value.trim();
+  if (password !== confirm) return alert('Passwords do not match!');
+  const res = await fetch('/register', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name,email,password})
+  });
+  const data = await res.json();
+  if (data.success) {
+    alert('Registration successful! Please log in.');
+    registerForm.style.display = 'none';
+    loginForm.style.display = 'flex';
+    formTitle.textContent = 'Login';
+    toggleForm.textContent = "Don't have an account? Register";
+  } else alert(data.message);
 });
 
 // ----- Initial APK update check -----
 checkUpdate();
+resumeCountdownIfAny();
 </script>
 </body>
 </html>
