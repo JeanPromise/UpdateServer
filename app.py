@@ -29,6 +29,9 @@ USERS_FILE = "users.json"
 APK_FILE = "apk.json"
 APK_FOLDER = "apks"
 
+# ensure local folder exists as a safe fallback (harmless)
+os.makedirs(APK_FOLDER, exist_ok=True)
+
 GITHUB_API_BASE = "https://api.github.com"
 
 # --- Single admin email enforcement (optional) ---
@@ -302,15 +305,43 @@ def login_analytics():
 # ---------------- APK Endpoints (admin-only for uploads/deletes) ----------------
 @app.route('/download_apk')
 def download_apk():
+    """
+    Robust download endpoint:
+      - Try serve local file in apks/ first (if filename set in apk.json and file exists).
+      - Otherwise attempt to stream the download_url (GitHub raw or other).
+      - Returns JSON 404 if neither available.
+    """
     apk_data = load_apk()
-    if not apk_data.get("download_url"):
-        return jsonify({"success": False, "message": "No APK available."}), 404
-    r = requests.get(apk_data["download_url"], stream=True, timeout=30)
-    if r.status_code != 200:
-        return jsonify({"success": False, "message": "Failed to fetch APK"}), 500
-    filename = apk_data.get("filename") or "app-latest.apk"
-    return Response(r.iter_content(8192), content_type="application/vnd.android.package-archive",
-                    headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+    # 1) Try local file first (fast, offline-safe)
+    filename = apk_data.get("filename")
+    if filename:
+        local_path = os.path.join(APK_FOLDER, filename)
+        if os.path.exists(local_path):
+            # serve local file
+            try:
+                return send_from_directory(APK_FOLDER, filename, as_attachment=True,
+                                           mimetype="application/vnd.android.package-archive")
+            except Exception:
+                log.exception("Failed to send local APK file %s", local_path)
+
+    # 2) Fallback: stream from download_url (existing behaviour)
+    download_url = apk_data.get("download_url") or ""
+    if download_url:
+        try:
+            r = requests.get(download_url, stream=True, timeout=30)
+            if r.status_code == 200:
+                out_filename = filename or "app-latest.apk"
+                return Response(r.iter_content(8192),
+                                content_type="application/vnd.android.package-archive",
+                                headers={"Content-Disposition": f"attachment; filename={out_filename}"})
+            else:
+                log.warning("download_apk: remote returned status %s for %s", r.status_code, download_url)
+        except Exception:
+            log.exception("download_apk: exception when streaming remote url")
+
+    # 3) Nothing available
+    return jsonify({"success": False, "message": "No APK available or remote fetch failed."}), 404
 
 @app.route('/upload_apk', methods=['POST'])
 def upload_apk():
@@ -319,21 +350,54 @@ def upload_apk():
         return admin_check
     if 'apk' not in request.files or 'version' not in request.form:
         return jsonify({"success": False, "message": "APK file and version required."}), 400
+
     file = request.files['apk']
     version = request.form['version'].strip()
     filename = secure_filename(f"app-v{version}.apk")
     apk_bytes = file.read()
+
+    # 1) Save locally always (safe fallback)
+    local_path = os.path.join(APK_FOLDER, filename)
+    try:
+        with open(local_path, 'wb') as f:
+            f.write(apk_bytes)
+    except Exception as e:
+        log.exception("Failed to save local APK %s", local_path)
+        return jsonify({"success": False, "message": f"Failed to save local APK: {e}"}), 500
+
+    # 2) Try upload to GitHub if token present
     api_path = f"{APK_FOLDER}/{filename}"
-    if not GITHUB_TOKEN:
-        return jsonify({"success": False, "message": "Server missing GITHUB_TOKEN"}), 500
-    url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{api_path}"
-    data = {"message": f"Upload {filename}", "content": base64.b64encode(apk_bytes).decode(), "branch": BRANCH}
-    r = requests.put(url, headers=gh_headers(), json=data, timeout=120)
-    if r.status_code not in [200, 201]:
-        return jsonify({"success": False, "message": f"GitHub upload failed {r.status_code}"}), 500
-    sha = r.json().get("content", {}).get("sha") or (github_get_file_metadata(api_path) or {}).get("sha")
-    download_url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{BRANCH}/{APK_FOLDER}/{filename}"
-    save_apk({"version": version, "changelog": f"Uploaded v{version}", "download_url": download_url, "filename": filename, "sha": sha})
+    download_url = ""
+    sha = None
+    if GITHUB_TOKEN:
+        url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{api_path}"
+        data = {"message": f"Upload {filename}", "content": base64.b64encode(apk_bytes).decode(), "branch": BRANCH}
+        try:
+            r = requests.put(url, headers=gh_headers(), json=data, timeout=120)
+            if r.status_code in [200, 201]:
+                sha = r.json().get("content", {}).get("sha")
+                download_url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{BRANCH}/{APK_FOLDER}/{filename}"
+            else:
+                log.warning("GitHub upload returned %s: %s", r.status_code, r.text[:400])
+        except Exception:
+            log.exception("GitHub upload exception for %s", api_path)
+
+    # If GitHub not used or upload failed, leave download_url empty and rely on local file
+    apk_obj = {
+        "version": version,
+        "changelog": f"Uploaded v{version}",
+        "download_url": download_url,
+        "filename": filename,
+        "sha": sha
+    }
+
+    # persist apk metadata (to GitHub if GITHUB_TOKEN, otherwise local via save_apk fallback)
+    ok, resp = save_apk(apk_obj)
+    if not ok:
+        # still return success because local save succeeded; but inform admin
+        log.error("save_apk failed: %s", resp)
+        return jsonify({"success": True, "url": download_url, "message": "APK saved locally but metadata push failed."})
+
     return jsonify({"success": True, "url": download_url})
 
 @app.route('/delete_apk', methods=['POST'])
@@ -341,6 +405,7 @@ def delete_apk():
     admin_check = require_simple_admin_json()
     if admin_check:
         return admin_check
+    # Only reset metadata (do NOT delete local file automatically — safer)
     save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
     return jsonify({"success": True})
 
@@ -362,6 +427,7 @@ def delete_apk_force():
     r = requests.delete(url, headers=gh_headers(), json={"message": f"Delete {filename}", "sha": sha, "branch": BRANCH}, timeout=30)
     if r.status_code not in [200, 204]:
         return jsonify({"success": False, "message": "GitHub delete failed."}), 500
+    # Do NOT remove local file automatically to avoid accidental data loss; only reset metadata.
     save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
     return jsonify({"success": True})
 
@@ -369,7 +435,7 @@ def delete_apk_force():
 def check_update():
     apk_data = load_apk()
     return jsonify({
-        "update_required": bool(apk_data.get("download_url")),
+        "update_required": bool(apk_data.get("download_url")) or bool(apk_data.get("filename")),
         "apk_version": apk_data.get("version"),
         "url": apk_data.get("download_url")
     })
@@ -563,15 +629,17 @@ def admin_delete_user():
 def appstore():
     apk_data = load_apk()
     apps = []
-    if apk_data.get("download_url"):
+    if apk_data.get("download_url") or apk_data.get("filename"):
         # map filename into friendly app name
         fname = apk_data.get("filename", "app-latest.apk")
         # for now hardcode Tomorrow Entertainment as first app
         app_name = "Tomorrow Entertainment"
+        # use download_url if present (GitHub raw link), otherwise use local download endpoint
+        url = apk_data.get("download_url") or url_for('download_apk', _external=True)
         apps.append({
             "name": app_name,
             "version": apk_data.get("version") or "N/A",
-            "url": apk_data.get("download_url"),
+            "url": url,
             "filename": fname
         })
 
@@ -645,15 +713,16 @@ def appstore():
     """
     return Response(html, mimetype="text/html")
 
-
 # NEW direct link route
 @app.route('/x.apk')
 def direct_apk_download():
     apk_data = load_apk()
+    # redirect to raw GitHub link if available, otherwise to local download
     if apk_data.get("download_url"):
         return redirect(apk_data["download_url"])
+    if apk_data.get("filename"):
+        return redirect(url_for('download_apk'))
     return "No APK found", 404
-
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
