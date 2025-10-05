@@ -1,5 +1,3 @@
-
-
 # app.py (public admin.html, admin only via /simplemindserverisgone)
 import base64
 import json
@@ -31,6 +29,9 @@ USERS_FILE = "users.json"
 APK_FILE = "apk.json"
 APK_FOLDER = "apks"
 
+# ensure local folder exists as a safe fallback (harmless)
+os.makedirs(APK_FOLDER, exist_ok=True)
+
 GITHUB_API_BASE = "https://api.github.com"
 
 # --- Single admin email enforcement (optional) ---
@@ -51,22 +52,35 @@ def gh_headers():
     return headers
 
 def github_get_file(filename, default):
+    """
+    Try to fetch file from GitHub. On any failure, try local file fallback.
+    Returns parsed JSON or `default`.
+    """
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
     try:
         r = requests.get(url, headers=gh_headers(), timeout=20)
+        if r.status_code == 200:
+            body = r.json()
+            content = body.get("content", "")
+            encoding = body.get("encoding", "base64")
+            try:
+                raw = base64.b64decode(content).decode() if encoding == "base64" else content
+                return json.loads(raw)
+            except Exception:
+                log.exception("Failed to decode/parse %s from GitHub", filename)
+        else:
+            log.warning("github_get_file: non-200 status %s for %s", r.status_code, filename)
     except Exception:
         log.exception("GitHub GET exception for %s", filename)
-        return default
-    if r.status_code == 200:
-        body = r.json()
-        content = body.get("content", "")
-        encoding = body.get("encoding", "base64")
-        try:
-            raw = base64.b64decode(content).decode() if encoding == "base64" else content
-            return json.loads(raw)
-        except Exception:
-            log.exception("Failed to decode/parse %s", filename)
-            return default
+
+    # fallback to local file if exists
+    try:
+        if os.path.exists(filename):
+            with open(filename, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception:
+        log.exception("Local fallback read failed for %s", filename)
+
     return default
 
 def github_get_file_metadata(filename):
@@ -78,12 +92,20 @@ def github_get_file_metadata(filename):
     return None
 
 def github_push_file(filename, content_str, message=None):
+    """
+    Push a file to GitHub. Returns (ok: bool, resp).
+    If GITHUB_TOKEN missing returns (False, "GITHUB_TOKEN missing")
+    """
     if not GITHUB_TOKEN:
         return False, "GITHUB_TOKEN missing"
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
     headers = gh_headers()
-    r_get = requests.get(url, headers=headers, timeout=20)
-    sha = r_get.json().get("sha") if r_get.status_code == 200 else None
+    try:
+        r_get = requests.get(url, headers=headers, timeout=20)
+        sha = r_get.json().get("sha") if r_get.status_code == 200 else None
+    except Exception:
+        sha = None
+
     payload = {
         "message": message or f"Update {filename} at {datetime.utcnow().isoformat()}",
         "content": base64.b64encode(content_str.encode()).decode(),
@@ -105,15 +127,11 @@ def load_admin():
     fall back to a local admin.json file if it exists. Returns dict or None.
     """
     try:
-        if GITHUB_TOKEN:
-            data = github_get_file('admin.json', None)
-            if isinstance(data, dict):
-                return data
-        # fallback to local file
-        admin_json_path = 'admin.json'
-        if os.path.exists(admin_json_path):
-            with open(admin_json_path, 'r') as f:
-                return json.load(f)
+        # attempt GitHub first (works even without token but may be rate-limited)
+        data = github_get_file('admin.json', None)
+        if isinstance(data, dict):
+            return data
+        # local fallback handled in github_get_file if present
     except Exception:
         log.exception("load_admin failed")
     return None
@@ -132,7 +150,7 @@ def save_admin(admin_obj):
             log.error("github_push_file for admin.json failed: %s", resp)
         # fallback: write to local file
         admin_json_path = 'admin.json'
-        with open(admin_json_path, 'w') as f:
+        with open(admin_json_path, 'w', encoding='utf-8') as f:
             f.write(content)
         return True, "written-local"
     except Exception as e:
@@ -141,11 +159,30 @@ def save_admin(admin_obj):
 
 # ---------------- Data Helpers ----------------
 def load_users():
-    data = github_get_file(USERS_FILE, [])
-    return data if isinstance(data, list) else []
+    # prefer GitHub content but fall back to local file
+    default = []
+    data = github_get_file(USERS_FILE, default)
+    return data if isinstance(data, list) else default
 
 def save_users(users_list):
-    return github_push_file(USERS_FILE, json.dumps(users_list, indent=2), "Update users")
+    """
+    Persist users.json. Try GitHub push if token exists; otherwise write local file.
+    Returns (ok, resp)
+    """
+    try:
+        content = json.dumps(users_list, indent=2)
+        if GITHUB_TOKEN:
+            ok, resp = github_push_file(USERS_FILE, content, "Update users")
+            if ok:
+                return True, resp
+            log.error("github_push_file for users.json failed: %s", resp)
+        # fallback to local write
+        with open(USERS_FILE, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return True, "written-local"
+    except Exception as e:
+        log.exception("save_users exception")
+        return False, str(e)
 
 def load_apk():
     default = {"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None}
@@ -157,7 +194,24 @@ def load_apk():
     return data
 
 def save_apk(apk_obj):
-    return github_push_file(APK_FILE, json.dumps(apk_obj, indent=2), "Update APK data")
+    """
+    Persist apk.json. Try GitHub push if token exists; otherwise write local file.
+    Returns (ok, resp)
+    """
+    try:
+        content = json.dumps(apk_obj, indent=2)
+        if GITHUB_TOKEN:
+            ok, resp = github_push_file(APK_FILE, content, "Update APK data")
+            if ok:
+                return True, resp
+            log.error("github_push_file for apk.json failed: %s", resp)
+        # fallback to local write
+        with open(APK_FILE, 'w', encoding='utf-8') as f:
+            f.write(content)
+        return True, "written-local"
+    except Exception as e:
+        log.exception("save_apk exception")
+        return False, str(e)
 
 # ---------------- Public/Private Enforcement ----------------
 @app.before_request
@@ -197,11 +251,14 @@ def register():
     if not (name and email and password):
         return jsonify({"success": False, "message": "name, email, password required."}), 400
     users = load_users()
-    if any(u.get('email') == email for u in users if isinstance(u, dict)):
+    if any(isinstance(u, dict) and u.get('email') == email for u in users):
         return jsonify({"success": False, "message": "Email already registered."})
     users.append({"name": name, "email": email, "password": generate_password_hash(password), "enabled": True, "login_history": []})
     ok, resp = save_users(users)
-    return (jsonify({"success": True}) if ok else jsonify({"success": False, "message": resp}), 500)[not ok]
+    if ok:
+        return jsonify({"success": True})
+    log.error("Failed to save users on register: %s", resp)
+    return jsonify({"success": False, "message": "Failed to persist user data."}), 500
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -209,7 +266,7 @@ def login():
     email, password = data.get('email'), data.get('password')
     users = load_users()
     for u in users:
-        if u.get('email') == email:
+        if isinstance(u, dict) and u.get('email') == email:
             if not u.get('enabled', True):
                 return jsonify({"success": False, "message": "User is disabled."})
             if check_password_hash(u.get('password'), password):
@@ -226,7 +283,10 @@ def login():
                     "country": country,
                     "user_agent": user_agent
                 })
-                save_users(users)
+                # attempt to persist login history, but even if persistence fails we still allow login
+                ok, resp = save_users(users)
+                if not ok:
+                    log.error("Failed to persist login history for %s: %s", email, resp)
                 return jsonify({"success": True})
             return jsonify({"success": False, "message": "Incorrect password."})
     return jsonify({"success": False, "message": "Email not registered."})
@@ -257,12 +317,19 @@ def toggle_user():
     data = request.get_json() or {}
     email, enable = data.get('email'), data.get('enable', True)
     users = load_users()
+    found = False
     for u in users:
-        if u.get('email') == email:
+        if isinstance(u, dict) and u.get('email') == email:
             u['enabled'] = bool(enable)
-            save_users(users)
-            return jsonify({"success": True})
-    return jsonify({"success": False, "message": "User not found."}), 404
+            found = True
+            break
+    if not found:
+        return jsonify({"success": False, "message": "User not found."}), 404
+    ok, resp = save_users(users)
+    if not ok:
+        log.error("toggle_user: failed to save users: %s", resp)
+        return jsonify({"success": False, "message": "Failed to persist user changes."}), 500
+    return jsonify({"success": True})
 
 @app.route('/enable_all', methods=['POST'])
 def enable_all():
@@ -271,8 +338,12 @@ def enable_all():
         return admin_check
     users = load_users()
     for u in users:
-        u['enabled'] = True
-    save_users(users)
+        if isinstance(u, dict):
+            u['enabled'] = True
+    ok, resp = save_users(users)
+    if not ok:
+        log.error("enable_all: failed to save users: %s", resp)
+        return jsonify({"success": False, "message": "Failed to persist changes."}), 500
     return jsonify({"success": True})
 
 @app.route('/disable_all', methods=['POST'])
@@ -282,8 +353,12 @@ def disable_all():
         return admin_check
     users = load_users()
     for u in users:
-        u['enabled'] = False
-    save_users(users)
+        if isinstance(u, dict):
+            u['enabled'] = False
+    ok, resp = save_users(users)
+    if not ok:
+        log.error("disable_all: failed to save users: %s", resp)
+        return jsonify({"success": False, "message": "Failed to persist changes."}), 500
     return jsonify({"success": True})
 
 @app.route('/login_analytics')
@@ -304,15 +379,43 @@ def login_analytics():
 # ---------------- APK Endpoints (admin-only for uploads/deletes) ----------------
 @app.route('/download_apk')
 def download_apk():
+    """
+    Robust download endpoint:
+      - Try serve local file in apks/ first (if filename set in apk.json and file exists).
+      - Otherwise attempt to stream the download_url (GitHub raw or other).
+      - Returns JSON 404 if neither available.
+    """
     apk_data = load_apk()
-    if not apk_data.get("download_url"):
-        return jsonify({"success": False, "message": "No APK available."}), 404
-    r = requests.get(apk_data["download_url"], stream=True, timeout=30)
-    if r.status_code != 200:
-        return jsonify({"success": False, "message": "Failed to fetch APK"}), 500
-    filename = apk_data.get("filename") or "app-latest.apk"
-    return Response(r.iter_content(8192), content_type="application/vnd.android.package-archive",
-                    headers={"Content-Disposition": f"attachment; filename={filename}"})
+
+    # 1) Try local file first (fast, offline-safe)
+    filename = apk_data.get("filename")
+    if filename:
+        local_path = os.path.join(APK_FOLDER, filename)
+        if os.path.exists(local_path):
+            # serve local file
+            try:
+                return send_from_directory(APK_FOLDER, filename, as_attachment=True,
+                                           mimetype="application/vnd.android.package-archive")
+            except Exception:
+                log.exception("Failed to send local APK file %s", local_path)
+
+    # 2) Fallback: stream from download_url (existing behaviour)
+    download_url = apk_data.get("download_url") or ""
+    if download_url:
+        try:
+            r = requests.get(download_url, stream=True, timeout=30)
+            if r.status_code == 200:
+                out_filename = filename or "app-latest.apk"
+                return Response(r.iter_content(8192),
+                                content_type="application/vnd.android.package-archive",
+                                headers={"Content-Disposition": f"attachment; filename={out_filename}"})
+            else:
+                log.warning("download_apk: remote returned status %s for %s", r.status_code, download_url)
+        except Exception:
+            log.exception("download_apk: exception when streaming remote url")
+
+    # 3) Nothing available
+    return jsonify({"success": False, "message": "No APK available or remote fetch failed."}), 404
 
 @app.route('/upload_apk', methods=['POST'])
 def upload_apk():
@@ -321,21 +424,63 @@ def upload_apk():
         return admin_check
     if 'apk' not in request.files or 'version' not in request.form:
         return jsonify({"success": False, "message": "APK file and version required."}), 400
+
     file = request.files['apk']
     version = request.form['version'].strip()
     filename = secure_filename(f"app-v{version}.apk")
     apk_bytes = file.read()
+
+    # 1) Save locally always (safe fallback)
+    local_path = os.path.join(APK_FOLDER, filename)
+    try:
+        with open(local_path, 'wb') as f:
+            f.write(apk_bytes)
+    except Exception as e:
+        log.exception("Failed to save local APK %s", local_path)
+        return jsonify({"success": False, "message": f"Failed to save local APK: {e}"}), 500
+
+    # 2) Try upload to GitHub if token present
     api_path = f"{APK_FOLDER}/{filename}"
-    if not GITHUB_TOKEN:
-        return jsonify({"success": False, "message": "Server missing GITHUB_TOKEN"}), 500
-    url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{api_path}"
-    data = {"message": f"Upload {filename}", "content": base64.b64encode(apk_bytes).decode(), "branch": BRANCH}
-    r = requests.put(url, headers=gh_headers(), json=data, timeout=120)
-    if r.status_code not in [200, 201]:
-        return jsonify({"success": False, "message": f"GitHub upload failed {r.status_code}"}), 500
-    sha = r.json().get("content", {}).get("sha") or (github_get_file_metadata(api_path) or {}).get("sha")
-    download_url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{BRANCH}/{APK_FOLDER}/{filename}"
-    save_apk({"version": version, "changelog": f"Uploaded v{version}", "download_url": download_url, "filename": filename, "sha": sha})
+    download_url = ""
+    sha = None
+    github_ok = False
+    if GITHUB_TOKEN:
+        url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{api_path}"
+        data = {"message": f"Upload {filename}", "content": base64.b64encode(apk_bytes).decode(), "branch": BRANCH}
+        try:
+            r = requests.put(url, headers=gh_headers(), json=data, timeout=120)
+            if r.status_code in [200, 201]:
+                sha = r.json().get("content", {}).get("sha")
+                download_url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{BRANCH}/{APK_FOLDER}/{filename}"
+                github_ok = True
+            else:
+                log.warning("GitHub upload returned %s: %s", r.status_code, r.text[:400])
+        except Exception:
+            log.exception("GitHub upload exception for %s", api_path)
+
+    # 3) If GitHub not used or upload failed, expose local download endpoint as download_url
+    if not github_ok:
+        # Provide a server-local download URL so clients can fetch the file
+        try:
+            download_url = url_for('download_apk', _external=True)
+        except Exception:
+            # If url_for fails (shouldn't in request context), leave download_url blank
+            download_url = ""
+
+    apk_obj = {
+        "version": version,
+        "changelog": f"Uploaded v{version}",
+        "download_url": download_url,
+        "filename": filename,
+        "sha": sha
+    }
+
+    ok, resp = save_apk(apk_obj)
+    if not ok:
+        log.error("save_apk failed: %s", resp)
+        # still return success (local file is saved) but inform admin and return url if available
+        return jsonify({"success": True, "url": download_url, "message": "APK saved locally but metadata push failed."})
+
     return jsonify({"success": True, "url": download_url})
 
 @app.route('/delete_apk', methods=['POST'])
@@ -343,7 +488,10 @@ def delete_apk():
     admin_check = require_simple_admin_json()
     if admin_check:
         return admin_check
-    save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
+    ok, resp = save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
+    if not ok:
+        log.error("delete_apk: failed to persist apk reset: %s", resp)
+        return jsonify({"success": False, "message": "Failed to persist APK metadata."}), 500
     return jsonify({"success": True})
 
 @app.route('/delete_apk_force', methods=['POST'])
@@ -364,14 +512,17 @@ def delete_apk_force():
     r = requests.delete(url, headers=gh_headers(), json={"message": f"Delete {filename}", "sha": sha, "branch": BRANCH}, timeout=30)
     if r.status_code not in [200, 204]:
         return jsonify({"success": False, "message": "GitHub delete failed."}), 500
-    save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
+    ok, resp = save_apk({"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None})
+    if not ok:
+        log.error("delete_apk_force: failed to persist apk reset: %s", resp)
+        return jsonify({"success": False, "message": "Failed to persist APK metadata."}), 500
     return jsonify({"success": True})
 
 @app.route('/check_update')
 def check_update():
     apk_data = load_apk()
     return jsonify({
-        "update_required": bool(apk_data.get("download_url")),
+        "update_required": bool(apk_data.get("download_url")) or bool(apk_data.get("filename")),
         "apk_version": apk_data.get("version"),
         "url": apk_data.get("download_url")
     })
@@ -386,7 +537,10 @@ def update_apk():
     if admin_check:
         return admin_check
     data = request.get_json() or {}
-    save_apk(data)
+    ok, resp = save_apk(data)
+    if not ok:
+        log.error("update_apk: failed to persist apk: %s", resp)
+        return jsonify({"success": False, "message": "Failed to persist APK metadata."}), 500
     return jsonify({"success": True})
 
 # ---------------- Admin Pages ----------------
@@ -497,7 +651,6 @@ def simplemind_login():
         return "Server error saving admin", 500
 
     # Also persist admin.json as a direct admin record so it's always available
-    # 3) no admin found anywhere -> first-time setup: create admin.json only (do NOT touch users.json)
     admin_record = {"email_hash": hash_email(email), "password": generate_password_hash(password)}
     ok2, resp2 = save_admin(admin_record)
     if not ok2:
@@ -558,22 +711,27 @@ def admin_delete_user():
     if len(new_users) == len(users):
         return jsonify({"success": False, "message": "User not found"}), 404
     ok, resp = save_users(new_users)
-    return (jsonify({"success": True}) if ok else jsonify({"success": False, "message": resp}), 500)[not ok]
+    if not ok:
+        log.error("admin_delete_user: failed to persist users: %s", resp)
+        return jsonify({"success": False, "message": "Failed to persist deletion."}), 500
+    return jsonify({"success": True})
 
 @app.route('/appstore')
 @app.route('/appstore.html')
 def appstore():
     apk_data = load_apk()
     apps = []
-    if apk_data.get("download_url"):
+    if apk_data.get("download_url") or apk_data.get("filename"):
         # map filename into friendly app name
         fname = apk_data.get("filename", "app-latest.apk")
         # for now hardcode Tomorrow Entertainment as first app
         app_name = "Tomorrow Entertainment"
+        # use download_url if present (GitHub raw link), otherwise use local download endpoint
+        url = apk_data.get("download_url") or url_for('download_apk', _external=True)
         apps.append({
             "name": app_name,
             "version": apk_data.get("version") or "N/A",
-            "url": apk_data.get("download_url"),
+            "url": url,
             "filename": fname
         })
 
@@ -647,15 +805,16 @@ def appstore():
     """
     return Response(html, mimetype="text/html")
 
-
 # NEW direct link route
 @app.route('/x.apk')
 def direct_apk_download():
     apk_data = load_apk()
+    # redirect to raw GitHub link if available, otherwise to local download
     if apk_data.get("download_url"):
         return redirect(apk_data["download_url"])
+    if apk_data.get("filename"):
+        return redirect(url_for('download_apk'))
     return "No APK found", 404
-
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
