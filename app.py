@@ -220,7 +220,7 @@ def require_login():
     public_endpoints = {
         'login', 'register', 'index', 'get_users',
         'check_update', 'download_apk', 'get_apk',
-        # admin login page, its POST handler, and admin-dashboard MUST be allowed so their logic runs
+        # admin login page and its POST handler must be allowed so their logic runs
         'admin_login_page', 'simplemind_login', 'admin_dashboard'
     }
 
@@ -230,6 +230,11 @@ def require_login():
     if ep in public_endpoints:
         return
 
+    # allow if admin session flag is present (so admin-dashboard JS can call admin endpoints)
+    # admin session is created by /simplemind_login and stored as session['simple_admin']
+    if session.get('simple_admin'):
+        return
+
     # For API-ish calls (prefixes) return JSON auth error
     if 'user_email' not in session:
         if request.path.startswith('/api') or request.is_json or request.path.startswith('/get_') or request.path.startswith('/login_analytics'):
@@ -237,6 +242,7 @@ def require_login():
 
         # for non-public pages requested without session, return 404 (do not redirect to index)
         return Response("Not found", status=404)
+
 
 # ---------------- Pages ----------------
 @app.route('/')
