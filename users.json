@@ -3,7 +3,7 @@
     "name": "jean",
     "email": "jeangift128@gmail.com",
     "password": "scrypt:32768:8:1$GziKQslAEYQrm7ts$5e97c962babe97c2606529c1808d422de2d9c0e322a95a208e51c7d23daeaee206708f2cdf4bd059cd01ea522eafe67e80652a8615482a38a5a34706517f8592",
-    "enabled": false,
+    "enabled": true,
     "login_history": [
       {
         "timestamp": "2025-10-02T09:39:19.187768",
@@ -365,7 +365,7 @@
     "name": "David Masibai",
     "email": "davidmasibai@gmail.com",
     "password": "scrypt:32768:8:1$1f0TWBE9hq4MUKNH$05bb3b5955ce2929404b585e15a1e323621a56187d38ae4f49b5fa3283d399ba0dc1e947bc3b9c259ce995fa06aaa765cc035665f2bfa1ba2d58a51c9375d816",
-    "enabled": false,
+    "enabled": true,
     "login_history": [
       {
         "timestamp": "2025-10-02T15:25:19.592292",
@@ -451,7 +451,7 @@
     "name": "Karen Rop",
     "email": "karenkerry226@gmail.com",
     "password": "scrypt:32768:8:1$itWhBimv8mUAT5jx$a08ace0af1fce1f1258960f4e4c62d87d477eb054f36730d66ed8e695b5313ec218ca19a769308aa4153a9ad5a31d8413f1024c151f07e7b6703fd655292e278",
-    "enabled": false,
+    "enabled": true,
     "login_history": [
       {
         "timestamp": "2025-10-02T20:57:41.146554",
@@ -477,7 +477,7 @@
     "name": "Felix Omondi",
     "email": "felixogweny@gmail.com",
     "password": "scrypt:32768:8:1$sLehh3Fc0adzVTdn$b927468fcae39cc03c1a151b3871c78e43c79c2f1432e36a7b916525b148ebfcf5e7727165829aa2cd66a5c971648abbd8c87721e87240331789692e89ee51dd",
-    "enabled": false,
+    "enabled": true,
     "login_history": [
       {
         "timestamp": "2025-10-10T10:54:27.876548",
