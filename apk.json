@@ -1,7 +1,7 @@
 {
-  "version": null,
-  "changelog": "",
-  "download_url": "",
-  "filename": null,
-  "sha": null
+  "version": "1.0.1",
+  "changelog": "Uploaded v1.0.1",
+  "download_url": "https://raw.githubusercontent.com/JeanPromise/UpdateServer/main/apks/app-v1.0.1.apk",
+  "filename": "app-v1.0.1.apk",
+  "sha": "f0bfde52f8ee16bf1523bfe93c30a00f1d54b468"
 }
