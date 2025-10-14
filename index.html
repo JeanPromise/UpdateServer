@@ -1,292 +1,311 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Login & Registration — UI Revamp</title>
+<title>Login · Final UI</title>
 <style>
-  * { box-sizing: border-box; margin:0; padding:0; }
+  /* ===========================
+     Final UI — single-file
+     =========================== */
   :root{
-    --bg-dark-1:#060607;
-    --bg-dark-2:#0f1012;
+    --bg-1:#040507;
+    --bg-2:#0b0d10;
     --glass-border: rgba(255,255,255,0.04);
-    --accent-yellow-start: #fff7d1;
-    --accent-yellow-end:   #fff1a3;
-    --accent-teal: #6ae3d7;
-    --thin-red: #cc2b2b; /* the thin red outline you asked for */
+    --accent-yellow-start:#fff8d6;
+    --accent-yellow-end:  #fff2a0;
+    --accent-teal:#6ae3d7;
+    --thin-red:#cc2b2b;
+    --muted:#bdbdbd;
+    --max-width:440px;
   }
-
-  html,body { height:100%; }
-  body {
-    font-family: Inter, "Helvetica Neue", Arial, sans-serif;
-    background: radial-gradient(circle at 20% 10%, #091018 0%, #050507 40%, #020203 100%);
-    color: #fff;
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    background:
+      radial-gradient(60% 40% at 10% 10%, rgba(13,20,28,0.7) 0%, transparent 30%),
+      linear-gradient(180deg,var(--bg-1) 0%, var(--bg-2) 100%);
+    color:#fff;
     display:flex;
     align-items:center;
     justify-content:center;
+    min-height:100vh;
     overflow:hidden;
-    height:100vh;
     -webkit-font-smoothing:antialiased;
     -moz-osx-font-smoothing:grayscale;
-    position:relative;
   }
 
-  /* --- Rising colorful stars (background) --- */
-  .star {
-    position: absolute;
-    border-radius: 50%;
-    will-change: transform, opacity;
-    opacity: 0;
-    filter: drop-shadow(0 0 6px rgba(255,255,255,0.15));
-    pointer-events: none;
-  }
+  /* -----------------------
+     Rising colorful stars
+     ----------------------- */
+  .star{ position:absolute; border-radius:50%; filter: drop-shadow(0 0 6px rgba(255,255,255,0.08)); pointer-events:none; opacity:0 }
   @keyframes rise {
-    0% { transform: translateY(110vh) scale(0.6); opacity:0; }
-    10% { opacity:1; }
-    85% { opacity:0.95; }
-    100% { transform: translateY(-25vh) scale(1.1); opacity:0; }
+    0% { transform: translateY(110vh) scale(.6); opacity:0; }
+    8% { opacity:1; }
+    82% { opacity:0.9; }
+    100% { transform: translateY(-30vh) scale(1.05); opacity:0; }
   }
 
-  /* --- Center container (glass) --- */
+  /* -----------------------
+     Container (glass card)
+     ----------------------- */
   .container {
-    width: min(92%, 420px);
-    padding: 34px 28px;
+    width: min(94%, var(--max-width));
+    padding: 28px;
     border-radius: 18px;
     background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
     border: 1px solid var(--glass-border);
-    box-shadow: 0 8px 30px rgba(3,10,18,0.7), 0 1px 0 rgba(255,255,255,0.02) inset;
-    backdrop-filter: blur(6px) saturate(120%);
-    position: relative;
-    z-index: 6;
-    transition: transform .45s ease;
-    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px) saturate(120%);
+    position:relative;
+    z-index:6;
+    transform: translateY(8px);
+    animation: entrance .6s cubic-bezier(.2,.9,.2,1);
+    overflow:hidden;
   }
+  @keyframes entrance { from {opacity:0; transform: translateY(22px) scale(.995)} to {opacity:1; transform: translateY(0) scale(1)} }
 
-  h2 {
-    text-align:center;
-    margin-bottom:16px;
-    font-size:26px;
-    letter-spacing:0.2px;
-    color: #fff9d9;
-    text-shadow: 0 6px 18px rgba(255,241,150,0.08);
+  /* tiny logo / badge */
+  .brand {
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:8px;
   }
+  .logo {
+    width:48px; height:48px; border-radius:10px;
+    background: linear-gradient(135deg,var(--accent-teal), #7daeff);
+    display:grid; place-items:center;
+    box-shadow: 0 6px 18px rgba(106,227,215,0.12), 0 1px 0 rgba(255,255,255,0.02) inset;
+    transform-origin:center;
+    transition: transform .18s ease;
+  }
+  .logo:active{transform:scale(.96)}
+  .logo-mark { font-weight:800; color:#052225; font-size:18px; letter-spacing:.6px; }
 
-  form { display:flex; flex-direction:column; gap:12px; }
+  .brand h1 { font-size:18px; color:#fff9d9; letter-spacing:.2px; }
+  .brand p { font-size:12px; color:var(--muted); margin-top:2px }
 
-  label { font-size:12px; color: #e6e6e6; margin-bottom:6px; }
+  h2 { text-align:center; font-size:22px; color:#fff9d9; margin:6px 0 16px; }
 
-  /* --- Inputs: white interior, thin red enclosing --- */
+  form{ display:flex; flex-direction:column; gap:12px; }
+
+  label{ font-size:12px; color:var(--muted); margin-bottom:6px; display:block }
+
+  /* Inputs: white interior with thin red outline */
   input[type="text"],
   input[type="email"],
-  input[type="password"] {
-    background: #ffffff;
+  input[type="password"]{
+    background:#ffffff;
     color:#0b0b0b;
     padding:12px 14px;
     border-radius:10px;
     font-size:15px;
     border: 1px solid var(--thin-red);
-    outline: none;
-    transition: box-shadow .18s ease, transform .12s ease;
+    transition: box-shadow .16s ease, transform .12s ease;
     box-shadow: 0 1px 0 rgba(0,0,0,0.06);
   }
-  input::placeholder { color:#6f6f6f; }
-  input:focus {
+  input::placeholder{ color:#8b8b8b }
+  input:focus{
+    outline:none;
+    border-color:#ff7070;
+    box-shadow:0 8px 28px rgba(204,43,43,0.08);
     transform: translateY(-1px);
-    box-shadow: 0 6px 22px rgba(204,43,43,0.09), 0 1px 0 rgba(0,0,0,0.05) inset;
-    border-color: #ff5252;
   }
 
-  /* --- Login button: smooth light yellow, soft edges --- */
+  /* password row with toggle */
+  .password-row{ position:relative; display:flex; align-items:center; }
+  .toggle-eye{
+    position:absolute; right:10px; background:transparent; border:none; cursor:pointer;
+    height:36px; width:36px; display:grid; place-items:center; border-radius:8px;
+  }
+  .toggle-eye:active{ transform:scale(.97) }
+
+  /* strength bar */
+  .strength {
+    height:6px; border-radius:999px; background: rgba(0,0,0,0.06); overflow:hidden; margin-top:6px;
+  }
+  .strength > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg,#ff7a7a,#ffd86b); transition:width .28s ease }
+
+  /* Login button: light yellow, smooth edges */
   .btn {
     padding:12px 14px;
-    border-radius: 26px;
-    border: none;
-    font-weight:700;
+    border-radius:28px;
+    border:none;
+    font-weight:800;
     font-size:15px;
     cursor:pointer;
+    box-shadow: 0 10px 30px rgba(255,204,77,0.12);
     transition: transform .12s ease, box-shadow .18s ease;
-    box-shadow: 0 8px 30px rgba(255,220,96,0.12);
+    display:inline-flex; align-items:center; justify-content:center; gap:10px;
   }
-  .btn:active { transform: translateY(1px) scale(.998); }
-  .btn-login {
-    background: linear-gradient(180deg, var(--accent-yellow-start), var(--accent-yellow-end));
-    color: #1b1b1b;
-    box-shadow: 0 10px 30px rgba(255,204,77,0.18), 0 1px 0 rgba(255,255,255,0.06) inset;
-    border: 1px solid rgba(0,0,0,0.06);
+  .btn:active{ transform: translateY(1px) }
+  .btn-login{
+    background: linear-gradient(180deg,var(--accent-yellow-start), var(--accent-yellow-end));
+    color:#101010;
+    border:1px solid rgba(0,0,0,0.06);
   }
-  .btn-login:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 14px 40px rgba(255,204,77,0.18);
+  .btn-login:hover{ transform: translateY(-2px); box-shadow:0 16px 36px rgba(255,204,77,0.14) }
+
+  /* subtle ripple effect (JS) */
+  .ripple { position:relative; overflow:hidden; }
+
+  /* secondary button (register) */
+  .btn-register{
+    background:transparent;
+    color:#fff;
+    border:1px solid rgba(255,255,255,0.06);
+    padding:10px 12px; border-radius:12px; font-weight:700;
   }
 
-  .btn-register {
-    background: transparent;
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.06);
-    padding:10px 12px;
-    border-radius: 12px;
+  /* toggle row + like button */
+  .toggle-row{
+    margin-top:12px; display:flex; align-items:center; justify-content:center; gap:10px; color:var(--muted); font-size:14px;
+  }
+  .toggle {
+    cursor:pointer; padding:6px 8px; border-radius:8px; transition:all .12s ease;
+  }
+  .toggle:hover{ color:#fff; background: rgba(255,255,255,0.02) }
+
+  .like-wrap{ display:flex; align-items:center; gap:8px; }
+  .like-btn{
+    width:36px; height:36px; display:grid; place-items:center; border-radius:50%;
+    border:1px solid rgba(255,255,255,0.08); background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    cursor:pointer; transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .like-btn:active{ transform:scale(.95) }
+  .like-btn.liked{ background: linear-gradient(180deg,#ffe8c0,#ffd69a); border-color: rgba(0,0,0,0.06) }
+  .like-count{ font-size:13px; color:#ffeeb3; font-weight:700; background: rgba(0,0,0,0.14); padding:5px 8px; border-radius:999px }
+
+  /* version stamp */
+  .apk-version-stamp{
+    position:fixed; right:12px; bottom:10px; z-index:9; font-size:13px; color:#dfeeea;
+    background: rgba(0,0,0,0.45); padding:6px 8px; border-radius:8px; border:1px solid rgba(255,255,255,0.02);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.45);
   }
 
-  /* --- Toggle row with like button --- */
-  .toggle-row {
-    margin-top:14px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    gap:10px;
-    color:#d7d7d7;
-    font-size:14px;
-    user-select:none;
-    z-index:10;
-  }
-
-  .toggle-row .toggle {
-    cursor:pointer;
-    padding:6px 8px;
-    border-radius:8px;
-    transition: color .12s ease, background .12s ease;
-  }
-  .toggle-row .toggle:hover { color:#fff; background: rgba(255,255,255,0.02); }
-
-  /* like button */
-  .like-wrap { display:flex; align-items:center; gap:8px; }
-  .like-btn {
-    width:34px; height:34px;
-    display:inline-grid; place-items:center;
-    border-radius:50%;
-    border:1px solid rgba(255,255,255,0.08);
-    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-    cursor:pointer;
-    transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
-  }
-  .like-btn:active { transform: scale(.95); }
-  .like-btn .heart {
-    width:16px; height:16px;
-    display:block;
-    transition: transform .18s ease;
-    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4));
-  }
-  .like-btn.liked { background: linear-gradient(180deg,#ffecb3,#ffd27a); border-color: rgba(0,0,0,0.06); }
-  .like-count { font-size:13px; color:#ffeeb3; font-weight:600; background: rgba(0,0,0,0.14); padding:4px 8px; border-radius:999px; }
-
-  /* --- small version stamp --- */
-  .apk-version-stamp {
-    position: fixed;
-    right: 12px;
-    bottom: 10px;
-    z-index:9;
-    font-size:13px;
-    color:#dfeeea;
-    background: rgba(0,0,0,0.45);
-    padding:6px 8px;
-    border-radius:8px;
-    border: 1px solid rgba(255,255,255,0.02);
-    box-shadow: 0 4px 18px rgba(0,0,0,0.5);
-  }
-
-  /* explode animation unchanged but quicker and subtle */
-  .explode { animation: explode 0.48s forwards; }
+  /* explode animation used on successful login */
+  .explode { animation: explode .48s forwards }
   @keyframes explode {
-    0% { transform: scale(1); opacity:1; }
-    100% { transform: scale(0.02) rotate(12deg); opacity:0; }
+    0% { transform:scale(1); opacity:1 }
+    100% { transform:scale(.02) rotate(12deg); opacity:0 }
   }
 
-  /* small responsive tweak */
-  @media (max-width:420px){
-    .container { padding:26px 18px; border-radius:14px; }
-    .btn-login { border-radius:20px; }
+  /* responsive tweaks */
+  @media (max-width:420px) {
+    .container{ padding:18px; border-radius:14px }
+    .logo { width:44px; height:44px }
   }
 </style>
 </head>
 <body>
+  <!-- stars appended by script -->
+  <div class="container" id="container" role="main" aria-labelledby="form-title">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><div class="logo-mark">JP</div></div>
+      <div>
+        <h1 style="margin:0">SaveSend UI</h1>
+        <p style="margin:0">Smooth login • low-data friendly</p>
+      </div>
+    </div>
 
-<!-- rising stars are appended by script -->
-<div class="container" id="container">
-  <h2 id="form-title">Login</h2>
+    <h2 id="form-title">Login</h2>
 
-  <form id="login-form" autocomplete="on">
-    <input type="email" name="email" placeholder="Email" required />
-    <input type="password" name="password" placeholder="Password" required />
-    <button class="btn btn-login" type="submit">Login</button>
-  </form>
+    <form id="login-form" autocomplete="on" novalidate>
+      <div>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" placeholder="you@example.com" required aria-required="true" />
+      </div>
 
-  <form id="register-form" style="display:none; margin-top:8px;" autocomplete="on">
-    <input type="text" name="fullname" placeholder="Full Name" required />
-    <input type="email" name="reg-email" placeholder="Email" required />
-    <input type="password" name="reg-password" placeholder="Password" required />
-    <input type="password" name="reg-confirm" placeholder="Confirm Password" required />
-    <button class="btn btn-register" type="submit">Register</button>
-  </form>
+      <div>
+        <label for="password">Password</label>
+        <div class="password-row">
+          <input id="password" name="password" type="password" placeholder="Enter password" required aria-required="true" style="width:100%" />
+          <button type="button" class="toggle-eye" id="pw-toggle" aria-label="Toggle password visibility" title="Show / hide password">
+            <!-- eye icon -->
+            <svg id="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <svg id="eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.7 21.7 0 0 1 3.64-4.71"></path>
+              <path d="M1 1l22 22"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="strength" aria-hidden="true"><i id="strength-bar"></i></div>
+      </div>
 
-  <div class="toggle-row" id="toggle-row">
-    <div class="toggle" id="toggle-form">Don't have an account? Register</div>
+      <button class="btn btn-login ripple" type="submit" aria-label="Login">Login</button>
+    </form>
 
-    <!-- Like button beside the toggle text (small & sensible) -->
-    <div class="like-wrap" title="Like this app">
-      <button class="like-btn" id="like-btn" aria-label="Like">
-        <!-- simple heart SVG (stroke-only, fills when liked) -->
-        <svg class="heart" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
-          <path id="heart-path" d="M20.8 7.6c0-2.4-2-4.4-4.4-4.4-1.4 0-2.7.7-3.4 1.8-.7-1.1-2-1.8-3.4-1.8C5.4 3.2 3.4 5.2 3.4 7.6 3.4 13 12 18 12 18s8.6-5 8.8-10.4z" />
-        </svg>
-      </button>
-      <div id="like-count" class="like-count" aria-live="polite">0</div>
+    <form id="register-form" style="display:none; margin-top:10px" autocomplete="on" novalidate>
+      <div><label for="fullname">Full Name</label><input id="fullname" name="fullname" type="text" placeholder="Your full name" /></div>
+      <div><label for="reg-email">Email</label><input id="reg-email" name="reg-email" type="email" placeholder="you@example.com" /></div>
+      <div><label for="reg-password">Password</label><input id="reg-password" name="reg-password" type="password" placeholder="Create a password" /></div>
+      <div><label for="reg-confirm">Confirm Password</label><input id="reg-confirm" name="reg-confirm" type="password" placeholder="Confirm password" /></div>
+      <button class="btn btn-register" type="submit">Register</button>
+    </form>
+
+    <div class="toggle-row" id="toggle-row" aria-hidden="false">
+      <div class="toggle" id="toggle-form">Don't have an account? Register</div>
+
+      <div class="like-wrap" title="Like this app" aria-label="Like widget">
+        <button class="like-btn" id="like-btn" aria-pressed="false" aria-label="Like">
+          <svg class="heart" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
+            <path id="heart-path" d="M20.8 7.6c0-2.4-2-4.4-4.4-4.4-1.4 0-2.7.7-3.4 1.8-.7-1.1-2-1.8-3.4-1.8C5.4 3.2 3.4 5.2 3.4 7.6 3.4 13 12 18 12 18s8.6-5 8.8-10.4z"/>
+          </svg>
+        </button>
+        <div id="like-count" class="like-count" aria-live="polite">0</div>
+      </div>
     </div>
   </div>
-</div>
 
-<div class="apk-version-stamp" id="apk-version-stamp">App version: 0.0.0</div>
+  <div class="apk-version-stamp" id="apk-version-stamp">App version: 0.0.0</div>
 
 <script>
-/* -----------------------------
-   Rising stars generator
-   - many small colorful 'stars' rising from bottom to top
-   - randomized sizes, durations, delays, and HSL colors
-   ----------------------------- */
-(function createRisingStars() {
-  const n = 120; // number of stars
+/* ========================
+   Generate colorful rising stars
+   ======================== */
+(function createStars(){
+  const total = 140; // dense but pretty
   const body = document.body;
-  for (let i = 0; i < n; i++) {
+  for(let i=0;i<total;i++){
     const s = document.createElement('div');
     s.className = 'star';
-    const size = (Math.random() * 3.6) + 1; // px
+    const size = Math.random()*3.5 + 0.9;
     s.style.width = size + 'px';
     s.style.height = size + 'px';
-    // random left position across viewport
-    s.style.left = (Math.random() * 100) + 'vw';
-    // vertical starting offset will be handled by animation translateY(110vh)
-    // random vivid color using hsl
-    const hue = Math.floor(Math.random() * 360);
-    const sat = 70 + Math.floor(Math.random() * 18);
-    const light = 55 + Math.floor(Math.random() * 10);
+    s.style.left = (Math.random()*100) + 'vw';
+    const hue = Math.floor(Math.random()*360);
+    const sat = 70 + Math.floor(Math.random()*18);
+    const light = 60 + Math.floor(Math.random()*6);
     s.style.background = `hsl(${hue} ${sat}% ${light}%)`;
-    s.style.boxShadow = `0 0 ${Math.max(6, size*3)}px hsla(${hue}, ${sat}%, ${light}%, .85)`;
-    // random duration & delay
-    const dur = (6 + Math.random() * 10).toFixed(2) + 's';
-    const delay = (-Math.random() * 18).toFixed(2) + 's'; // negative to stagger
+    s.style.boxShadow = `0 0 ${Math.max(6, size*3)}px hsla(${hue}, ${sat}%, ${light}%, .9)`;
+    const dur = (6 + Math.random()*12).toFixed(2) + 's';
+    const delay = (-Math.random()*18).toFixed(2) + 's';
     s.style.animation = `rise ${dur} linear ${delay} infinite`;
-    // subtle horizontal drift using transform translateX via CSS variable (applied via style)
-    s.style.transformOrigin = 'center';
     body.appendChild(s);
   }
 })();
 
-/* -----------------------------
-   Toggle forms (login/register)
-   ----------------------------- */
+/* ========================
+   Toggle login/register
+   ======================== */
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
 
-toggleForm.addEventListener('click', () => {
-  const showingLogin = loginForm.style.display !== 'none';
-  if (showingLogin) {
+toggleForm.addEventListener('click', ()=>{
+  const isLoginVisible = loginForm.style.display !== 'none';
+  if(isLoginVisible){
     loginForm.style.display = 'none';
-    registerForm.style.display = 'flex';
+    registerForm.style.display = 'block';
     formTitle.textContent = 'Register';
     toggleForm.textContent = 'Already have an account? Login';
-    // small focus to first field
     registerForm.querySelector('input')?.focus();
   } else {
     loginForm.style.display = 'flex';
@@ -297,48 +316,38 @@ toggleForm.addEventListener('click', () => {
   }
 });
 
-/* -----------------------------
-   Like button behavior (small & persistent)
-   - toggles heart fill & increments counter in localStorage
-   ----------------------------- */
+/* ========================
+   Like button (persisted)
+   ======================== */
 const likeBtn = document.getElementById('like-btn');
 const likeCountEl = document.getElementById('like-count');
-const LIKE_KEY = 'ui_like_count_v1';
-const LIKED_KEY = 'ui_liked_v1';
-
-// initialize
+const LIKE_KEY = 'final_ui_like_v1';
+const LIKED_KEY = 'final_ui_liked_v1';
 let likeCount = parseInt(localStorage.getItem(LIKE_KEY) || '0', 10);
 let liked = localStorage.getItem(LIKED_KEY) === '1';
 likeCountEl.textContent = String(likeCount);
-updateLikeVisual();
+updateLike();
 
-likeBtn.addEventListener('click', () => {
-  if (liked) {
-    // unlike
-    liked = false;
-    likeCount = Math.max(0, likeCount - 1);
-  } else {
-    liked = true;
-    likeCount = likeCount + 1;
-  }
+likeBtn.addEventListener('click', ()=>{
+  liked = !liked;
+  if(liked) likeCount++;
+  else likeCount = Math.max(0, likeCount-1);
   localStorage.setItem(LIKE_KEY, String(likeCount));
   localStorage.setItem(LIKED_KEY, liked ? '1' : '0');
   likeCountEl.textContent = String(likeCount);
-  updateLikeVisual();
+  updateLike();
 });
 
-function updateLikeVisual(){
+function updateLike(){
   likeBtn.classList.toggle('liked', liked);
+  likeBtn.setAttribute('aria-pressed', liked ? 'true' : 'false');
   const svg = likeBtn.querySelector('.heart');
-  if(!svg) return;
   const path = svg.querySelector('#heart-path');
-  if (liked) {
-    // filled heart: replace stroke with red fill
+  if(liked){
     path.setAttribute('fill', '#ff6b81');
     svg.setAttribute('stroke', 'none');
-    // subtle scale for feedback
-    svg.style.transform = 'scale(1.05)';
-    setTimeout(()=> svg.style.transform = 'scale(1)', 140);
+    svg.style.transform = 'scale(1.08)';
+    setTimeout(()=> svg.style.transform = 'scale(1)', 160);
   } else {
     path.setAttribute('fill', 'none');
     svg.setAttribute('stroke', '#fff');
@@ -346,21 +355,85 @@ function updateLikeVisual(){
   }
 }
 
-/* -----------------------------
-   APK version + update logic (left intact; proceed button removed netflix red)
-   - small changes: proceedBtn uses neutral accent color
-   ----------------------------- */
-let currentUserApkVersion = localStorage.getItem('installedApkVersion') || '0.0.0';
-const versionStamp = document.getElementById('apk-version-stamp');
-versionStamp.textContent = 'App version: ' + currentUserApkVersion;
+/* ========================
+   Password toggle + strength meter
+   ======================== */
+const pw = document.getElementById('password');
+const pwToggle = document.getElementById('pw-toggle');
+const eyeOpen = document.getElementById('eye-open');
+const eyeClosed = document.getElementById('eye-closed');
+const strengthBar = document.getElementById('strength-bar');
 
-function isVersionNewer(serverVer, localVer) {
-  const sv = (serverVer||'').split('.').map(Number);
-  const lv = (localVer||'').split('.').map(Number);
-  for (let i = 0; i < Math.max(sv.length, lv.length); i++) {
-    const s = sv[i] || 0, l = lv[i] || 0;
-    if (s > l) return true;
-    if (s < l) return false;
+pwToggle.addEventListener('click', ()=>{
+  if(pw.type === 'password'){
+    pw.type = 'text';
+    eyeOpen.style.display = 'none';
+    eyeClosed.style.display = 'block';
+  } else {
+    pw.type = 'password';
+    eyeOpen.style.display = 'block';
+    eyeClosed.style.display = 'none';
+  }
+  pw.focus();
+});
+
+function passwordStrengthScore(s){
+  let score = 0;
+  if(!s) return 0;
+  if(s.length >= 8) score++;
+  if(/[A-Z]/.test(s)) score++;
+  if(/[0-9]/.test(s)) score++;
+  if(/[^A-Za-z0-9]/.test(s)) score++;
+  return score; // 0..4
+}
+pw.addEventListener('input', ()=>{
+  const sc = passwordStrengthScore(pw.value);
+  const pct = (sc/4)*100;
+  strengthBar.style.width = pct + '%';
+});
+
+/* ========================
+   Button ripple (login)
+   ======================== */
+document.querySelectorAll('.ripple').forEach(btn=>{
+  btn.addEventListener('click', function(e){
+    const rect = btn.getBoundingClientRect();
+    const ink = document.createElement('span');
+    const size = Math.max(rect.width, rect.height) * 1.6;
+    ink.style.position = 'absolute';
+    ink.style.left = (e.clientX - rect.left - size/2) + 'px';
+    ink.style.top = (e.clientY - rect.top - size/2) + 'px';
+    ink.style.width = size + 'px';
+    ink.style.height = size + 'px';
+    ink.style.borderRadius = '50%';
+    ink.style.background = 'rgba(0,0,0,0.06)';
+    ink.style.transform = 'scale(0.1)';
+    ink.style.opacity = '0.9';
+    ink.style.transition = 'transform .6s cubic-bezier(.2,.9,.2,1), opacity .6s';
+    ink.style.pointerEvents = 'none';
+    btn.appendChild(ink);
+    requestAnimationFrame(()=>{
+      ink.style.transform = 'scale(1)';
+      ink.style.opacity = '0';
+    });
+    setTimeout(()=> ink.remove(), 700);
+  });
+});
+
+/* ========================
+   Login & register submit logic (client)
+   - kept simple; preserves original server calls pattern
+   ======================== */
+let currentUserApkVersion = localStorage.getItem('installedApkVersion') || '0.0.0';
+document.getElementById('apk-version-stamp').textContent = 'App version: ' + currentUserApkVersion;
+
+function isVersionNewer(sv, lv){
+  const a = (sv||'').split('.').map(Number);
+  const b = (lv||'').split('.').map(Number);
+  for(let i=0;i<Math.max(a.length,b.length);i++){
+    const aa = a[i]||0, bb = b[i]||0;
+    if(aa>bb) return true;
+    if(aa<bb) return false;
   }
   return false;
 }
@@ -368,182 +441,119 @@ function isVersionNewer(serverVer, localVer) {
 const COUNTDOWN_END_KEY = 'apk_countdown_end';
 const COUNTDOWN_VERSION_KEY = 'apk_pending_version';
 
-async function checkUpdate() {
-  try {
+async function checkUpdate(){
+  try{
     const res = await fetch('/check_update');
-    if (!res.ok) return;
+    if(!res.ok) return;
     const data = await res.json();
     const serverVer = data.apk_version;
-    if (!serverVer || !isVersionNewer(serverVer, currentUserApkVersion)) {
+    if(!serverVer || !isVersionNewer(serverVer, currentUserApkVersion)){
       resumeCountdownIfAny();
       return;
     }
-    if (!document.getElementById('apk-update-note')) {
+    if(!document.getElementById('apk-update-note')){
       const note = document.createElement('div');
       note.id = 'apk-update-note';
-      Object.assign(note.style, {
-        position: 'fixed', left: '12px', bottom: '80px',
-        background: 'rgba(0,0,0,0.7)', color: '#fff',
-        padding: '10px 12px', borderRadius: '8px', zIndex: 9999
-      });
-      note.innerHTML = `
-        <div style="margin-bottom:8px">New APK available: <b>${serverVer}</b></div>
-        <button id="startDownloadBtn" style="padding:8px 12px; border-radius:8px; cursor:pointer;">
-          Download APK
-        </button>
-      `;
+      Object.assign(note.style, { position:'fixed', left:'12px', bottom:'80px', background:'rgba(0,0,0,0.72)', color:'#fff', padding:'10px 12px', borderRadius:'8px', zIndex:9999 });
+      note.innerHTML = `<div style="margin-bottom:8px">New APK available: <b>${serverVer}</b></div><button id="startDownloadBtn" style="padding:8px 12px; border-radius:8px; cursor:pointer;">Download APK</button>`;
       document.body.appendChild(note);
-      document.getElementById('startDownloadBtn').addEventListener('click', () => {
-        startDownloadAndSilentCount(serverVer);
-      });
+      document.getElementById('startDownloadBtn').addEventListener('click', ()=> startDownloadAndSilentCount(serverVer));
     }
-  } catch (err) {
-    console.warn('checkUpdate error', err);
-    resumeCountdownIfAny();
-  }
+  }catch(err){ console.warn('checkUpdate error', err); resumeCountdownIfAny(); }
 }
-
-function startDownloadAndSilentCount(serverVer) {
-  const a = document.createElement('a');
-  a.href = '/download_apk';
-  a.download = 'app-latest.apk';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+function startDownloadAndSilentCount(serverVer){
+  const a = document.createElement('a'); a.href = '/download_apk'; a.download = 'app-latest.apk'; document.body.appendChild(a); a.click(); a.remove();
   const existingEnd = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
   const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
   const now = Date.now();
-  if (pendingVer === serverVer && existingEnd && existingEnd > now) {
-    startLocalTimer();
-    return;
-  }
-  const endTs = now + 55 * 1000;
+  if(pendingVer === serverVer && existingEnd && existingEnd > now){ startLocalTimer(); return; }
+  const endTs = now + 55*1000;
   localStorage.setItem(COUNTDOWN_END_KEY, String(endTs));
   localStorage.setItem(COUNTDOWN_VERSION_KEY, serverVer);
   startLocalTimer();
 }
-
 let _timerInterval = null;
-function startLocalTimer() {
-  if (_timerInterval) return;
-  _timerInterval = setInterval(() => {
+function startLocalTimer(){
+  if(_timerInterval) return;
+  _timerInterval = setInterval(()=>{
     const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
     const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
-    if (!end || !pendingVer) {
-      clearInterval(_timerInterval); _timerInterval = null; return;
-    }
+    if(!end || !pendingVer){ clearInterval(_timerInterval); _timerInterval = null; return; }
     const now = Date.now();
-    if (now >= end) {
+    if(now >= end){
       localStorage.setItem('installedApkVersion', pendingVer);
       currentUserApkVersion = pendingVer;
-      versionStamp.textContent = 'App version: ' + currentUserApkVersion;
-      localStorage.removeItem(COUNTDOWN_END_KEY);
-      localStorage.removeItem(COUNTDOWN_VERSION_KEY);
-      const note = document.getElementById('apk-update-note');
-      if (note) note.remove();
+      document.getElementById('apk-version-stamp').textContent = 'App version: ' + currentUserApkVersion;
+      localStorage.removeItem(COUNTDOWN_END_KEY); localStorage.removeItem(COUNTDOWN_VERSION_KEY);
+      const note = document.getElementById('apk-update-note'); if(note) note.remove();
       clearInterval(_timerInterval); _timerInterval = null;
     }
   }, 1000);
 }
-
-function resumeCountdownIfAny() {
+function resumeCountdownIfAny(){
   const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
   const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
-  if (end && pendingVer) {
-    if (Date.now() >= end) {
+  if(end && pendingVer){
+    if(Date.now() >= end){
       localStorage.setItem('installedApkVersion', pendingVer);
       currentUserApkVersion = pendingVer;
-      versionStamp.textContent = 'App version: ' + currentUserApkVersion;
-      localStorage.removeItem(COUNTDOWN_END_KEY);
-      localStorage.removeItem(COUNTDOWN_VERSION_KEY);
-      const note = document.getElementById('apk-update-note');
-      if (note) note.remove();
-    } else {
-      startLocalTimer();
-    }
+      document.getElementById('apk-version-stamp').textContent = 'App version: ' + currentUserApkVersion;
+      localStorage.removeItem(COUNTDOWN_END_KEY); localStorage.removeItem(COUNTDOWN_VERSION_KEY);
+      const note = document.getElementById('apk-update-note'); if(note) note.remove();
+    } else startLocalTimer();
   }
 }
 
-/* -----------------------------
-   Login & Register submission (simple client logic)
-   - keeps original base behavior but with small guardrails
-   ----------------------------- */
-loginForm.addEventListener('submit', async (e) => {
+/* Login handler */
+loginForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const email = loginForm.email.value.trim();
   const password = loginForm.password.value.trim();
-  if (!email || !password) return alert('Please fill both fields.');
-  try {
-    const res = await fetch('/login', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
-    });
+  if(!email || !password) return alert('Please fill both fields.');
+  try{
+    const res = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email,password,apk_version: currentUserApkVersion}) });
     const data = await res.json();
-    if (data.success) animateAndDisappear();
+    if(data.success) doSuccessAnimation();
     else alert(data.message || 'Login failed.');
-  } catch (err) {
-    console.error(err);
-    alert('Network error during login.');
-  }
+  }catch(err){ console.error(err); alert('Network error during login.'); }
 });
 
-registerForm.addEventListener('submit', async (e) => {
+/* Register handler */
+registerForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const name = registerForm.fullname.value.trim();
   const email = registerForm['reg-email'].value.trim();
   const password = registerForm['reg-password'].value.trim();
   const confirm = registerForm['reg-confirm'].value.trim();
-  if (password !== confirm) return alert('Passwords do not match!');
-  try {
-    const res = await fetch('/register', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({name,email,password})
-    });
+  if(password !== confirm) return alert('Passwords do not match!');
+  try{
+    const res = await fetch('/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name,email,password}) });
     const data = await res.json();
-    if (data.success) {
-      alert('Registration successful! Please log in.');
-      registerForm.style.display = 'none';
-      loginForm.style.display = 'flex';
-      formTitle.textContent = 'Login';
-      toggleForm.textContent = "Don't have an account? Register";
-    } else alert(data.message || 'Registration failed.');
-  } catch(err){
-    console.error(err);
-    alert('Network error during registration.');
-  }
+    if(data.success){ alert('Registration successful! Please log in.'); registerForm.style.display='none'; loginForm.style.display='flex'; formTitle.textContent='Login'; toggleForm.textContent="Don't have an account? Register"; }
+    else alert(data.message || 'Registration failed.');
+  }catch(err){ console.error(err); alert('Network error during registration.'); }
 });
 
-/* ----- container explode -> proceed ----- */
-function animateAndDisappear() {
+/* success explode -> proceed microflow */
+function doSuccessAnimation(){
   container.classList.add('explode');
-  container.addEventListener('animationend', () => {
+  container.addEventListener('animationend', ()=>{
     container.style.display = 'none';
     const proceedBtn = document.createElement('button');
     proceedBtn.textContent = 'Proceed to Shows';
     Object.assign(proceedBtn.style, {
-      padding:'10px 20px', fontSize:'16px',
-      background:'linear-gradient(90deg,#5b8cff,#6be3d7)',
-      color:'#02121a', border:'none', borderRadius:'14px',
-      cursor:'pointer', position:'fixed',
-      top:'50%', left:'50%', transform:'translate(-50%, -50%)',
-      boxShadow:'0 6px 26px rgba(70,120,255,0.18)'
+      padding:'10px 20px', fontSize:'16px', background:'linear-gradient(90deg,#5b8cff,#6be3d7)', color:'#02121a', border:'none', borderRadius:'14px', cursor:'pointer', position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', boxShadow:'0 6px 26px rgba(70,120,255,0.18)'
     });
     document.body.appendChild(proceedBtn);
-    proceedBtn.addEventListener('click', () => {
-      if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
-        AndroidBridge.openGoojaraPage();
-      } else {
-        alert("Bridge not available.");
-      }
+    proceedBtn.addEventListener('click', ()=>{
+      if(window.AndroidBridge && AndroidBridge.openGoojaraPage) AndroidBridge.openGoojaraPage();
+      else alert('Bridge not available.');
     });
   }, {once:true});
 }
 
-/* initialize update checks/resume countdown */
-checkUpdate();
-resumeCountdownIfAny();
+/* initialize */
+checkUpdate(); resumeCountdownIfAny();
 
 </script>
 </body>
