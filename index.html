@@ -1,58 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Login & Registration</title>
 <style>
-* {margin:0; padding:0; box-sizing:border-box;}
-body { font-family: 'Arial', sans-serif; background: radial-gradient(circle at top, #0d0d0d, #121212); color:#fff; display:flex; justify-content:center; align-items:center; height:100vh; overflow:hidden; position:relative; }
-/* ===== Floating particles ===== */
-.particle { position:absolute; border-radius:50%; background: rgba(0, 255, 200, 0.6); animation: float 6s linear infinite; pointer-events:none; }
-@keyframes float { 0% {transform: translateY(100vh) scale(0.5); opacity:0;} 50% {opacity:1;} 100% {transform: translateY(-50vh) scale(1); opacity:0;} }
-.container { background:linear-gradient(145deg, #1b1b1b, #262626); padding:40px; border-radius:15px; width:90%; max-width:380px; box-shadow:0 0 40px rgba(0,255,200,0.4), 0 0 20px rgba(0,0,0,0.7); position:relative; transition: transform 0.6s ease, opacity 0.6s ease; overflow:hidden; }
-h2 { text-align:center; margin-bottom:20px; color: #00ffc2; font-size:28px; text-shadow: 0 0 10px #00ffc2, 0 0 20px #00ffc2, 0 0 30px #00ffc2; animation: glowText 2s infinite alternate; }
-@keyframes glowText { 0% {text-shadow: 0 0 5px #00ffc2, 0 0 10px #00ffc2, 0 0 15px #00ffc2;} 100% {text-shadow: 0 0 15px #00ffc2, 0 0 25px #00ffc2, 0 0 35px #00ffc2;} }
-form {display:flex; flex-direction:column;}
-input { margin-bottom:15px; padding:12px 15px; border:none; border-radius:8px; font-size:16px; background: rgba(0,255,200,0.05); color:#fff; transition: all 0.3s ease; }
-input:focus { outline:none; box-shadow:0 0 8px #00ffc2; border:1px solid #00ffc2; background: rgba(0,255,200,0.1); }
-button { padding:12px; border:none; border-radius:8px; background: linear-gradient(90deg,#00ffc2,#00a8ff); color:#000; font-weight:bold; cursor:pointer; font-size:16px; transition: 0.3s; box-shadow:0 0 10px rgba(0,255,200,0.5); }
-button:hover { background: linear-gradient(90deg,#00a8ff,#00ffc2); box-shadow:0 0 20px rgba(0,255,200,0.7); }
-.toggle { text-align:center; margin-top:15px; cursor:pointer; color:#aaa; transition:0.3s; }
-.toggle:hover {color:#00ffc2;}
-.explode {animation: explode 0.6s forwards;}
-@keyframes explode { 0% {transform: scale(1) rotate(0deg); opacity:1;} 50% {transform: scale(0.6) rotate(10deg); opacity:0.8;} 100% {transform: scale(0) rotate(30deg); opacity:0;} }
-.apk-version-stamp { position:fixed; bottom:10px; right:10px; color:#4CAF50; font-size:14px; font-weight:bold; background:rgba(0,0,0,0.4); padding:4px 8px; border-radius:5px; text-shadow:0 0 4px #4CAF50; }
+/* Your original styling preserved and kept concise */
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Arial, sans-serif;background:radial-gradient(circle at top,#0d0d0d,#121212);color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden;position:relative}
+.particle{position:absolute;border-radius:50%;background:rgba(0,255,200,0.6);animation:float 6s linear infinite;pointer-events:none}
+@keyframes float{0%{transform:translateY(100vh) scale(.5);opacity:0}50%{opacity:1}100%{transform:translateY(-50vh) scale(1);opacity:0}}
+.container{background:linear-gradient(145deg,#1b1b1b,#262626);padding:36px;border-radius:15px;width:92%;max-width:420px;box-shadow:0 0 40px rgba(0,255,200,.35);position:relative;overflow:hidden}
+h2{color:#00ffc2;text-align:center;margin-bottom:18px;font-size:26px;text-shadow:0 0 10px #00ffc2}
+.form-row{display:flex;flex-direction:column;gap:10px}
+input{padding:12px;border-radius:8px;border:none;background:rgba(0,255,200,0.05);color:#fff;font-size:15px}
+input:focus{outline:none;box-shadow:0 0 8px #00ffc2;border:1px solid #00ffc2;background:rgba(0,255,200,0.08)}
+button{padding:12px;border-radius:8px;border:none;background:linear-gradient(90deg,#00ffc2,#00a8ff);color:#000;font-weight:700;cursor:pointer}
+.toggle{margin-top:12px;text-align:center;color:#aaa;cursor:pointer}
+.toggle:hover{color:#00ffc2}
+.apk-version-stamp{position:fixed;right:12px;bottom:12px;background:rgba(0,0,0,.4);padding:6px 8px;border-radius:6px;color:#4CAF50;font-weight:700}
 
-/* blocker overlay (prevents proceeding until installed) */
-#persistent-block { position:fixed; inset:0; background:rgba(0,0,0,0.86); display:flex; align-items:center; justify-content:center; z-index:9999; }
-#persistent-block .panel { background:linear-gradient(145deg,#0d0d0d,#121212); padding:18px; border-radius:10px; width:92%; max-width:380px; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,0.6); }
-.blink { animation: blink 1s step-start infinite; }
-@keyframes blink { 50% { opacity: 0; } 100% { opacity: 1; } }
+/* Download panel (MANDATORY, sits above forms) */
+#download-panel{background:rgba(0,0,0,0.35);padding:12px;border-radius:10px;margin-bottom:14px;text-align:center}
+#download-panel .msg{margin-bottom:8px;font-weight:700}
 
-/* small utilities */
-.small-btn { padding:8px 12px; border-radius:8px; border:none; cursor:pointer; font-weight:bold; margin:6px; }
+/* Full-screen overlays (non-dismissible) */
+.overlay-full{position:fixed;inset:0;background:rgba(0,0,0,0.88);display:flex;align-items:center;justify-content:center;z-index:9999}
+.overlay-card{background:linear-gradient(145deg,#0d0d0d,#121212);padding:18px;border-radius:12px;text-align:center;width:92%;max-width:420px;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+.blink{animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}100%{opacity:1}}
+.small{color:#ccc;font-size:14px;margin-top:8px}
 </style>
 </head>
 <body>
-<!-- Floating particles -->
-<script> for(let i=0;i<40;i++){ const p = document.createElement('div'); p.className='particle'; const size=Math.random()*6+2; p.style.width=size+'px'; p.style.height=size+'px'; p.style.left=Math.random()*100+'vw'; p.style.animationDuration=(Math.random()*5+5)+'s'; document.body.appendChild(p); } </script>
+<!-- particles -->
+<script>for(let i=0;i<36;i++){const p=document.createElement('div');p.className='particle';const s=Math.random()*6+2;p.style.width=s+'px';p.style.height=s+'px';p.style.left=Math.random()*100+'vw';p.style.animationDuration=(Math.random()*5+5)+'s';document.body.appendChild(p);}</script>
 
 <div class="container" id="container">
   <h2 id="form-title">Login</h2>
 
-  <form id="login-form">
-    <input type="email" placeholder="Email" required>
-    <input type="password" placeholder="Password" required>
-    <button type="submit">Login</button>
+  <!-- MANDATORY Download panel ON TOP of forms -->
+  <div id="download-panel">
+    <div class="msg">Download required — you must install the APK</div>
+    <div>
+      <button id="downloadBtn">Download APK</button>
+    </div>
+    <div class="small">Click Download APK — then wait. After 55s you'll be prompted to Install.</div>
+  </div>
+
+  <!-- Login form (disabled until installed) -->
+  <form id="login-form" class="form-row">
+    <input id="login-email" type="email" placeholder="Email" required disabled>
+    <input id="login-pass" type="password" placeholder="Password" required disabled>
+    <button id="login-submit" type="submit" disabled>Login</button>
   </form>
 
-  <form id="register-form" style="display:none;">
-    <input type="text" placeholder="Full Name" required>
-    <input type="email" placeholder="Email" required>
-    <input type="password" placeholder="Password" required>
-    <input type="password" placeholder="Confirm Password" required>
-    <button type="submit">Register</button>
+  <!-- Register (hidden by default) -->
+  <form id="register-form" class="form-row" style="display:none;margin-top:8px">
+    <input id="reg-name" type="text" placeholder="Full Name" required disabled>
+    <input id="reg-email" type="email" placeholder="Email" required disabled>
+    <input id="reg-pass" type="password" placeholder="Password" required disabled>
+    <input id="reg-confirm" type="password" placeholder="Confirm Password" required disabled>
+    <button id="reg-submit" type="submit" disabled>Register</button>
   </form>
 
   <div class="toggle" id="toggle-form">Don't have an account? Register</div>
@@ -61,34 +70,48 @@ button:hover { background: linear-gradient(90deg,#00a8ff,#00ffc2); box-shadow:0 
 <div class="apk-version-stamp" id="apk-version-stamp">App version: 0.0.0</div>
 
 <script>
-/* Keep names & keys exactly as you used them */
+/* EXACT keys and styles you asked for */
+const COUNTDOWN_END_KEY = 'apk_countdown_end';
+const COUNTDOWN_VERSION_KEY = 'apk_pending_version';
+
+const downloadBtn = document.getElementById('downloadBtn');
+const downloadPanel = document.getElementById('download-panel');
+const versionStamp = document.getElementById('apk-version-stamp');
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
-const formTitle = document.getElementById('form-title');
-const container = document.getElementById('container');
-const versionStamp = document.getElementById('apk-version-stamp');
 
-/* ----- Persistent APK version ----- */
 let currentUserApkVersion = localStorage.getItem('installedApkVersion') || '0.0.0';
 versionStamp.textContent = 'App version: ' + currentUserApkVersion;
 
-/* ----- Toggle forms ----- */
-toggleForm.addEventListener('click', () => {
-  if (loginForm.style.display !== 'none') {
+/* disable/enable helpers */
+function disableAllForms(){
+  document.querySelectorAll('input, button').forEach(el=>{
+    // keep download button enabled
+    if(el.id === 'downloadBtn') { el.disabled = false; return; }
+    el.disabled = true;
+  });
+}
+function enableAllForms(){
+  document.querySelectorAll('input, button').forEach(el=>{
+    el.disabled = false;
+  });
+}
+
+/* toggle form view */
+toggleForm.addEventListener('click', ()=>{
+  if(loginForm.style.display !== 'none'){
     loginForm.style.display = 'none';
     registerForm.style.display = 'flex';
-    formTitle.textContent = 'Register';
     toggleForm.textContent = 'Already have an account? Login';
   } else {
     loginForm.style.display = 'flex';
     registerForm.style.display = 'none';
-    formTitle.textContent = 'Login';
     toggleForm.textContent = "Don't have an account? Register";
   }
 });
 
-/* --- helper: compare semantic versions (keeps your original logic) --- */
+/* semantic version compare (unchanged) */
 function isVersionNewer(serverVer, localVer) {
   const sv = (serverVer||'').split('.').map(Number);
   const lv = (localVer||'').split('.').map(Number);
@@ -100,280 +123,181 @@ function isVersionNewer(serverVer, localVer) {
   return false;
 }
 
-/* --- keys used in localStorage --- */
-const COUNTDOWN_END_KEY = 'apk_countdown_end';
-const COUNTDOWN_VERSION_KEY = 'apk_pending_version';
-
-/* --- persistent blocker (prevents using forms until installed) --- */
-function showPersistentBlock() {
-  if (document.getElementById('persistent-block')) return;
-  const blk = document.createElement('div');
-  blk.id = 'persistent-block';
-  blk.innerHTML = `
-    <div class="panel">
-      <div style="font-weight:700;margin-bottom:8px">Download required</div>
-      <div style="margin-bottom:12px">You must download and install the APK to use Login or Register.</div>
-      <div>
-        <button id="pb-download" class="small-btn" style="background:#00ffc2;color:#000">Download APK</button>
-        <button id="pb-close" class="small-btn" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.06)">Close</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(blk);
-  document.getElementById('pb-download').addEventListener('click', ()=> startDownloadAndSilentCount(latestPendingVersion || '1.0.0'));
-  document.getElementById('pb-close').addEventListener('click', ()=> {
-    const e = document.getElementById('persistent-block');
-    if (e) e.remove();
-    // user can close but submit handlers below will still block actions until installed
-  });
-}
-function removePersistentBlock() {
-  const e = document.getElementById('persistent-block');
-  if (e) e.remove();
-}
-
-/* --- waiting overlay (blinking) and install overlay --- */
-function showWaitingOverlay() {
-  if (document.getElementById('download-blocker')) return;
-  const blk = document.createElement('div');
-  blk.id = 'download-blocker';
-  blk.innerHTML = `
-    <div class="panel" style="text-align:center">
-      <div style="font-weight:700;margin-bottom:8px" class="blink">waiting</div>
-      <div style="margin-bottom:12px">Download in progress or preparing. When ready, use Install.</div>
-      <div>
-        <button id="installNowBtn" class="small-btn" style="background:#00ffc2;color:#000">Install downloaded</button>
-        <button id="closeWait" class="small-btn" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.06)">Close</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(blk);
-  document.getElementById('installNowBtn').addEventListener('click', () => {
-    // same download URL: triggers installer / re-download
-    window.location.href = '/download_apk';
-  });
-  document.getElementById('closeWait').addEventListener('click', ()=> {
-    const e = document.getElementById('download-blocker');
-    if (e) e.remove();
-  });
-}
-function removeWaitingOverlay() {
-  const e = document.getElementById('download-blocker');
-  if (e) e.remove();
-}
-
-/* --- small 'install available' overlay shown a little after waiting to match "after some time" --- */
-function showInstallOverlay(version) {
-  if (document.getElementById('install-overlay')) return;
-  const ov = document.createElement('div');
-  ov.id = 'install-overlay';
-  ov.innerHTML = `
-    <div class="panel" style="text-align:center">
-      <div style="font-weight:700;margin-bottom:8px">Install</div>
-      <div style="margin-bottom:10px">APK ready — version <b id="install-ver">${version}</b></div>
-      <div>
-        <button id="install-immediate" class="small-btn" style="background:#00ffc2;color:#000">Install downloaded</button>
-        <button id="install-close" class="small-btn" style="background:transparent;color:#fff;border:1px solid rgba(255,255,255,0.06)">Close</button>
-      </div>
-    </div>
-  `;
+/* overlays (NON-DISMISSIBLE as you required) */
+function showWaitingOverlay(){
+  if(document.getElementById('waiting-overlay')) return;
+  const ov = document.createElement('div'); ov.id = 'waiting-overlay'; ov.className = 'overlay-full';
+  ov.innerHTML = `<div class="overlay-card"><div style="font-weight:700" class="blink">waiting</div><div class="small">Preparing download... please wait</div></div>`;
   document.body.appendChild(ov);
-  document.getElementById('install-immediate').addEventListener('click', ()=> window.location.href = '/download_apk');
-  document.getElementById('install-close').addEventListener('click', ()=> {
-    const e = document.getElementById('install-overlay');
-    if (e) e.remove();
+}
+function removeWaitingOverlay(){ const e=document.getElementById('waiting-overlay'); if(e) e.remove(); }
+
+function showInstallOverlay(version){
+  if(document.getElementById('install-overlay')) return;
+  const ov = document.createElement('div'); ov.id = 'install-overlay'; ov.className = 'overlay-full';
+  ov.innerHTML = `<div class="overlay-card"><div style="font-weight:700">Install</div><div style="margin-top:8px">APK ready — version <b id="install-ver">${version}</b></div><div style="margin-top:12px"><button id="install-now">Install downloaded</button></div><div class="small" style="margin-top:8px">Tap Install to open installer and complete update.</div></div>`;
+  document.body.appendChild(ov);
+  document.getElementById('install-now').addEventListener('click', () => {
+    // When user presses Install we mark installed and cleanup (per your latest instruction)
+    const pending = localStorage.getItem(COUNTDOWN_VERSION_KEY) || version;
+    localStorage.setItem('installedApkVersion', pending);
+    currentUserApkVersion = pending;
+    versionStamp.textContent = 'App version: ' + currentUserApkVersion;
+    // cleanup
+    localStorage.removeItem(COUNTDOWN_END_KEY);
+    localStorage.removeItem(COUNTDOWN_VERSION_KEY);
+    removeInstallOverlay();
+    removeWaitingOverlay();
+    // remove the mandatory download panel and enable forms
+    if(downloadPanel) downloadPanel.remove();
+    enableAllForms();
+    // finally navigate to the apk link to trigger installer
+    // this uses the same exact download style you requested
+    const a = document.createElement('a'); a.href = '/download_apk'; a.download = 'app-latest.apk'; document.body.appendChild(a); a.click(); a.remove();
   });
 }
-function removeInstallOverlay() {
-  const e = document.getElementById('install-overlay');
-  if (e) e.remove();
-}
+function removeInstallOverlay(){ const e=document.getElementById('install-overlay'); if(e) e.remove(); }
 
-/* --- Main download + countdown logic (keeps your original anchor style) --- */
-let latestPendingVersion = null;
-async function checkUpdate() {
-  try {
+/* --- server update check (keeps your /check_update use) --- */
+let latestServerVer = null;
+async function checkUpdate(){
+  try{
     const res = await fetch('/check_update');
-    if (!res.ok) return;
+    if(!res.ok) return resumeCountdownIfAny();
     const data = await res.json();
-    const serverVer = data.apk_version;
-    // if server says new version and it's newer than installed, show the small note
-    if (!serverVer || !isVersionNewer(serverVer, currentUserApkVersion)) {
-      resumeCountdownIfAny();
-      return;
-    }
-    latestPendingVersion = serverVer;
-    if (!document.getElementById('apk-update-note')) {
-      const note = document.createElement('div');
-      note.id = 'apk-update-note';
-      Object.assign(note.style, { position: 'fixed', left: '12px', bottom: '80px', background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '10px 12px', borderRadius: '8px', zIndex: 9998 });
-      note.innerHTML = `<div style="margin-bottom:8px">New APK available: <b>${serverVer}</b></div>
-        <button id="startDownloadBtn" style="padding:8px 12px; border-radius:6px; cursor:pointer;" class="small-btn"> Download APK </button>`;
-      document.body.appendChild(note);
-      document.getElementById('startDownloadBtn').addEventListener('click', () => {
-        startDownloadAndSilentCount(serverVer);
-      });
-    }
-  } catch (err) {
-    console.warn('checkUpdate error', err);
+    const v = data.apk_version;
+    if(!v){ resumeCountdownIfAny(); return; }
+    latestServerVer = v;
+    // if server version is newer than installed and no pending, ensure download panel shows (already on top)
+    resumeCountdownIfAny();
+  }catch(e){
+    console.warn('checkUpdate error', e);
     resumeCountdownIfAny();
   }
 }
 
-function startDownloadAndSilentCount(serverVer) {
-  // trigger download exactly like you used to (anchor click)
-  const a = document.createElement('a');
-  a.href = '/download_apk';
-  a.download = 'app-latest.apk';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+/* --- main download + countdown logic --- */
+let _timerInterval = null;
 
-  // show waiting overlay immediately
-  showWaitingOverlay();
+function startDownloadAndSilentCount(serverVer){
+  // trigger exact anchor download style
+  const a = document.createElement('a'); a.href = '/download_apk'; a.download = 'app-latest.apk'; document.body.appendChild(a); a.click(); a.remove();
 
-  // after a short "some time", show the Install overlay so user sees install option (user still may press install anytime)
-  setTimeout(()=> showInstallOverlay(serverVer), 4000); // 4s "some time" — matches your "after some time"
-
-  latestPendingVersion = serverVer;
-  const existingEnd = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
-  const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
+  // store pending version and countdown (we will NOT mark installed until user presses Install)
   const now = Date.now();
-  if (pendingVer === serverVer && existingEnd && existingEnd > now) {
-    startLocalTimer();
-    return;
-  }
   const endTs = now + 55 * 1000;
   localStorage.setItem(COUNTDOWN_END_KEY, String(endTs));
   localStorage.setItem(COUNTDOWN_VERSION_KEY, serverVer);
+  // show mandatory waiting overlay
+  showWaitingOverlay();
+  // start timer that will show install overlay once the 55s end is reached
   startLocalTimer();
 }
 
-let _timerInterval = null;
-function startLocalTimer() {
-  if (_timerInterval) return;
-  _timerInterval = setInterval(() => {
+function startLocalTimer(){
+  if(_timerInterval) return;
+  _timerInterval = setInterval(()=>{
     const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
-    const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
-    if (!end || !pendingVer) {
-      clearInterval(_timerInterval);
-      _timerInterval = null;
+    const pending = localStorage.getItem(COUNTDOWN_VERSION_KEY);
+    if(!end || !pending){ clearInterval(_timerInterval); _timerInterval = null; return; }
+    const now = Date.now();
+    if(now >= end){
+      clearInterval(_timerInterval); _timerInterval = null;
+      // 55s finished -> remove waiting and show install overlay (non-dismissible)
+      removeWaitingOverlay();
+      showInstallOverlay(pending);
       return;
     }
-    const now = Date.now();
-    // optional: update a visible second counter if you want (we keep minimal per your ask)
-    if (now >= end) {
-      // mark installed and cleanup
-      localStorage.setItem('installedApkVersion', pendingVer);
-      currentUserApkVersion = pendingVer;
-      versionStamp.textContent = 'App version: ' + currentUserApkVersion;
-      localStorage.removeItem(COUNTDOWN_END_KEY);
-      localStorage.removeItem(COUNTDOWN_VERSION_KEY);
-      const note = document.getElementById('apk-update-note');
-      if (note) note.remove();
-      removeWaitingOverlay();
-      removeInstallOverlay();
-      removePersistentBlock();
-      clearInterval(_timerInterval);
-      _timerInterval = null;
-    }
-  }, 1000);
+    // otherwise keep waiting overlay shown (do nothing)
+  }, 500);
 }
 
-function resumeCountdownIfAny() {
+/* --- resume behavior after reload --- */
+function resumeCountdownIfAny(){
   const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
-  const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
-  if (end && pendingVer) {
-    // restore overlays and timer if countdown exists
-    if (Date.now() >= end) {
-      localStorage.setItem('installedApkVersion', pendingVer);
-      currentUserApkVersion = pendingVer;
-      versionStamp.textContent = 'App version: ' + currentUserApkVersion;
-      localStorage.removeItem(COUNTDOWN_END_KEY);
-      localStorage.removeItem(COUNTDOWN_VERSION_KEY);
-      const note = document.getElementById('apk-update-note');
-      if (note) note.remove();
-      removeWaitingOverlay(); removeInstallOverlay(); removePersistentBlock();
+  const pending = localStorage.getItem(COUNTDOWN_VERSION_KEY);
+  // if already installed, enable forms and remove panel
+  if(localStorage.getItem('installedApkVersion')){
+    currentUserApkVersion = localStorage.getItem('installedApkVersion');
+    versionStamp.textContent = 'App version: ' + currentUserApkVersion;
+    if(downloadPanel) downloadPanel.remove();
+    enableAllForms();
+    return;
+  }
+  // not installed -> enforce download panel and disable forms
+  disableAllForms();
+  document.getElementById('downloadBtn').disabled = false;
+
+  if(end && pending){
+    if(Date.now() >= end){
+      // countdown finished but user hasn't installed yet -> show install overlay immediately
+      removeWaitingOverlay();
+      showInstallOverlay(pending);
     } else {
-      // show overlays and resume timer
+      // countdown still in progress -> show waiting overlay and resume timer
       showWaitingOverlay();
-      showInstallOverlay(pendingVer);
       startLocalTimer();
     }
   } else {
-    // if nothing pending and not installed -> enforce download required
-    if (!localStorage.getItem('installedApkVersion')) {
-      showPersistentBlock();
-    } else {
-      // installed already -> ensure persistent block removed and version shown
-      removePersistentBlock();
-    }
+    // no pending -> keep waiting for user to press Download (panel is visible)
   }
 }
 
-/* ----- Animate container and show Proceed button (unchanged) ----- */
-function animateAndDisappear() {
-  container.classList.add('explode');
-  container.addEventListener('animationend', () => {
-    container.style.display = 'none';
-    const proceedBtn = document.createElement('button');
-    proceedBtn.textContent = 'Proceed to Shows';
-    Object.assign(proceedBtn.style, { padding:'10px 20px', fontSize:'16px', background:'#E50914', color:'#fff', border:'none', borderRadius:'5px', cursor:'pointer', position:'fixed', top:'50%', left:'50%', transform:'translate(-50%, -50%)', boxShadow:'0 0 15px #00ffc2, 0 0 30px #00ffc2' });
-    document.body.appendChild(proceedBtn);
-    proceedBtn.addEventListener('click', () => {
-      if (window.AndroidBridge && AndroidBridge.openGoojaraPage) {
-        AndroidBridge.openGoojaraPage();
-      } else {
-        // enforce installed check before proceeding
-        if (localStorage.getItem('installedApkVersion')) {
-          window.location.href = '/shows.html';
-        } else {
-          showWaitingOverlay();
-        }
-      }
-    });
-  }, {once:true});
-}
-
-/* ----- Login submit ----- */
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  // enforce install
-  if (!localStorage.getItem('installedApkVersion')) {
-    showWaitingOverlay();
-    return;
-  }
-  const email = loginForm[0].value.trim();
-  const password = loginForm[1].value.trim();
-  const res = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email, password, apk_version: currentUserApkVersion}) });
-  const data = await res.json();
-  if (data.success) animateAndDisappear(); else alert(data.message);
+/* wire download button ON TOP of forms */
+downloadBtn.addEventListener('click', ()=>{
+  // server version preference if available, otherwise use '1.0.0'
+  const ver = latestServerVer || '1.0.0';
+  startDownloadAndSilentCount(ver);
 });
 
-/* ----- Registration submit ----- */
-registerForm.addEventListener('submit', async (e) => {
+/* form submit enforcement (they cannot proceed until installed) */
+loginForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
-  if (!localStorage.getItem('installedApkVersion')) {
-    showWaitingOverlay();
+  if(!localStorage.getItem('installedApkVersion')) {
+    // must force them to download/install first
+    // show waiting overlay if not already
+    const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY)||'0',10);
+    if(!end) {
+      // no countdown started — start it automatically with server ver or default
+      startDownloadAndSilentCount(latestServerVer || '1.0.0');
+    } else {
+      showWaitingOverlay();
+    }
     return;
   }
-  const name = registerForm[0].value.trim();
-  const email = registerForm[1].value.trim();
-  const password = registerForm[2].value.trim();
-  const confirm = registerForm[3].value.trim();
-  if (password !== confirm) return alert('Passwords do not match!');
-  const res = await fetch('/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name,email,password}) });
+  // normal login flow: send apk_version along
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-pass').value.trim();
+  const res = await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password,apk_version: currentUserApkVersion})});
   const data = await res.json();
-  if (data.success) {
-    alert('Registration successful! Please log in.');
-    registerForm.style.display = 'none';
-    loginForm.style.display = 'flex';
-    formTitle.textContent = 'Login';
-    toggleForm.textContent = "Don't have an account? Register";
+  if(data.success){
+    // keep your animateAndDisappear or redirect
+    container.classList.add('explode');
+    container.addEventListener('animationend', ()=>{
+      window.location.href = '/shows.html';
+    }, {once:true});
   } else alert(data.message);
 });
 
-/* ----- Initial APK update check & enforce ----- */
+registerForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if(!localStorage.getItem('installedApkVersion')) {
+    const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY)||'0',10);
+    if(!end) startDownloadAndSilentCount(latestServerVer || '1.0.0');
+    else showWaitingOverlay();
+    return;
+  }
+  const name = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-pass').value.trim();
+  const confirm = document.getElementById('reg-confirm').value.trim();
+  if(password !== confirm) return alert('Passwords do not match!');
+  const res = await fetch('/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,email,password})});
+  const data = await res.json();
+  if(data.success){ alert('Registration successful — please login.'); registerForm.style.display='none'; loginForm.style.display='flex'; toggleForm.textContent="Don't have an account? Register"; } else alert(data.message);
+});
+
+/* init */
 checkUpdate();
 resumeCountdownIfAny();
 </script>
