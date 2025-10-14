@@ -1,8 +1,10 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Login & Registration</title>
 <style>
   * {margin:0; padding:0; box-sizing:border-box;}
@@ -121,17 +123,6 @@
     border-radius:5px;
     text-shadow:0 0 4px #4CAF50;
   }
-
-  .update-note {
-    position: fixed;
-    left: 12px;
-    bottom: 80px;
-    background: rgba(0,0,0,0.7);
-    color: #fff;
-    padding: 10px 12px;
-    border-radius: 8px;
-    z-index: 9999;
-  }
 </style>
 </head>
 <body>
@@ -173,16 +164,12 @@ for(let i=0;i<40;i++){
 <div class="apk-version-stamp" id="apk-version-stamp">App version: 0.0.0</div>
 
 <script>
-/* ===================== Variables & bootstrap ===================== */
 const loginForm = document.getElementById('login-form');
 const registerForm = document.getElementById('register-form');
 const toggleForm = document.getElementById('toggle-form');
 const formTitle = document.getElementById('form-title');
 const container = document.getElementById('container');
 const versionStamp = document.getElementById('apk-version-stamp');
-
-// show bridge availability in console (debug helper)
-console.log('Bridge available?', !!window.AndroidBridge, window.AndroidBridge && typeof window.AndroidBridge.requestApkDownload === 'function');
 
 // ----- Persistent APK version -----
 let currentUserApkVersion = localStorage.getItem('installedApkVersion') || '0.0.0';
@@ -203,7 +190,7 @@ toggleForm.addEventListener('click', () => {
     }
 });
 
-// --- helper: compare semantic versions ---
+// --- helper: compare semantic versions (keeps your original logic) ---
 function isVersionNewer(serverVer, localVer) {
   const sv = (serverVer||'').split('.').map(Number);
   const lv = (localVer||'').split('.').map(Number);
@@ -215,292 +202,108 @@ function isVersionNewer(serverVer, localVer) {
   return false;
 }
 
-/* ===================== Exposed helper for native to update status ===================== */
-/* Native can call evaluateJavascript("setUpdateStatusText('Downloading 42%')", null) */
-function setUpdateStatusText(msg) {
-  const txt = document.getElementById('apk-wait-text') || document.querySelector('#apk-wait-overlay #apk-wait-text');
-  if (txt) txt.textContent = msg;
-}
-window.setUpdateStatusText = setUpdateStatusText;
+// --- keys used in localStorage
+const COUNTDOWN_END_KEY = 'apk_countdown_end';
+const COUNTDOWN_VERSION_KEY = 'apk_pending_version';
 
-/* ===================== Overlay and UI helpers ===================== */
-function createDownloadOverlayOnTop(serverVer) {
-  let existing = document.getElementById('apk-overlay-container');
-  if (existing) return existing;
-
-  const rect = container.getBoundingClientRect();
-  const overlay = document.createElement('div');
-  overlay.id = 'apk-overlay-container';
-  Object.assign(overlay.style, {
-    position: 'absolute',
-    left: rect.left + 'px',
-    top: rect.top + 'px',
-    width: rect.width + 'px',
-    height: rect.height + 'px',
-    zIndex: 9999,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    pointerEvents: 'auto'
-  });
-
-  const box = document.createElement('div');
-  box.style.textAlign = 'center';
-  box.style.background = 'rgba(0,0,0,0.75)';
-  box.style.padding = '18px';
-  box.style.borderRadius = '12px';
-  box.style.width = '90%';
-  box.style.maxWidth = '320px';
-  box.style.boxShadow = '0 6px 20px rgba(0,0,0,0.6)';
-
-  const title = document.createElement('div');
-  title.textContent = `Update available: ${serverVer}`;
-  title.style.color = '#fff';
-  title.style.fontSize = '16px';
-  title.style.marginBottom = '10px';
-  box.appendChild(title);
-
-  const btn = document.createElement('button');
-  btn.id = 'downloadApkBtn';
-  btn.textContent = 'Download APK';
-  Object.assign(btn.style, { padding: '10px 14px', fontSize: '15px', cursor: 'pointer' });
-  box.appendChild(btn);
-
-  overlay.appendChild(box);
-  document.body.appendChild(overlay);
-
-  // reposition on resize
-  window.addEventListener('resize', () => {
-    const r = container.getBoundingClientRect();
-    overlay.style.left = r.left + 'px';
-    overlay.style.top = r.top + 'px';
-    overlay.style.width = r.width + 'px';
-    overlay.style.height = r.height + 'px';
-  });
-
-  return overlay;
-}
-
-function showWaitingOverlay() {
-  if (document.getElementById('apk-wait-overlay')) return;
-  const ov = document.createElement('div');
-  ov.id = 'apk-wait-overlay';
-  Object.assign(ov.style, {
-    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.92)', zIndex: 10000,
-    display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column',
-    color: '#fff', pointerEvents: 'auto'
-  });
-  const text = document.createElement('div');
-  text.id = 'apk-wait-text';
-  text.style.fontSize = '18px';
-  text.style.marginBottom = '12px';
-  text.textContent = 'Waiting';
-  ov.appendChild(text);
-
-  const dots = document.createElement('div');
-  dots.id = 'apk-wait-dots';
-  dots.style.fontSize = '22px';
-  dots.textContent = '';
-  ov.appendChild(dots);
-
-  document.body.appendChild(ov);
-
-  // animate dots
-  let d = 0;
-  ov._dotsIv = setInterval(() => {
-    d = (d + 1) % 4;
-    dots.textContent = '.'.repeat(d);
-  }, 450);
-
-  disableFormInteraction(true);
-}
-
-function hideWaitingOverlay() {
-  const ov = document.getElementById('apk-wait-overlay');
-  if (!ov) return;
-  if (ov._dotsIv) clearInterval(ov._dotsIv);
-  ov.remove();
-  disableFormInteraction(false);
-}
-
-function disableFormInteraction(disable) {
-  [ ...loginForm.querySelectorAll('input, button'), ...registerForm.querySelectorAll('input, button') ].forEach(el => {
-    el.disabled = disable;
-    el.style.opacity = disable ? '0.5' : '';
-    el.style.pointerEvents = disable ? 'none' : 'auto';
-  });
-  toggleForm.style.pointerEvents = disable ? 'none' : 'auto';
-  toggleForm.style.opacity = disable ? '0.4' : '1';
-}
-
-/* ===================== Callbacks from native (unchanged naming) ===================== */
-window._apkDownloadComplete = function(version, filename) {
-  hideWaitingOverlay();
-  const containerOv = document.getElementById('apk-overlay-container');
-  if (containerOv) containerOv.remove();
-
-  if (!document.getElementById('apk-installed-instr')) {
-    const el = document.createElement('div');
-    el.id = 'apk-installed-instr';
-    Object.assign(el.style, {
-      position: 'fixed', left: '12px', right: '12px', bottom: '84px',
-      background: 'rgba(0,0,0,0.8)', color:'#fff', padding:'12px', borderRadius:'10px', zIndex:9999,
-      textAlign:'center'
-    });
-    el.innerHTML = `<div>APK downloaded (${version}). Pull down notifications or open Downloads and tap <b>${filename || 'app-latest.apk'}</b> to install. After install this page will refresh the version stamp automatically.</div>`;
-    document.body.appendChild(el);
-  }
-};
-
-window._apkInstallComplete = function(version) {
-  try {
-    if (version) {
-      localStorage.setItem('installedApkVersion', version);
-      currentUserApkVersion = version;
-      versionStamp.textContent = 'App version: ' + currentUserApkVersion;
-    }
-  } catch (e) {}
-  const ins = document.getElementById('apk-installed-instr');
-  if (ins) ins.remove();
-  const containerOv = document.getElementById('apk-overlay-container');
-  if (containerOv) containerOv.remove();
-  hideWaitingOverlay();
-};
-
-/* ===================== Browser-side streaming download (no 55s wait) ===================== */
-async function fetchAndSaveApk(downloadUrl, serverVer) {
-  // Attempt to fetch binary and stream it to a blob (detect completion quickly)
-  setUpdateStatusText('Downloading...');
-  try {
-    const response = await fetch(downloadUrl, { method: 'GET' });
-    if (!response.ok) throw new Error('Network response not OK ' + response.status);
-    const total = parseInt(response.headers.get('content-length') || '0', 10);
-    const reader = response.body && response.body.getReader ? response.body.getReader() : null;
-    const chunks = [];
-    let received = 0;
-
-    if (reader) {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        received += (value ? value.length : 0);
-        if (total) {
-          const pct = Math.floor((received / total) * 100);
-          setUpdateStatusText('Downloading ' + pct + '%');
-        } else {
-          setUpdateStatusText('Downloading...');
-        }
-      }
-      // concat chunks
-      const blob = new Blob(chunks, { type: 'application/vnd.android.package-archive' });
-      // determine filename
-      let filename = 'app-latest.apk';
-      const cd = response.headers.get('content-disposition');
-      if (cd) {
-        const m = /filename="?([^"]+)"?/.exec(cd);
-        if (m && m[1]) filename = m[1];
-      } else {
-        filename = 'update_v' + serverVer + '.apk';
-      }
-      // trigger download
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      // cleanup object URL slightly later
-      setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
-      // notify page-level completion immediately
-      setUpdateStatusText('Download complete');
-      // call page callback so UI updates and user is guided
-      try { window._apkDownloadComplete && window._apkDownloadComplete(serverVer, filename); } catch(e) {}
-      return { ok: true, filename };
-    } else {
-      // no reader (older browser) fallback to blob()
-      const blob = await response.blob();
-      const filename = 'update_v' + serverVer + '.apk';
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 60 * 1000);
-      setUpdateStatusText('Download complete');
-      try { window._apkDownloadComplete && window._apkDownloadComplete(serverVer, filename); } catch(e) {}
-      return { ok: true, filename };
-    }
-  } catch (err) {
-    console.warn('fetchAndSaveApk failed', err);
-    setUpdateStatusText('Download failed — trying browser fallback');
-    // fallback: anchor click (cannot detect completion reliably)
-    const a = document.createElement('a');
-    a.href = downloadUrl;
-    a.download = 'app-latest.apk';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    // notify user fallback started; we cannot auto-detect finish here
-    try { window._apkDownloadComplete && window._apkDownloadComplete(serverVer, 'app-latest.apk'); } catch(e) {}
-    return { ok: false };
-  }
-}
-
-/* ===================== Primary download click handler & checkUpdate ===================== */
+// Add a non-blocking download UI when update exists
 async function checkUpdate() {
   try {
     const res = await fetch('/check_update');
     if (!res.ok) return;
     const data = await res.json();
     const serverVer = data.apk_version;
-    const downloadUrl = data.url || '/download_apk';
-    const sha = data.sha || null;
-
     if (!serverVer || !isVersionNewer(serverVer, currentUserApkVersion)) {
+      resumeCountdownIfAny();
       return;
     }
-
-    const ov = createDownloadOverlayOnTop(serverVer);
-    const btn = document.getElementById('downloadApkBtn');
-    if (!btn) return;
-
-    btn.onclick = async (ev) => {
-      ev.preventDefault();
-      showWaitingOverlay();
-      setUpdateStatusText('Preparing to download...');
-
-      // Preferred: native bridge
-      try {
-        if (window.AndroidBridge && typeof AndroidBridge.requestApkDownload === 'function') {
-          // Let native handle download and installation. Native should call the page callbacks:
-          //  window._apkDownloadComplete(version, filename)
-          //  window._apkInstallComplete(version)
-          AndroidBridge.requestApkDownload(downloadUrl, serverVer, sha || "");
-          return;
-        }
-      } catch (err) {
-        console.warn('Native request failed', err);
-      }
-
-      // No bridge -> do in-page streaming download (fast completion)
-      const result = await fetchAndSaveApk(downloadUrl, serverVer);
-      if (result && result.ok) {
-        // page already notified via _apkDownloadComplete
-        // leave the instruction overlay up (user must tap downloaded apk)
-      } else {
-        // fallback started; user will have to install manually from downloads
-      }
-    };
+    if (!document.getElementById('apk-update-note')) {
+      const note = document.createElement('div');
+      note.id = 'apk-update-note';
+      Object.assign(note.style, {
+        position: 'fixed', left: '12px', bottom: '80px',
+        background: 'rgba(0,0,0,0.7)', color: '#fff',
+        padding: '10px 12px', borderRadius: '8px', zIndex: 9999
+      });
+      note.innerHTML = `
+        <div style="margin-bottom:8px">New APK available: <b>${serverVer}</b></div>
+        <button id="startDownloadBtn" style="padding:8px 12px; border-radius:6px; cursor:pointer;">
+          Download APK
+        </button>
+      `;
+      document.body.appendChild(note);
+      document.getElementById('startDownloadBtn').addEventListener('click', () => {
+        startDownloadAndSilentCount(serverVer);
+      });
+    }
   } catch (err) {
     console.warn('checkUpdate error', err);
+    resumeCountdownIfAny();
   }
 }
 
-/* ===================== Animation & proceed logic (unchanged) ===================== */
+function startDownloadAndSilentCount(serverVer) {
+  const a = document.createElement('a');
+  a.href = '/download_apk';
+  a.download = 'app-latest.apk';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  const existingEnd = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
+  const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
+  const now = Date.now();
+  if (pendingVer === serverVer && existingEnd && existingEnd > now) {
+    startLocalTimer();
+    return;
+  }
+  const endTs = now + 55 * 1000;
+  localStorage.setItem(COUNTDOWN_END_KEY, String(endTs));
+  localStorage.setItem(COUNTDOWN_VERSION_KEY, serverVer);
+  startLocalTimer();
+}
+
+let _timerInterval = null;
+function startLocalTimer() {
+  if (_timerInterval) return;
+  _timerInterval = setInterval(() => {
+    const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
+    const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
+    if (!end || !pendingVer) {
+      clearInterval(_timerInterval); _timerInterval = null; return;
+    }
+    const now = Date.now();
+    if (now >= end) {
+      localStorage.setItem('installedApkVersion', pendingVer);
+      currentUserApkVersion = pendingVer;
+      versionStamp.textContent = 'App version: ' + currentUserApkVersion;
+      localStorage.removeItem(COUNTDOWN_END_KEY);
+      localStorage.removeItem(COUNTDOWN_VERSION_KEY);
+      const note = document.getElementById('apk-update-note');
+      if (note) note.remove();
+      clearInterval(_timerInterval); _timerInterval = null;
+    }
+  }, 1000);
+}
+
+function resumeCountdownIfAny() {
+  const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
+  const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
+  if (end && pendingVer) {
+    if (Date.now() >= end) {
+      localStorage.setItem('installedApkVersion', pendingVer);
+      currentUserApkVersion = pendingVer;
+      versionStamp.textContent = 'App version: ' + currentUserApkVersion;
+      localStorage.removeItem(COUNTDOWN_END_KEY);
+      localStorage.removeItem(COUNTDOWN_VERSION_KEY);
+      const note = document.getElementById('apk-update-note');
+      if (note) note.remove();
+    } else {
+      startLocalTimer();
+    }
+  }
+}
+
+// ----- Animate container and show Proceed button -----
 function animateAndDisappear() {
   container.classList.add('explode');
   container.addEventListener('animationend', () => {
@@ -524,27 +327,22 @@ function animateAndDisappear() {
   }, {once:true});
 }
 
-/* ----- Login submit ----- */
+// ----- Login submit -----
 loginForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const email = loginForm[0].value.trim();
   const password = loginForm[1].value.trim();
-  try {
-    const res = await fetch('/login', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
-    });
-    const data = await res.json();
-    if (data.success) animateAndDisappear();
-    else alert(data.message);
-  } catch (err) {
-    console.warn('login error', err);
-    alert('Login failed. Try again.');
-  }
+  const res = await fetch('/login', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({email, password, apk_version: currentUserApkVersion})
+  });
+  const data = await res.json();
+  if (data.success) animateAndDisappear();
+  else alert(data.message);
 });
 
-/* ----- Registration submit ----- */
+// ----- Registration submit -----
 registerForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = registerForm[0].value.trim();
@@ -552,28 +350,24 @@ registerForm.addEventListener('submit', async (e) => {
   const password = registerForm[2].value.trim();
   const confirm = registerForm[3].value.trim();
   if (password !== confirm) return alert('Passwords do not match!');
-  try {
-    const res = await fetch('/register', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({name,email,password})
-    });
-    const data = await res.json();
-    if (data.success) {
-      alert('Registration successful! Please log in.');
-      registerForm.style.display = 'none';
-      loginForm.style.display = 'flex';
-      formTitle.textContent = 'Login';
-      toggleForm.textContent = "Don't have an account? Register";
-    } else alert(data.message);
-  } catch (err) {
-    console.warn('register error', err);
-    alert('Registration failed. Try again.');
-  }
+  const res = await fetch('/register', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({name,email,password})
+  });
+  const data = await res.json();
+  if (data.success) {
+    alert('Registration successful! Please log in.');
+    registerForm.style.display = 'none';
+    loginForm.style.display = 'flex';
+    formTitle.textContent = 'Login';
+    toggleForm.textContent = "Don't have an account? Register";
+  } else alert(data.message);
 });
 
-/* ----- Kick off update check on load ----- */
+// ----- Initial APK update check -----
 checkUpdate();
+resumeCountdownIfAny();
 </script>
 </body>
 </html>
