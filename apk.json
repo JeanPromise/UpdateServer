@@ -1,7 +1,7 @@
 {
-  "version": "x",
-  "changelog": "Uploaded vx",
-  "download_url": "https://raw.githubusercontent.com/JeanPromise/UpdateServer/main/apks/app-vx.apk",
-  "filename": "app-vx.apk",
-  "sha": "235540b2d89da63e043b8243a8eabee764c6272f"
+  "version": "x.1",
+  "changelog": "Uploaded vx.1",
+  "download_url": "https://raw.githubusercontent.com/JeanPromise/UpdateServer/main/apks/app-vx.1.apk",
+  "filename": "app-vx.1.apk",
+  "sha": "1b5971b33483445d70048e5f59208a5b31fae57b"
 }
