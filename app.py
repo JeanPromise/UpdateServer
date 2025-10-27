@@ -644,10 +644,9 @@ def start_keepalive():
         log.exception("Failed to start keepalive thread")
         _keepalive_started = True
 
-@app.before_first_request
-def _ensure_keepalive_started():
-    # start keepalive when the process handles its first request (works with gunicorn)
+with app.app_context():
     start_keepalive()
+
 # ===== End Keepalive =====
 
 @app.route('/update_apk', methods=['POST'])
@@ -937,10 +936,7 @@ def direct_apk_download():
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(
-        host="0.0.0.0",
-        port=port,
-        debug=False,
-        use_reloader=False
-    )
+    with app.app_context():
+        start_keepalive()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
