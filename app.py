@@ -21,6 +21,12 @@ log = logging.getLogger("UpdateServer")
 
 app = Flask(__name__, static_url_path='', static_folder='.')
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+# --- Defaults to help keep the app awake when editing on GitHub ---
+# These act as fallbacks if you don't set them in your Render service settings
+# (safe — only used when env vars are absent)
+os.environ.setdefault("SELF_URL", "https://tomorrow-au2q.onrender.com")
+os.environ.setdefault("KEEPALIVE_ENABLED", "true")
+os.environ.setdefault("KEEPALIVE_INTERVAL", "30")
 
 # small startup trace to help hosting logs
 log.info("UpdateServer initialized at %s", datetime.utcnow().isoformat())
