@@ -1,3 +1,7 @@
+# app.py (public admin.html, admin only via /simplemindserverisgone)
+import threading
+import time
+import random
 import base64
 import json
 import requests
@@ -17,6 +21,9 @@ log = logging.getLogger("UpdateServer")
 
 app = Flask(__name__, static_url_path='', static_folder='.')
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+
+# small startup trace to help hosting logs
+log.info("UpdateServer initialized at %s", datetime.utcnow().isoformat())
 
 # ---------------- Config ----------------
 GITHUB_OWNER = "JeanPromise"
@@ -535,6 +542,113 @@ def check_update():
 @app.route('/get_apk')
 def get_apk():
     return jsonify(load_apk())
+
+# ===== Keepalive (safe) =====
+# This block is intentionally small and non-invasive. It writes only to `keepalive.json`.
+@app.route('/_fake_ping', methods=['GET', 'POST'])
+def fake_ping():
+    """
+    Internal keep-alive endpoint — accepts a small JSON payload
+    and appends a timestamped record to keepalive.json for inspection.
+    """
+    data = request.get_json(silent=True) or {}
+    record = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "fake": True,
+        "payload": data
+    }
+    try:
+        path = 'keepalive.json'
+        existing = []
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    existing = json.load(f)
+            except Exception:
+                # corrupted or unreadable -> reset
+                existing = []
+        existing.append(record)
+        # keep just a small recent history
+        existing = existing[-100:]
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(existing, f, indent=2)
+        except Exception:
+            log.exception("keepalive write failed")
+    except Exception:
+        log.exception("keepalive top-level failure")
+
+    return jsonify({"success": True, "recorded": record})
+
+def _keepalive_worker(ping_url, interval_seconds, fake_profiles):
+    log.info("Keepalive worker started: url=%s interval=%ss", ping_url, interval_seconds)
+    while True:
+        try:
+            profile = random.choice(fake_profiles)
+            payload = {
+                "name": profile.get("name"),
+                "email": profile.get("email"),
+                "note": "keepalive",
+                "ts": datetime.utcnow().isoformat()
+            }
+            headers = {"User-Agent": profile.get("ua", "KeepAliveBot/1.0")}
+            try:
+                requests.post(ping_url, json=payload, headers=headers, timeout=8)
+                log.debug("Keepalive ping sent payload=%s", payload)
+            except Exception:
+                log.exception("Keepalive ping post failed")
+        except Exception:
+            log.exception("Keepalive worker exception")
+        time.sleep(interval_seconds)
+
+_keepalive_started = False
+
+def start_keepalive():
+    """
+    Start the keepalive thread once per process (idempotent).
+    Called from @app.before_first_request so it works under Gunicorn.
+    """
+    global _keepalive_started
+    if _keepalive_started:
+        return
+    try:
+        KEEPALIVE_ENABLED = os.getenv("KEEPALIVE_ENABLED", "true").lower() in ("1", "true", "yes")
+        if not KEEPALIVE_ENABLED:
+            log.info("Keepalive disabled by env")
+            _keepalive_started = True
+            return
+
+        KEEPALIVE_INTERVAL = int(os.getenv("KEEPALIVE_INTERVAL", "30"))
+        SELF_URL = os.getenv("SELF_URL")
+        if SELF_URL:
+            ping_url = SELF_URL.rstrip('/') + '/_fake_ping'
+        else:
+            port = os.getenv("PORT", "5000")
+            ping_url = f"http://127.0.0.1:{port}/_fake_ping"
+
+        fake_profiles = [
+            {"name": "Visitor One", "email": "visitor1@local", "ua": "KeepAliveBot/1.0"},
+            {"name": "Visitor Two", "email": "visitor2@local", "ua": "KeepAliveBot/1.1"},
+            {"name": "Ghost User", "email": "ghost@local", "ua": "KeepAliveBot/1.2"},
+        ]
+
+        t = threading.Thread(
+            target=_keepalive_worker,
+            args=(ping_url, KEEPALIVE_INTERVAL, fake_profiles),
+            daemon=True
+        )
+        t.start()
+        _keepalive_started = True
+        log.info("Keepalive thread started (ping_url=%s)", ping_url)
+    except Exception:
+        log.exception("Failed to start keepalive thread")
+        _keepalive_started = True
+
+@app.before_first_request
+def _ensure_keepalive_started():
+    # start keepalive when the process handles its first request (works with gunicorn)
+    start_keepalive()
+# ===== End Keepalive =====
 
 @app.route('/update_apk', methods=['POST'])
 def update_apk():
