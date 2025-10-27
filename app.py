@@ -1,7 +1,3 @@
-# app.py (public admin.html, admin only via /simplemindserverisgone)
-import threading
-import time
-import random
 import base64
 import json
 import requests
@@ -54,7 +50,6 @@ def gh_headers():
         headers["Authorization"] = f"token {GITHUB_TOKEN}"
     return headers
 
-
 def github_get_file(filename, default):
     """
     Try to fetch file from GitHub. On any failure, try local file fallback.
@@ -87,7 +82,6 @@ def github_get_file(filename, default):
 
     return default
 
-
 def github_get_file_metadata(filename):
     try:
         r = requests.get(f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}", headers=gh_headers(), timeout=20)
@@ -95,7 +89,6 @@ def github_get_file_metadata(filename):
     except Exception:
         log.exception("metadata GET exception %s", filename)
     return None
-
 
 def github_push_file(filename, content_str, message=None):
     """
@@ -142,7 +135,6 @@ def load_admin():
         log.exception("load_admin failed")
     return None
 
-
 def save_admin(admin_obj):
     """
     Save admin_obj (dict) to GitHub if token available; otherwise write local file.
@@ -171,7 +163,6 @@ def load_users():
     data = github_get_file(USERS_FILE, default)
     return data if isinstance(data, list) else default
 
-
 def save_users(users_list):
     """
     Persist users.json. Try GitHub push if token exists; otherwise write local file.
@@ -192,7 +183,6 @@ def save_users(users_list):
         log.exception("save_users exception")
         return False, str(e)
 
-
 def load_apk():
     default = {"version": None, "changelog": "", "download_url": "", "filename": None, "sha": None}
     data = github_get_file(APK_FILE, default)
@@ -201,7 +191,6 @@ def load_apk():
     for k in default:
         data.setdefault(k, default[k])
     return data
-
 
 def save_apk(apk_obj):
     """
@@ -276,7 +265,6 @@ def register():
     log.error("Failed to save users on register: %s", resp)
     return jsonify({"success": False, "message": "Failed to persist user data."}), 500
 
-
 @app.route('/login', methods=['POST'])
 def login():
     data = request.get_json() or {}
@@ -308,14 +296,12 @@ def login():
             return jsonify({"success": False, "message": "Incorrect password."})
     return jsonify({"success": False, "message": "Email not registered."})
 
-
 @app.route('/logout')
 def logout():
     session.pop('user_email', None)
     session.pop('simple_admin', None)
     session.pop('allow_admin', None)
     return redirect(url_for('index'))
-
 
 @app.route('/get_users')
 def get_users():
@@ -327,7 +313,6 @@ def require_simple_admin_json():
     if not session.get('simple_admin'):
         return jsonify({"success": False, "message": "Unauthorized"}), 403
     return None
-
 
 @app.route('/toggle_user', methods=['POST'])
 def toggle_user():
@@ -351,7 +336,6 @@ def toggle_user():
         return jsonify({"success": False, "message": "Failed to persist user changes."}), 500
     return jsonify({"success": True})
 
-
 @app.route('/enable_all', methods=['POST'])
 def enable_all():
     admin_check = require_simple_admin_json()
@@ -367,7 +351,6 @@ def enable_all():
         return jsonify({"success": False, "message": "Failed to persist changes."}), 500
     return jsonify({"success": True})
 
-
 @app.route('/disable_all', methods=['POST'])
 def disable_all():
     admin_check = require_simple_admin_json()
@@ -382,7 +365,6 @@ def disable_all():
         log.error("disable_all: failed to save users: %s", resp)
         return jsonify({"success": False, "message": "Failed to persist changes."}), 500
     return jsonify({"success": True})
-
 
 @app.route('/login_analytics')
 def login_analytics():
@@ -439,7 +421,6 @@ def download_apk():
 
     # 3) Nothing available
     return jsonify({"success": False, "message": "No APK available or remote fetch failed."}), 404
-
 
 @app.route('/upload_apk', methods=['POST'])
 def upload_apk():
@@ -507,7 +488,6 @@ def upload_apk():
 
     return jsonify({"success": True, "url": download_url})
 
-
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
     admin_check = require_simple_admin_json()
@@ -518,7 +498,6 @@ def delete_apk():
         log.error("delete_apk: failed to persist apk reset: %s", resp)
         return jsonify({"success": False, "message": "Failed to persist APK metadata."}), 500
     return jsonify({"success": True})
-
 
 @app.route('/delete_apk_force', methods=['POST'])
 def delete_apk_force():
@@ -544,7 +523,6 @@ def delete_apk_force():
         return jsonify({"success": False, "message": "Failed to persist APK metadata."}), 500
     return jsonify({"success": True})
 
-
 @app.route('/check_update')
 def check_update():
     apk_data = load_apk()
@@ -554,122 +532,9 @@ def check_update():
         "url": apk_data.get("download_url")
     })
 
-
 @app.route('/get_apk')
 def get_apk():
     return jsonify(load_apk())
-
-
-# ===== Keepalive (safe) =====
-@app.route('/_fake_ping', methods=['GET', 'POST'])
-def fake_ping():
-    """
-    Internal keep-alive endpoint — accepts a small JSON payload
-    and appends a timestamped record to keepalive.json for inspection.
-    """
-    data = request.get_json(silent=True) or {}
-    record = {
-        "timestamp": datetime.utcnow().isoformat(),
-        "fake": True,
-        "payload": data
-    }
-    try:
-        path = 'keepalive.json'
-        existing = []
-        if os.path.exists(path):
-            try:
-                with open(path, 'r', encoding='utf-8') as f:
-                    existing = json.load(f)
-            except Exception:
-                # corrupted or unreadable -> reset
-                existing = []
-        existing.append(record)
-        # keep just a small recent history
-        existing = existing[-100:]
-        try:
-            with open(path, 'w', encoding='utf-8') as f:
-                json.dump(existing, f, indent=2)
-        except Exception:
-            log.exception("keepalive write failed")
-    except Exception:
-        log.exception("keepalive top-level failure")
-
-    return jsonify({"success": True, "recorded": record})
-
-
-def _keepalive_worker(ping_url, interval_seconds, fake_profiles):
-    log.info("Keepalive worker started: url=%s interval=%ss", ping_url, interval_seconds)
-    while True:
-        try:
-            profile = random.choice(fake_profiles)
-            payload = {
-                "name": profile.get("name"),
-                "email": profile.get("email"),
-                "note": "keepalive",
-                "ts": datetime.utcnow().isoformat()
-            }
-            headers = {"User-Agent": profile.get("ua", "KeepAliveBot/1.0")}
-            try:
-                requests.post(ping_url, json=payload, headers=headers, timeout=8)
-                log.debug("Keepalive ping sent payload=%s", payload)
-            except Exception:
-                log.exception("Keepalive ping post failed")
-        except Exception:
-            log.exception("Keepalive worker exception")
-        time.sleep(interval_seconds)
-
-
-_keepalive_started = False
-
-
-def start_keepalive():
-    """
-    Start the keepalive thread once per process (idempotent).
-    Called from @app.before_first_request so it works under Gunicorn.
-    """
-    global _keepalive_started
-    if _keepalive_started:
-        return
-    try:
-        KEEPALIVE_ENABLED = os.getenv("KEEPALIVE_ENABLED", "true").lower() in ("1", "true", "yes")
-        if not KEEPALIVE_ENABLED:
-            log.info("Keepalive disabled by env")
-            _keepalive_started = True
-            return
-
-        KEEPALIVE_INTERVAL = int(os.getenv("KEEPALIVE_INTERVAL", "30"))
-        SELF_URL = os.getenv("SELF_URL")
-        if SELF_URL:
-            ping_url = SELF_URL.rstrip('/') + '/_fake_ping'
-        else:
-            port = os.getenv("PORT", "5000")
-            ping_url = f"http://127.0.0.1:{port}/_fake_ping"
-
-        fake_profiles = [
-            {"name": "Visitor One", "email": "visitor1@local", "ua": "KeepAliveBot/1.0"},
-            {"name": "Visitor Two", "email": "visitor2@local", "ua": "KeepAliveBot/1.1"},
-            {"name": "Ghost User", "email": "ghost@local", "ua": "KeepAliveBot/1.2"},
-        ]
-
-        t = threading.Thread(
-            target=_keepalive_worker,
-            args=(ping_url, KEEPALIVE_INTERVAL, fake_profiles),
-            daemon=True
-        )
-        t.start()
-        _keepalive_started = True
-        log.info("Keepalive thread started (ping_url=%s)", ping_url)
-    except Exception:
-        log.exception("Failed to start keepalive thread")
-        _keepalive_started = True
-
-
-@app.before_first_request
-def _ensure_keepalive_started():
-    # start keepalive when the process handles its first request (works with gunicorn)
-    start_keepalive()
-# ===== End Keepalive =====
-
 
 @app.route('/update_apk', methods=['POST'])
 def update_apk():
@@ -718,7 +583,6 @@ def find_admin_in_users(users, email=None):
             if isinstance(u, dict) and u.get('email', '').strip().lower() == ADMIN_EMAIL:
                 return u
     return None
-
 
 @app.route('/simplemind_login', methods=['POST'])
 def simplemind_login():
@@ -801,7 +665,6 @@ def simplemind_login():
     session['simple_admin'] = True
     session['allow_admin'] = True
     return redirect('/admin-dashboard')
-
 
 @app.route('/admin-dashboard')
 def admin_dashboard():
