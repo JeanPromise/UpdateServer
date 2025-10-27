@@ -1,4 +1,7 @@
 # app.py (public admin.html, admin only via /simplemindserverisgone)
+import threading
+import time
+import random
 import base64
 import json
 import requests
@@ -537,6 +540,38 @@ def check_update():
 def get_apk():
     return jsonify(load_apk())
 
+    @app.route('/_fake_ping', methods=['GET', 'POST'])
+def fake_ping():
+    """
+    Internal keep-alive endpoint — accepts a small JSON payload
+    and appends a timestamped record to keepalive.json for inspection.
+    """
+    data = request.get_json(silent=True) or {}
+    record = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "fake": True,
+        "payload": data
+    }
+    try:
+        path = 'keepalive.json'
+        existing = []
+        if os.path.exists(path):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    existing = json.load(f) if f.readable() else []
+            except Exception:
+                # if parse fails, reset file
+                existing = []
+        existing.append(record)
+        # keep just a small recent history
+        existing = existing[-100:]
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(existing, f, indent=2)
+    except Exception:
+        log.exception("keepalive write failed")
+
+    return jsonify({"success": True, "recorded": record})
+
 @app.route('/update_apk', methods=['POST'])
 def update_apk():
     admin_check = require_simple_admin_json()
@@ -821,6 +856,56 @@ def direct_apk_download():
     if apk_data.get("filename"):
         return redirect(url_for('download_apk'))
     return "No APK found", 404
+
+def _keepalive_worker(ping_url, interval_seconds, fake_profiles):
+    """
+    Runs in a daemon thread. Periodically POSTs a small JSON payload
+    to `ping_url` to simulate activity.
+    """
+    log.info("Keepalive worker started: url=%s interval=%ss", ping_url, interval_seconds)
+    while True:
+        try:
+            profile = random.choice(fake_profiles)
+            payload = {
+                "name": profile.get("name"),
+                "email": profile.get("email"),
+                "note": "keepalive",
+                "ts": datetime.utcnow().isoformat()
+            }
+            headers = {"User-Agent": profile.get("ua", "KeepAliveBot/1.0")}
+            # POST and ignore response body
+            requests.post(ping_url, json=payload, headers=headers, timeout=10)
+            log.debug("Keepalive ping sent payload=%s", payload)
+        except Exception:
+            log.exception("Keepalive ping failed")
+        time.sleep(interval_seconds)
+
+
+# start keepalive thread when enabled (configurable via env vars)
+try:
+    KEEPALIVE_ENABLED = os.getenv("KEEPALIVE_ENABLED", "true").lower() in ("1", "true", "yes")
+    if KEEPALIVE_ENABLED:
+        KEEPALIVE_INTERVAL = int(os.getenv("KEEPALIVE_INTERVAL", "30"))  # seconds
+        # Prefer explicit SELF_URL env var (e.g. "https://your-app.onrender.com")
+        SELF_URL = os.getenv("SELF_URL")
+        if SELF_URL:
+            ping_url = SELF_URL.rstrip('/') + '/_fake_ping'
+        else:
+            # fallback to localhost with PORT env (works when binding to host:port)
+            server_port = os.getenv("PORT", "5000")
+            ping_url = f"http://127.0.0.1:{server_port}/_fake_ping"
+
+        # a small set of fake profiles to rotate through
+        fake_profiles = [
+            {"name": "Visitor One", "email": "visitor1@onrender.local", "ua": "KeepAliveBot/1.0"},
+            {"name": "Visitor Two", "email": "visitor2@onrender.local", "ua": "KeepAliveBot/1.1"},
+            {"name": "Ghost User", "email": "ghost@onrender.local", "ua": "KeepAliveBot/1.2"}
+        ]
+
+        t = threading.Thread(target=_keepalive_worker, args=(ping_url, KEEPALIVE_INTERVAL, fake_profiles), daemon=True)
+        t.start()
+except Exception:
+    log.exception("Failed to start keepalive thread")
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
