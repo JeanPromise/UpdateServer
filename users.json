@@ -1042,6 +1042,13 @@
     "email": "mwangimonic2003@gmail.com",
     "password": "scrypt:32768:8:1$QjGZgl51qHyDzTq1$c8f16384eee8dc2433adaa0393076cdee233a941051eb9072cef511a7262721be3e39fdbc871c46baa33e01d6a947ded7ba6a3b76959b2d46d2022045cae192f",
     "enabled": true,
-    "login_history": []
+    "login_history": [
+      {
+        "timestamp": "2025-11-04T13:36:28.946789",
+        "ip": "196.96.59.62, 172.71.146.188, 10.23.152.68",
+        "country": "Unknown",
+        "user_agent": "Mozilla/5.0 (Linux; Android 12; SM-A032F Build/SP1A.210812.016; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/141.0.7390.122 Mobile Safari/537.36"
+      }
+    ]
   }
 ]
