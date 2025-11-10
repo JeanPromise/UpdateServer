@@ -955,14 +955,16 @@ def tomorrow_page():
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Tomorrow Entertainment App - Free Movie & TV Streaming</title>
-      <meta name="description" content="Download Tomorrow Entertainment App - Watch Movies & TV Shows for Free. Latest version {version}, safe APK download.">
-      <meta name="keywords" content="Tomorrow Entertainment, free movies, TV streaming app, APK download, latest version {version}">
-      <meta name="author" content="Tomorrow Entertainment">
       
-      <!-- Open Graph for social sharing -->
-      <meta property="og:title" content="Tomorrow Entertainment App - Free Movies & TV">
-      <meta property="og:description" content="Download Tomorrow Entertainment App - Watch Movies & TV Shows for Free. Latest version {version}, safe APK.">
+      <!-- SEO Meta -->
+      <title>Tomorrow Entertainment App - Free Movies, Series & TV Streaming APK</title>
+      <meta name="description" content="Download Tomorrow Entertainment App - Watch Free Movies, TV Shows & Series. Latest APK version {version}, safe & fast.">
+      <meta name="keywords" content="Tomorrow Entertainment, free movies, TV shows, series, streaming app, APK download, Android, free entertainment">
+      <meta name="author" content="Tomorrow Entertainment">
+
+      <!-- Open Graph / Social -->
+      <meta property="og:title" content="Tomorrow Entertainment - Free Movies & TV">
+      <meta property="og:description" content="Watch free movies, series, and TV shows. Download the latest Tomorrow Entertainment APK version {version}.">
       <meta property="og:type" content="website">
       <meta property="og:url" content="{url_for('tomorrow_page', _external=True)}">
       <meta property="og:image" content="{url_for('static', filename='logo.png', _external=True)}">
@@ -970,10 +972,10 @@ def tomorrow_page():
       <!-- Twitter Card -->
       <meta name="twitter:card" content="summary_large_image">
       <meta name="twitter:title" content="Tomorrow Entertainment App">
-      <meta name="twitter:description" content="Watch movies & TV shows for free. Download the latest APK version {version}.">
+      <meta name="twitter:description" content="Stream movies, series & TV shows for free. Latest APK version {version}.">
       <meta name="twitter:image" content="{url_for('static', filename='logo.png', _external=True)}">
 
-      <!-- Schema.org JSON-LD for better SEO -->
+      <!-- Structured Data JSON-LD -->
       <script type="application/ld+json">
       {{
         "@context": "https://schema.org",
@@ -988,30 +990,34 @@ def tomorrow_page():
           "priceCurrency": "USD"
         }},
         "softwareVersion": "{version}",
-        "downloadUrl": "{download_url}"
+        "downloadUrl": "{download_url}",
+        "description": "Watch free movies, TV shows, and series directly on your Android device with Tomorrow Entertainment."
       }}
       </script>
 
+      <!-- Basic Styling -->
       <style>
         body {{ background-color:#121212; color:#fff; font-family: Arial,sans-serif; padding:20px; }}
-        h1 {{ text-align:center; margin-bottom:20px; }}
-        .app-card {{ background:#1e1e1e; border-radius:8px; padding:15px; margin:10px 0; box-shadow:0 0 8px rgba(0,0,0,0.5); }}
-        .app-name {{ font-size:18px; font-weight:bold; }}
-        .app-version {{ color:#aaa; font-size:14px; }}
-        .download-btn {{ display:inline-block; margin-top:10px; padding:8px 16px; background:#2196f3; color:#fff; border-radius:5px; text-decoration:none; }}
+        h1 {{ text-align:center; margin-bottom:20px; font-size:28px; }}
+        .app-card {{ background:#1e1e1e; border-radius:8px; padding:20px; margin:15px 0; box-shadow:0 0 10px rgba(0,0,0,0.5); }}
+        .app-name {{ font-size:20px; font-weight:bold; }}
+        .app-version {{ color:#aaa; font-size:14px; margin-top:5px; }}
+        .download-btn {{ display:inline-block; margin-top:15px; padding:10px 20px; background:#2196f3; color:#fff; border-radius:5px; text-decoration:none; font-weight:bold; }}
         .download-btn:hover {{ background:#1976d2; }}
+        p {{ margin-top:25px; font-size:15px; color:#ccc; line-height:1.5; }}
       </style>
     </head>
     <body>
       <h1>Tomorrow Entertainment</h1>
+
       <div class="app-card">
-        <div class="app-name">Tomorrow Entertainment</div>
+        <div class="app-name">Tomorrow Entertainment App</div>
         <div class="app-version">Version: {version}</div>
         <a class="download-btn" href="{download_url}">Download APK</a>
       </div>
 
-      <p style="margin-top:20px; font-size:14px; color:#ccc;">
-        Watch free movies and TV shows directly on your Android device. Safe and latest APK version {version}. Compatible with most Android phones and tablets.
+      <p>
+        Stream and download movies, series, and TV shows for free directly on your Android device. Safe, fast, and compatible with most phones and tablets. Enjoy unlimited entertainment anytime, anywhere.
       </p>
     </body>
     </html>
