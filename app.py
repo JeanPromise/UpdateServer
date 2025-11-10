@@ -15,6 +15,7 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from flask import Response, url_for
+from flask import send_file
 # --- Basic logging ---
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("UpdateServer")
@@ -940,89 +941,11 @@ def direct_apk_download():
         return redirect(url_for('download_apk'))
     return "No APK found", 404
 
-
 @app.route('/tomorrow')
 @app.route('/tomorrow.html')
 def tomorrow_page():
-    apk_data = load_apk()
-    download_url = apk_data.get("download_url") or url_for('download_apk', _external=True)
-    version = apk_data.get("version") or "N/A"
-    filename = apk_data.get("filename") or "app-latest.apk"
-
-    html = f"""
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      
-      <!-- SEO Meta -->
-      <title>Tomorrow Entertainment App - Free Movies, Series & TV Streaming APK</title>
-      <meta name="description" content="Download Tomorrow Entertainment App - Watch Free Movies, TV Shows & Series. Latest APK version {version}, safe & fast.">
-      <meta name="keywords" content="Tomorrow Entertainment, free movies, TV shows, series, streaming app, APK download, Android, free entertainment">
-      <meta name="author" content="Tomorrow Entertainment">
-
-      <!-- Open Graph / Social -->
-      <meta property="og:title" content="Tomorrow Entertainment - Free Movies & TV">
-      <meta property="og:description" content="Watch free movies, series, and TV shows. Download the latest Tomorrow Entertainment APK version {version}.">
-      <meta property="og:type" content="website">
-      <meta property="og:url" content="{url_for('tomorrow_page', _external=True)}">
-      <meta property="og:image" content="{url_for('static', filename='logo.png', _external=True)}">
-
-      <!-- Twitter Card -->
-      <meta name="twitter:card" content="summary_large_image">
-      <meta name="twitter:title" content="Tomorrow Entertainment App">
-      <meta name="twitter:description" content="Stream movies, series & TV shows for free. Latest APK version {version}.">
-      <meta name="twitter:image" content="{url_for('static', filename='logo.png', _external=True)}">
-
-      <!-- Structured Data JSON-LD -->
-      <script type="application/ld+json">
-      {{
-        "@context": "https://schema.org",
-        "@type": "MobileApplication",
-        "name": "Tomorrow Entertainment",
-        "operatingSystem": "Android",
-        "applicationCategory": "Entertainment",
-        "offers": {{
-          "@type": "Offer",
-          "url": "{download_url}",
-          "price": "0",
-          "priceCurrency": "USD"
-        }},
-        "softwareVersion": "{version}",
-        "downloadUrl": "{download_url}",
-        "description": "Watch free movies, TV shows, and series directly on your Android device with Tomorrow Entertainment."
-      }}
-      </script>
-
-      <!-- Basic Styling -->
-      <style>
-        body {{ background-color:#121212; color:#fff; font-family: Arial,sans-serif; padding:20px; }}
-        h1 {{ text-align:center; margin-bottom:20px; font-size:28px; }}
-        .app-card {{ background:#1e1e1e; border-radius:8px; padding:20px; margin:15px 0; box-shadow:0 0 10px rgba(0,0,0,0.5); }}
-        .app-name {{ font-size:20px; font-weight:bold; }}
-        .app-version {{ color:#aaa; font-size:14px; margin-top:5px; }}
-        .download-btn {{ display:inline-block; margin-top:15px; padding:10px 20px; background:#2196f3; color:#fff; border-radius:5px; text-decoration:none; font-weight:bold; }}
-        .download-btn:hover {{ background:#1976d2; }}
-        p {{ margin-top:25px; font-size:15px; color:#ccc; line-height:1.5; }}
-      </style>
-    </head>
-    <body>
-      <h1>Tomorrow Entertainment</h1>
-
-      <div class="app-card">
-        <div class="app-name">Tomorrow Entertainment App</div>
-        <div class="app-version">Version: {version}</div>
-        <a class="download-btn" href="{download_url}">Download APK</a>
-      </div>
-
-      <p>
-        Stream and download movies, series, and TV shows for free directly on your Android device. Safe, fast, and compatible with most phones and tablets. Enjoy unlimited entertainment anytime, anywhere.
-      </p>
-    </body>
-    </html>
-    """
-    return Response(html, mimetype="text/html")
+    # Serve the static HTML file located in the same folder as app.py
+    return send_file('tomorrow.html')
 
 # ---------------- Run ----------------
 if __name__ == "__main__":
