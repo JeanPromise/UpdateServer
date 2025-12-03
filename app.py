@@ -16,12 +16,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 from flask import Response, url_for
 from flask import send_file
+
 # --- Basic logging ---
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("UpdateServer")
 
 app = Flask(__name__, static_url_path='', static_folder='.')
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
+
 # --- Defaults to help keep the app awake when editing on GitHub ---
 # These act as fallbacks if you don't set them in your Render service settings
 # (safe — only used when env vars are absent)
@@ -231,7 +233,7 @@ def save_apk(apk_obj):
 def require_login():
     # endpoints allowed to proceed to their handler regardless of 'user_email' session
     public_endpoints = {
-        'login', 'register', 'index', 'get_users',
+        'login', 'register', 'index', 'day_page', 'get_users', # <-- 'day_page' added here
         'check_update', 'download_apk', 'get_apk',
         # admin login page and its POST handler must be allowed so their logic runs
         'admin_login_page', 'simplemind_login', 'admin_dashboard'
@@ -265,6 +267,7 @@ def index():
 @app.route('/day')
 def day_page():
     return send_from_directory('.', 'day.html')
+
 # ---------------- User Endpoints ----------------
 @app.route('/register', methods=['POST'])
 def register():
@@ -831,128 +834,22 @@ def admin_delete_user():
     if not session.get('simple_admin'):
         return jsonify({"success": False, "message": "Unauthorized"}), 403
     data = request.get_json() or {}
-    email = data.get('email')
+    email = data.get("email")
     if not email:
         return jsonify({"success": False, "message": "Email required"}), 400
+    
     users = load_users()
-    new_users = [u for u in users if u.get('email') != email]
+    new_users = [u for u in users if isinstance(u, dict) and u.get('email') != email]
+    
     if len(new_users) == len(users):
         return jsonify({"success": False, "message": "User not found"}), 404
+    
     ok, resp = save_users(new_users)
     if not ok:
-        log.error("admin_delete_user: failed to persist users: %s", resp)
-        return jsonify({"success": False, "message": "Failed to persist deletion."}), 500
+        return jsonify({"success": False, "message": "Failed to save users"}), 500
+    
     return jsonify({"success": True})
 
-@app.route('/appstore')
-@app.route('/appstore.html')
-def appstore():
-    apk_data = load_apk()
-    apps = []
-    if apk_data.get("download_url") or apk_data.get("filename"):
-        # map filename into friendly app name
-        fname = apk_data.get("filename", "app-latest.apk")
-        # for now hardcode Tomorrow Entertainment as first app
-        app_name = "Tomorrow Entertainment"
-        # use download_url if present (GitHub raw link), otherwise use local download endpoint
-        url = apk_data.get("download_url") or url_for('download_apk', _external=True)
-        apps.append({
-            "name": app_name,
-            "version": apk_data.get("version") or "N/A",
-            "url": url,
-            "filename": fname
-        })
-
-    html = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>My App Store</title>
-      <style>
-        body {
-          background-color: #121212;
-          color: #fff;
-          font-family: Arial, sans-serif;
-          margin: 0;
-          padding: 20px;
-        }
-        h1 {
-          text-align: center;
-          margin-bottom: 20px;
-        }
-        .app-card {
-          background: #1e1e1e;
-          border-radius: 8px;
-          padding: 15px;
-          margin: 10px 0;
-          box-shadow: 0 0 8px rgba(0,0,0,0.5);
-        }
-        .app-name {
-          font-size: 18px;
-          font-weight: bold;
-        }
-        .app-version {
-          color: #aaa;
-          font-size: 14px;
-        }
-        .download-btn {
-          display: inline-block;
-          margin-top: 10px;
-          padding: 8px 16px;
-          background: #2196f3;
-          color: #fff;
-          border-radius: 5px;
-          text-decoration: none;
-        }
-        .download-btn:hover {
-          background: #1976d2;
-        }
-      </style>
-    </head>
-    <body>
-      <h1>My App Store</h1>
-    """
-
-    if not apps:
-        html += "<p>No apps available yet.</p>"
-    else:
-        for app in apps:
-            html += f"""
-            <div class="app-card">
-              <div class="app-name">{app['name']}</div>
-              <div class="app-version">Version: {app['version']}</div>
-              <a class="download-btn" href="{app['url']}">Download</a>
-            </div>
-            """
-
-    html += """
-    </body>
-    </html>
-    """
-    return Response(html, mimetype="text/html")
-
-# NEW direct link route
-@app.route('/x.apk')
-def direct_apk_download():
-    apk_data = load_apk()
-    # redirect to raw GitHub link if available, otherwise to local download
-    if apk_data.get("download_url"):
-        return redirect(apk_data["download_url"])
-    if apk_data.get("filename"):
-        return redirect(url_for('download_apk'))
-    return "No APK found", 404
-
-@app.route('/tomorrow')
-@app.route('/tomorrow.html')
-def tomorrow_page():
-    # Serve the static HTML file located in the same folder as app.py
-    return send_file('tomorrow.html')
-
-# ---------------- Run ----------------
-if __name__ == "__main__":
-    with app.app_context():
-        start_keepalive()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
