@@ -1,0 +1,2670 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Gas & Water Records — Full</title>
+<meta name="description" content="Offline Gas & Water Records — full package with custom charts and edit/delete."/>
+<style>
+:root{
+  /* primary palette (orange-first) */
+  --accent: #ff7a00;      /* brand orange */
+  --accent-2: #ff8f33;    /* lighter orange */
+  --accent-3: #ff6b6b;    /* warm coral accent */
+  --accent-4: #4dd0e1;    /* cyan micro-accent */
+  --muted: #6b7280;
+  --bg: #f8fafc;
+  --text: #0f172a;
+  --card: #ffffff;
+  --danger: #ef4444;
+  --glass: rgba(255,255,255,0.6);
+}
+[data-theme="dark"]{
+  --bg:#071024; --text:#e6eef8; --card:#0b1220; --muted:#9aa6b2; --glass: rgba(255,255,255,0.04);
+}
+
+/* Reset & base */
+*{box-sizing:border-box;font-family:Inter,system-ui,Arial,sans-serif;margin:0;padding:0}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh;transition:background .18s ease,color .18s ease}
+a,button{cursor:pointer}
+
+/* Page visibility: only .page.active is visible — this enforces the single-page-at-a-time behavior */
+.page{display:none}
+.page.active{display:block}
+
+/* Header & brand */
+header{
+  background: linear-gradient(90deg, rgba(255,122,0,0.06), rgba(77,208,225,0.03));
+  padding:14px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 0 rgba(2,6,23,0.04);
+  backdrop-filter: blur(2px);
+}
+.brand{
+  font-weight:800;font-size:20px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-3));
+  -webkit-background-clip: text; color: transparent;
+  display:inline-block; letter-spacing: -0.01em;
+}
+.header-meta{display:flex;align-items:center;gap:12px}
+.small{font-size:13px;color:var(--muted)}
+.toggle-btn{
+  background:linear-gradient(180deg,var(--accent),var(--accent-2)); color:#fff;
+  padding:8px 12px;border-radius:10px;border:0;font-size:15px;transition:transform .12s ease,box-shadow .12s ease;
+}
+.toggle-btn:active{transform:translateY(1px)}
+.toggle-btn:focus{outline:2px solid rgba(255,122,0,0.14);outline-offset:3px}
+
+/* Wrap (left-hugging) */
+.wrap{max-width:none;margin:12px 0 12px 12px;padding:12px;flex:1;width:calc(100% - 24px)}
+.app-frame{display:flex;gap:16px;align-items:flex-start}
+
+/* Sidebar (orange gradient) */
+.sidebar{
+  width:220px;
+  background:linear-gradient(180deg,var(--accent),var(--accent-2));
+  color:white;padding:16px;border-radius:12px;display:flex;flex-direction:column;gap:10px;
+  box-shadow:0 12px 36px rgba(2,6,23,0.12);border:1px solid rgba(255,255,255,0.03);
+}
+.sidebar h2{margin:0 0 6px 0;font-size:19px}
+.sidebar button{
+  background:transparent;color:white;border:none;text-align:left;cursor:pointer;font-size:15px;padding:8px;border-radius:8px;transition:background .12s ease,transform .08s ease;
+}
+.sidebar button:hover{background:rgba(255,255,255,0.06);transform:translateX(4px)}
+
+/* Main content & cards */
+.main-content{flex:1;display:flex;flex-direction:column;gap:14px}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.card{
+  background: linear-gradient(180deg, var(--card), rgba(0,0,0,0.01));
+  padding:14px;border-radius:14px;box-shadow:0 8px 28px rgba(15,23,42,0.06);overflow:hidden;
+  border: 1px solid rgba(12,18,24,0.03);
+  transition:transform .12s ease,box-shadow .12s ease;
+}
+.card:focus-within{box-shadow:0 18px 48px rgba(15,23,42,0.10);transform:translateY(-3px)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+
+/* Section title & decorative underline */
+.section-title{
+  font-size:18px;font-weight:700;color:var(--text);display:inline-block;position:relative;padding-bottom:8px;
+}
+.section-title::after{
+  content:"";position:absolute;left:0;bottom:0;height:6px;width:56px;border-radius:6px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-4));
+  box-shadow:0 10px 24px rgba(15,23,42,0.06);
+  transition:width .28s cubic-bezier(.2,.9,.2,1),opacity .18s ease;
+}
+.section-title:hover::after{width:110px;opacity:0.95}
+
+/* Fancy heading */
+.heading-fancy{
+  display:inline-block;font-size:20px;font-weight:800;background:linear-gradient(90deg,var(--accent),var(--accent-3));
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+  letter-spacing:-0.02em;
+}
+
+/* Inputs */
+input,select,textarea{
+  padding:12px;border-radius:10px;border:1px solid rgba(6,22,31,0.06);width:100%;background:transparent;color:inherit;font-size:16px;
+  direction:ltr; unicode-bidi:plaintext;
+  transition:box-shadow .12s ease,border-color .12s ease,background .12s ease;
+}
+input:focus,select:focus,textarea:focus{
+  outline:none;border-color:rgba(255,122,0,0.65);
+  box-shadow:0 8px 30px rgba(255,122,0,0.08);
+}
+[data-theme="dark"] input,[data-theme="dark"] textarea,[data-theme="dark"] select{
+  background:rgba(255,255,255,0.02);border-color:rgba(255,255,255,0.06);color:var(--text)
+}
+
+/* Product form helpers */
+.product-form{display:flex;flex-direction:column;gap:8px}
+.product-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center}
+@media(max-width:600px){
+  .product-options{grid-template-columns:1fr !important}
+  .product-form{gap:10px}
+}
+
+/* Buttons */
+button.primary{
+  background: linear-gradient(90deg,var(--accent),var(--accent-2)); color:white;border:0;padding:12px 16px;border-radius:10px;cursor:pointer;font-size:16px;
+  transition:transform .12s ease,box-shadow .14s ease,opacity .12s ease;
+}
+button.primary:hover{transform:translateY(-3px);box-shadow:0 18px 48px rgba(15,23,42,0.12)}
+button.primary:active{transform:translateY(-1px)}
+.btn-ghost{background:transparent;border:1px solid rgba(6,22,31,0.06);padding:8px 10px;border-radius:8px;cursor:pointer}
+
+/* Table */
+.table{width:100%;border-collapse:collapse;margin-top:8px}
+.table th,.table td{padding:10px;border-bottom:1px solid rgba(6,22,31,0.04);text-align:left;font-size:15px}
+.table th{font-weight:700;color:var(--text)}
+
+/* Small text & lists */
+.small-muted{font-size:12px;color:var(--muted)}
+.list{max-height:260px;overflow:auto;margin-top:8px}
+.item{display:flex;justify-content:space-between;padding:8px;border-bottom:1px dashed rgba(6,22,31,0.04);flex-wrap:wrap}
+.alert{color:var(--danger);font-weight:700;margin:8px 0}
+.legend{display:flex;gap:12px;align-items:center;font-size:13px;margin-top:8px;flex-wrap:wrap}
+
+/* Modal tweaks */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;align-items:flex-start;justify-content:flex-end;padding:20px;z-index:1100}
+.modal-card{width:480px;max-width:calc(100% - 40px);background:var(--card);color:var(--text);border-radius:12px;padding:18px;box-shadow:0 18px 50px rgba(2,6,23,0.4);transform:translateY(-8px);opacity:0;transition:all .22s ease;position:relative}
+.modal-overlay.show{display:flex}
+.modal-overlay.show .modal-card{transform:translateY(0);opacity:1}
+.modal-close{position:absolute;right:12px;top:10px;background:var(--danger);color:white;border:0;border-radius:6px;padding:4px 8px;cursor:pointer}
+
+/* Responsive layout */
+@media(max-width:980px){
+  .app-frame{flex-direction:column}
+  .sidebar{width:100%;flex-direction:row;overflow:auto;padding:8px;gap:6px;border-radius:8px}
+  .sidebar h2{display:none}
+  .grid{grid-template-columns:1fr;gap:12px}
+  .modal-card{width:92%}
+}
+@media(max-width:600px){
+  header{flex-direction:column;align-items:flex-start;gap:10px;padding:12px}
+  .row{flex-direction:column;align-items:flex-start;gap:8px}
+  input,select,textarea,button.primary{width:100%}
+  .sidebar{flex-direction:column;gap:8px;padding:8px;border-radius:8px}
+  .grid{grid-template-columns:1fr;gap:10px}
+  .card{padding:12px}
+  .table th,.table td{padding:8px;font-size:14px}
+  .wrap{padding-left:12px;padding-right:12px;margin-left:12px}
+}
+
+/* Accessibility: respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  *{transition:none!important;animation:none!important}
+}
+
+/* Touch & focus */
+button,input,select,textarea{touch-action:manipulation}
+a,button{outline-offset:3px}
+
+/* Image picker (updated to orange accents) */
+.image-picker{
+  border:1px dashed rgba(255,122,0,0.28);
+  background:rgba(255,122,0,0.03);
+  padding:12px;
+  border-radius:10px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  align-items:flex-start;
+  transition:border-color .18s ease, background .18s ease;
+}
+.image-picker:hover{
+  border-color:var(--accent);
+  background:rgba(255,122,0,0.08);
+}
+
+/* Preview Image */
+.preview-img{
+  width:80px;
+  height:80px;
+  border-radius:10px;
+  object-fit:cover;
+  box-shadow:0 6px 18px rgba(0,0,0,0.12);
+  border:1px solid rgba(0,0,0,0.05);
+}
+
+/* HIDE settings-only by default. show it only when #settings has .active */
+.settings-only{ display:none; }
+#settings.active .settings-only{ display:block; }
+
+/* ensure logo preview has nice spacing on small screens */
+#logoPreview img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px}
+/* show settings-only only when the settings page has .active */
+.settings-only{ display:none; }
+#settings.active .settings-only{ display:block; }
+
+/* make preview images look good if injected as <img> */
+#logoPreview img{ max-width:100%; max-height:100%; object-fit:contain; border-radius:6px; display:block; }
+
+
+</style>
+
+<script>
+/* Logo upload — robust: run only after DOM ready so header + settings exist */
+(function(){
+  document.addEventListener('DOMContentLoaded', () => {
+
+    const STORAGE_KEYS = ['davySiteLogo','siteLogo'];
+
+    // DOM references (now safe)
+    const fileInput = document.getElementById('siteLogoInput');      // settings file input
+    const preview = document.getElementById('logoPreview');         // preview box in settings
+    const headerBox = document.getElementById('siteLogo');          // header logo container
+    const clearBtn = document.getElementById('clearSiteLogo');
+
+    // small guard
+    if (!headerBox) console.warn('Logo script: #siteLogo not found (header might be hidden until login).');
+    if (!fileInput) console.warn('Logo script: #siteLogoInput not found (settings page may be inactive).');
+
+    // helper to write image into a container
+    function putImg(container, dataUrl){
+      if(!container) return;
+      container.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.alt = 'Site logo';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'contain';
+      img.style.display = 'block';
+      container.appendChild(img);
+    }
+
+    // load the first available stored logo
+    function loadStoredLogo(){
+      try{
+        let data = null;
+        for(const k of STORAGE_KEYS){
+          const v = localStorage.getItem(k);
+          if(v){ data = v; break; }
+        }
+        if(data){
+          putImg(headerBox || preview, data);
+          if(preview) putImg(preview, data);
+          if(headerBox) headerBox.style.background = 'transparent';
+        } else {
+          if(preview) preview.innerHTML = 'No logo';
+          if(headerBox) headerBox.innerHTML = 'GW';
+        }
+      }catch(e){
+        console.warn('Logo load failed', e);
+      }
+    }
+
+    // save to all keys we want for compatibility
+    function persistLogo(dataUrl){
+      try{
+        for(const k of STORAGE_KEYS) localStorage.setItem(k, dataUrl);
+      }catch(e){
+        console.error('Failed saving logo (maybe storage full)', e);
+        alert('Failed to save logo — local storage may be full.');
+        return false;
+      }
+      return true;
+    }
+
+    // handle file selection: read and persist immediately
+    function handleFile(file){
+      if(!file) return;
+      // Accept SVG by mime or extension fallback
+      const isImage = (file.type && file.type.startsWith('image/')) || /\.svg$/i.test(file.name);
+      if(!isImage){
+        return alert('Please choose an image file (png/jpg/svg).');
+      }
+      const reader = new FileReader();
+      reader.onload = function(e){
+        const dataUrl = e.target.result;
+        const ok = persistLogo(dataUrl);
+        if(!ok) return;
+        putImg(headerBox || preview, dataUrl);
+        if(preview) putImg(preview, dataUrl);
+        if(headerBox) headerBox.style.background = 'transparent';
+        if(fileInput) fileInput.value = '';
+        try{ if(window._gwShowToast) window._gwShowToast('Logo saved.'); }catch(e){}
+        console.info('Logo saved to localStorage');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // open file picker (used by preview/header click or keyboard)
+    function openPicker(){
+      if(!fileInput){
+        alert('Logo input not available (open Settings → Site Logo to update).');
+        return;
+      }
+      // Ensure input is focusable and not display:none — we keep it off-screen
+      try{
+        fileInput.click();
+      }catch(e){
+        console.warn('Programmatic click failed', e);
+        alert('Tap the "Choose an image" input to upload a logo (Settings page).');
+      }
+    }
+
+    // Attach change handler to input (if present)
+    if(fileInput){
+      // keep input off-screen (safe for .click)
+      fileInput.style.position = 'absolute';
+      fileInput.style.left = '-9999px';
+
+      // Remove any old save button (we auto-save)
+      const saveBtn = document.getElementById('saveSiteLogo');
+      if(saveBtn) saveBtn.remove();
+
+      fileInput.addEventListener('change', (e)=>{
+        const f = e.target.files && e.target.files[0];
+        if(!f) return;
+        handleFile(f);
+      });
+
+      // allow drag & drop onto preview area (if preview exists)
+      if(preview){
+        preview.addEventListener('dragover', (ev)=>{ ev.preventDefault(); preview.style.opacity = '0.85'; });
+        preview.addEventListener('dragleave', (ev)=>{ ev.preventDefault(); preview.style.opacity = ''; });
+        preview.addEventListener('drop', (ev)=>{
+          ev.preventDefault();
+          preview.style.opacity = '';
+          const f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+          if(f) handleFile(f);
+        });
+      }
+    }
+
+    // clickable/touchable activator helper (for header and preview)
+    function attachActivator(el){
+      if(!el) return;
+      el.style.cursor = 'pointer';
+      el.setAttribute('role','button');
+      if(!el.hasAttribute('tabindex')) el.setAttribute('tabindex','0');
+      if(!el.hasAttribute('aria-label')) el.setAttribute('aria-label','Change site logo');
+
+      el.addEventListener('click', (ev)=>{ ev.preventDefault(); openPicker(); });
+      el.addEventListener('touchend', (ev)=>{ ev.preventDefault(); openPicker(); }, {passive:false});
+      el.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openPicker(); } });
+    }
+
+    // attach to both preview and header (if they exist)
+    attachActivator(preview);
+    attachActivator(headerBox);
+
+    // Clear handler
+    if(clearBtn){
+      clearBtn.addEventListener('click', ()=>{
+        try{
+          for(const k of STORAGE_KEYS) localStorage.removeItem(k);
+        }catch(e){ console.warn('Failed clearing logo keys', e); }
+        if(preview) preview.innerHTML = 'No logo';
+        if(headerBox) headerBox.innerHTML = 'GW';
+        if(fileInput) fileInput.value = '';
+        alert('Logo cleared.');
+      });
+    }
+
+    // expose a small helper if you want to programmatically set a logo
+    window.setSiteLogoDataUrl = function(dataUrl){
+      if(!dataUrl) return;
+      if(persistLogo(dataUrl)){
+        putImg(headerBox || preview, dataUrl);
+        if(preview) putImg(preview, dataUrl);
+      }
+    };
+
+    // initial load (run after DOM ready)
+    loadStoredLogo();
+
+  }); /* end DOMContentLoaded */
+})(); /* end IIFE */
+</script>
+
+<!-- create a manifest blob and small svg icon (inlined) -->
+<script>
+(function createManifest(){
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'><rect fill='#0f766e' width='120' height='120' rx='24'/><text x='50%' y='55%' fill='white' font-size='48' font-family='Arial' font-weight='700' text-anchor='middle' alignment-baseline='central'>GW</text></svg>`;
+  const iconData = 'data:image/svg+xml;base64,' + btoa(svg);
+  const manifest = {
+    name: "Gas & Water Records — Full",
+    short_name: "GasWater",
+    start_url: "./",
+    scope: "./",
+    display: "standalone",
+    background_color: "#f8fafc",
+    theme_color: "#0f766e",
+    icons: [
+      { src: iconData, sizes: "192x192", type: "image/svg+xml" },
+      { src: iconData, sizes: "512x512", type: "image/svg+xml" }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = url;
+  document.head.appendChild(link);
+  window.__manifestBlobUrl = url;
+})();
+</script>
+
+</head>
+<body data-theme="light">
+
+<!-- ===== AUTH SCREEN (first element in <body>) ===== -->
+<div id="authScreen" style="position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px">
+  <h2 style="margin-bottom:20px;color:var(--accent)">Day-V Gas Supply</h2>
+
+  <div id="loginBox" style="width:100%;max-width:380px;background:var(--card);padding:20px;border-radius:14px;box-shadow:0 6px 30px rgba(0,0,0,0.08);">
+    <h3 style="margin-bottom:10px">Login</h3>
+    <input id="loginEmail" type="text" placeholder="Email" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ddd;border-radius:8px">
+    <input id="loginPass" type="password" placeholder="Password" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ddd;border-radius:8px">
+    <button id="loginBtn" style="width:100%;padding:12px;background:var(--accent);border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer">Login</button>
+    <p style="margin-top:12px;text-align:center;font-size:0.9rem">
+      No account? <span id="showRegister" style="color:var(--accent);cursor:pointer">Register</span>
+    </p>
+  </div>
+
+  <div id="registerBox" style="display:none;width:100%;max-width:380px;background:var(--card);padding:20px;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,0.08);margin-top:12px">
+    <h3 style="margin-bottom:10px">Create Account</h3>
+    <input id="regName" type="text" placeholder="Full name" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ddd;border-radius:8px">
+    <input id="regEmail" type="text" placeholder="Email" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ddd;border-radius:8px">
+    <input id="regPass" type="password" placeholder="Password" style="width:100%;padding:10px;margin-bottom:10px;border:1px solid #ddd;border-radius:8px">
+    <button id="registerBtn" style="width:100%;padding:12px;background:var(--accent);border:none;border-radius:8px;color:white;font-weight:600;cursor:pointer">Register</button>
+    <p style="margin-top:12px;text-align:center;font-size:0.9rem">
+      Already have an account? <span id="showLogin" style="color:var(--accent);cursor:pointer">Login</span>
+    </p>
+  </div>
+</div>
+
+<!-- ===== INTRO / SWIPE SLIDES (hidden until login) ===== -->
+<div id="introScreen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:9998;padding:20px;overflow:hidden;">
+  <div id="slides" tabindex="0" style="height:100%;display:flex;overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;gap:0;">
+    <div class="slide" style="min-width:100%;scroll-snap-align:start;padding:24px;box-sizing:border-box;">
+      <h2 style="color:var(--accent);margin-top:30px">Welcome to Day-V Gas Supply</h2>
+      <p>Track, monitor and manage all Day-V Gas Supply records easily.</p>
+    </div>
+
+    <div class="slide" style="min-width:100%;scroll-snap-align:start;padding:24px;box-sizing:border-box;">
+      <h2 style="color:var(--accent);margin-top:30px">Smart Stock</h2>
+      <p>Keep updated gas stock levels automatically.</p>
+    </div>
+
+    <div class="slide" style="min-width:100%;scroll-snap-align:start;padding:24px;box-sizing:border-box;">
+      <h2 style="color:var(--accent);margin-top:30px">Manage Deliveries</h2>
+      <p>Simple. Powerful. Built for business.</p>
+      <button id="enterApp" style="margin-top:20px;padding:14px 20px;border:none;border-radius:10px;background:var(--accent);color:white;font-weight:600;">Enter App</button>
+    </div>
+  </div>
+
+  <!-- small controls -->
+  <div style="position:absolute;left:0;right:0;bottom:18px;display:flex;justify-content:center;gap:8px">
+    <button id="slidePrev" class="btn-ghost">◀</button>
+    <button id="slideNext" class="btn-ghost">▶</button>
+    <button id="skipIntro" class="btn-ghost" style="margin-left:8px">Skip Intro</button>
+  </div>
+</div>
+
+<!-- ===== HEADER (hidden until auth/intro done) ===== -->
+<header style="display:none;position:relative;z-index:20;padding:14px 16px;align-items:center;justify-content:space-between;box-shadow:0 1px 0 rgba(0,0,0,0.04);">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div id="siteLogo" style="width:44px;height:44px;border-radius:8px;background:linear-gradient(90deg,var(--accent),var(--accent-2));display:flex;align-items:center;justify-content:center;overflow:hidden;color:white;font-weight:700">GW</div>
+    <div class="brand" style="font-weight:800;font-size:18px">Gas & Water Manager — Full</div>
+  </div>
+
+  <div class="header-meta" style="display:flex;gap:12px;align-items:center">
+    <div class="small">Offline — Local data only</div>
+    <button class="toggle-btn" id="themeToggle">Dark Mode</button>
+    <button id="logoutBtn" class="btn-ghost" style="margin-left:8px">Logout</button>
+  </div>
+</header>
+
+<!-- ===== APP FRAME (your app content goes here) ===== -->
+<div class="app-frame" style="display:none">
+  <!-- PASTE your existing app HTML (sidebar + pages) here, or keep as-is if it's already below -->
+</div>
+
+<!-- optional small styles for slides -->
+<style id="auth-intro-style">
+  #slides::-webkit-scrollbar{height:10px}
+  #slides::-webkit-scrollbar-thumb{background:rgba(0,0,0,0.08);border-radius:10px}
+  .slide{display:flex;flex-direction:column;justify-content:flex-start}
+  #slides:focus{outline:none}
+</style>
+
+<!-- ===== minimal logic to make auth/intro work (no logo upload code) ===== -->
+<script>
+// === Auth with saved hashed passwords (replace previous auth script) ===
+document.addEventListener('DOMContentLoaded', () => {
+
+  // Helpers: storage for multiple users
+  function getUsers(){
+    try{
+      return JSON.parse(localStorage.getItem('davyUsers') || '{}');
+    } catch(e){ return {}; }
+  }
+  function saveUsers(u){
+    localStorage.setItem('davyUsers', JSON.stringify(u || {}));
+  }
+
+  // SHA-256 helper -> returns hex string
+  async function sha256Hex(str){
+    const enc = new TextEncoder();
+    const data = enc.encode(str);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const bytes = new Uint8Array(hashBuffer);
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  // UI elements
+  const authScreen = document.getElementById('authScreen');
+  const introScreen = document.getElementById('introScreen');
+  const slides = document.getElementById('slides');
+  const header = document.querySelector('header');
+  const appFrame = document.querySelector('.app-frame');
+
+  const loginBox = document.getElementById('loginBox');
+  const registerBox = document.getElementById('registerBox');
+  const loginEmail = document.getElementById('loginEmail');
+  const loginPass = document.getElementById('loginPass');
+  const loginBtn = document.getElementById('loginBtn');
+
+  const regName = document.getElementById('regName');
+  const regEmail = document.getElementById('regEmail');
+  const regPass = document.getElementById('regPass');
+  const registerBtn = document.getElementById('registerBtn');
+
+  const showRegister = document.getElementById('showRegister');
+  const showLogin = document.getElementById('showLogin');
+
+  const enterApp = document.getElementById('enterApp');
+  const slidePrev = document.getElementById('slidePrev');
+  const slideNext = document.getElementById('slideNext');
+  const skipIntro = document.getElementById('skipIntro');
+  const logoutBtn = document.getElementById('logoutBtn');
+
+  // Show/hide helpers
+  function showApp(userEmail){
+    authScreen.style.display = 'none';
+    introScreen.style.display = 'none';
+    header.style.display = 'flex';
+    if(appFrame) appFrame.style.display = 'block';
+    if(userEmail) localStorage.setItem('davyCurrentUser', userEmail);
+    localStorage.setItem('davyLoggedIn','true');
+  }
+  function showIntro(){
+    authScreen.style.display = 'none';
+    introScreen.style.display = 'block';
+    header.style.display = 'none';
+    if(appFrame) appFrame.style.display = 'none';
+  }
+  function showAuth(){
+    authScreen.style.display = 'flex';
+    introScreen.style.display = 'none';
+    header.style.display = 'none';
+    if(appFrame) appFrame.style.display = 'none';
+  }
+
+  // initial: if logged in previously and user exists -> show intro, otherwise auth
+  (()=>{
+    const logged = localStorage.getItem('davyLoggedIn') === 'true';
+    const current = localStorage.getItem('davyCurrentUser');
+    const users = getUsers();
+    if(logged && current && users[current]){
+      // user still exists: show intro (so they may enter app or skip)
+      showIntro();
+      // optionally pre-welcome in header when app shows
+    } else {
+      // clean stale flags (in case user was removed)
+      localStorage.removeItem('davyLoggedIn');
+      localStorage.removeItem('davyCurrentUser');
+      showAuth();
+    }
+  })();
+
+  // toggle login/register UI
+  if(showRegister) showRegister.addEventListener('click', ()=>{ loginBox.style.display='none'; registerBox.style.display='block'; });
+  if(showLogin) showLogin.addEventListener('click', ()=>{ registerBox.style.display='none'; loginBox.style.display='block'; });
+
+  // REGISTER: stores hashed password
+  if(registerBtn) registerBtn.addEventListener('click', async ()=>{
+    const name = (regName.value || '').trim();
+    const email = (regEmail.value || '').trim().toLowerCase();
+    const pass = (regPass.value || '').trim();
+
+    if(!email || !pass || !name){
+      return alert('Please fill name, email and password to register.');
+    }
+    const users = getUsers();
+    if(users[email]) return alert('An account already exists with that email. Please login.');
+
+    try{
+      const hash = await sha256Hex(pass);
+      users[email] = { name, passHash: hash, created: Date.now() };
+      saveUsers(users);
+      alert('Account created. Please login.');
+      // switch to login view and prefill email
+      registerBox.style.display = 'none';
+      loginBox.style.display = 'block';
+      loginEmail.value = email;
+      regName.value = regEmail.value = regPass.value = '';
+    } catch(e){
+      console.error(e);
+      alert('Failed to register — try again.');
+    }
+  });
+
+  // LOGIN: verifies user exists and password matches stored hash
+  if(loginBtn) loginBtn.addEventListener('click', async ()=>{
+    const email = (loginEmail.value || '').trim().toLowerCase();
+    const pass = (loginPass.value || '').trim();
+
+    if(!email || !pass) return alert('Enter email and password.');
+
+    const users = getUsers();
+    if(!users[email]) return alert('Unknown account. Please register first.');
+
+    try{
+      const hash = await sha256Hex(pass);
+      if(hash !== users[email].passHash){
+        return alert('Incorrect password.');
+      }
+      // successful login
+      // set current user and go to intro
+      showIntro();
+      // optionally prefill header or greet user later
+    } catch(e){
+      console.error(e);
+      alert('Login failed — try again.');
+    }
+  });
+
+  // Enter App from last slide
+  if(enterApp) enterApp.addEventListener('click', ()=>{
+    // store current user if not already set
+    if(!localStorage.getItem('davyCurrentUser')){
+      // if login fields exist, prefer the logged-in email; else choose first user (not ideal)
+      const u = loginEmail.value.trim().toLowerCase();
+      if(u) localStorage.setItem('davyCurrentUser', u);
+    }
+    showApp(localStorage.getItem('davyCurrentUser') || loginEmail.value.trim().toLowerCase());
+  });
+
+  // skip intro
+  if(skipIntro) skipIntro.addEventListener('click', ()=> showApp(localStorage.getItem('davyCurrentUser') || loginEmail.value.trim().toLowerCase()));
+
+  // slide next/prev
+  function snapTo(direction){
+    const w = slides.clientWidth;
+    const page = Math.round(slides.scrollLeft / w);
+    const target = Math.max(0, Math.min(page + direction, slides.children.length - 1));
+    slides.scrollTo({ left: target * w, behavior: 'smooth' });
+  }
+  if(slideNext) slideNext.addEventListener('click', ()=> snapTo(1));
+  if(slidePrev) slidePrev.addEventListener('click', ()=> snapTo(-1));
+
+  // horizontal scroll with mouse wheel
+  slides.addEventListener('wheel', (e)=>{
+    if(Math.abs(e.deltaY) > Math.abs(e.deltaX)){
+      slides.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+  }, {passive:false});
+
+  // logout: clear login flags
+  if(logoutBtn) logoutBtn.addEventListener('click', ()=>{
+    localStorage.removeItem('davyLoggedIn');
+    localStorage.removeItem('davyCurrentUser');
+    // keep user accounts stored (so they can login again) — if you want to remove credentials, also clear davyUsers
+    showAuth();
+    // reset slides position
+    slides.scrollLeft = 0;
+    // clear fields for privacy
+    loginEmail.value = loginPass.value = '';
+  });
+
+});
+</script>
+
+
+  <main class="wrap">
+    <div class="app-frame">
+      <aside class="sidebar" role="navigation" aria-label="Main navigation">
+        <h2>Menu</h2>
+        <button data-page="dashboard">Dashboard</button>
+        <button data-page="sales">Sales</button>
+        <button data-page="products">Products</button>
+        <button data-page="stock">Stock</button>
+        <button data-page="expenses">Expenses</button>
+        <button data-page="reports">Reports</button>
+        <button data-page="generalstock">General Gas Stock</button>
+        <button data-page="help">Help / Guide</button>
+        <button data-page="settings">Settings</button>
+        <div style="flex:1"></div>
+        <div class="small-muted">v1.0 — Offline</div>
+      </aside>
+
+      <section class="main-content">
+        <!-- DASHBOARD PAGE -->
+        <div id="dashboard" class="page active">
+          <div class="grid">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <h3 style="margin:0 0 6px 0">Dashboard</h3>
+                  <div class="small-muted">Quick summary</div>
+                </div>
+                <div class="small-muted">Local storage</div>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px">
+                <div><div class="small-muted">Sales (today)</div><div id="salesToday" style="font-weight:700;font-size: 19px">KES 0</div></div>
+                <div><div class="small-muted">Profit (today)</div><div id="profitToday" style="font-weight:700;font-size: 19px">KES 0</div></div>
+                <div><div class="small-muted">Expenses (today)</div><div id="expensesToday" style="font-weight:700;font-size: 19px">KES 0</div></div>
+                <div><div class="small-muted">Net</div><div id="netToday" style="font-weight:700;font-size: 19px">KES 0</div></div>
+              </div>
+
+              <div id="alerts" style="margin-top:10px"></div>
+            </div>
+
+            <div class="card">
+              <h4 style="margin:0 0 8px 0">Sales trend (10 days)</h4>
+              <div class="canvas-wrap"><canvas id="dashMini" height="140"></canvas></div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px" class="grid">
+            <div>
+              <div class="card">
+                <h3 style="margin:0 0 8px 0">Recent Sales</h3>
+                <div class="list" id="dashSalesList"></div>
+              </div>
+
+              <div class="card" style="margin-top:12px">
+                <h3 style="margin:0 0 8px 0">Water/Gas Tracking</h3>
+                <div id="dashWater" class="small-muted"></div>
+              </div>
+            </div>
+
+            <aside>
+              <div class="card">
+                <h3 style="margin:0 0 8px 0">Top products</h3>
+                <div id="dashTop" class="small-muted"></div>
+              </div>
+
+              <div class="card" style="margin-top:12px">
+                <h4 style="margin:0 0 6px 0">Quick Actions</h4>
+                <div style="display:grid;gap:8px">
+                  <button id="quickExport" class="primary">Export JSON</button>
+                  <button id="quickImport" class="btn-ghost">Import JSON</button>
+                  <input type="file" id="quickFile" accept="application/json" style="display:none"/>
+                  <button id="openReset" class="btn-ghost">Reset Options</button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <!-- SALES PAGE -->
+        <div id="sales" class="page">
+          <div class="card">
+            <h3>Sales</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="saleProduct"></select>
+              <input id="saleQty" type="number" placeholder="Qty" value="1" style="width:88px"/>
+              <input id="salePaid" type="number" placeholder="Paid" style="width:120px"/>
+              <button class="primary" id="addSaleBtn">Add Sale</button>
+            </div>
+
+            <div style="margin-top:10px">
+              <table class="table" id="salesTable">
+                <thead><tr><th>Product</th><th>Qty</th><th>Total</th><th>Profit</th><th>Time</th><th></th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- PRODUCTS PAGE -->
+        <div id="products" class="page">
+          <div class="card">
+            <h3>Products</h3>
+            <!-- stacked product form: product name on its own line, options below -->
+<!-- Product Form (beautiful, stacked, with image preview) -->
+<div class="product-form">
+
+  <label class="pf-label">Product name</label>
+  <input id="pName" placeholder="Product name (e.g. 6kg Gas)" dir="ltr" autocomplete="off"/>
+
+  <label class="pf-label">Category</label>
+  <select id="pCategory">
+    <option value="small">Small Gas</option>
+    <option value="big">Big Gas</option>
+    <option value="water">Water</option>
+    <option value="other">Other</option>
+  </select>
+
+  <label class="pf-label">Product Image</label>
+  <div class="image-picker">
+    <input id="pImage" type="file" accept="image/*"/>
+    <img id="pPreview" class="preview-img" src="" alt="" style="display:none;">
+  </div>
+
+  <label class="pf-label">Price</label>
+  <input class="wide-input" id="pPrice" type="number" placeholder="Price"/>
+
+  <label class="pf-label">Cost</label>
+  <input class="wide-input" id="pCost" type="number" placeholder="Cost"/>
+
+  <button class="primary" id="addProductBtn" style="margin-top:6px;">Add Product</button>
+</div>
+
+
+
+            <div style="margin-top:12px">
+              <table class="table" id="productsTable">
+                <thead><tr><th>Thumb</th><th>Name</th><th>Category</th><th>Price</th><th>Cost</th><th>Inventory</th><th></th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+<!-- STOCK PAGE -->
+<div id="stock" class="page">
+  <div class="card">
+    <h3>Stock</h3>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select id="stockProduct"></select>
+      <input id="stockQty" type="number" placeholder="Qty" style="width:120px"/>
+      <button class="primary" id="addStockBtn">Add Stock</button>
+    </div>
+
+    <div style="margin-top:10px">
+      <table class="table" id="stockTable">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Added</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Example row -->
+          <tr>
+            <td>6kg Gas</td>
+            <td>100</td>
+            <td>11/22/2025, 10:54:41 PM</td>
+            <td>
+              <button class="edit-btn">Edit</button>
+              <button class="delete-btn">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+
+        <!-- EXPENSES PAGE -->
+        <div id="expenses" class="page">
+          <div class="card">
+            <h3>Expenses</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="expDesc" placeholder="Description"/>
+              <input id="expAmt" type="number" placeholder="KES" style="width:120px"/>
+              <button class="primary" id="addExpBtn">Add Expense</button>
+            </div>
+            <div style="margin-top:12px">
+              <table class="table" id="expTable">
+                <thead><tr><th>Desc</th><th>Amount</th><th>Time</th><th></th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- REPORTS PAGE -->
+        <div id="reports" class="page">
+          <div class="card">
+            <h3>Reports & Charts</h3>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <div style="flex:1;min-width:300px">
+                <label class="small-muted">View:</label>
+                <select id="reportRange">
+                  <option value="10days">Last 10 days</option>
+                  <option value="thisMonth">This month (daily)</option>
+                  <option value="monthly">Last 12 months</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+              <div style="min-width:200px">
+                <label class="small-muted">Compare:</label>
+                <select id="compareSelect">
+                  <option value="none">None</option>
+                  <option value="expenses">Compare Expenses</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="margin-top:12px" class="canvas-wrap">
+              <canvas id="reportCanvas" width="800" height="260" style="width:100%;max-width:100%"></canvas>
+            </div>
+
+            <div style="margin-top:10px">
+              <strong>Best performing months (by sales):</strong>
+              <div id="bestMonths" class="small-muted"></div>
+            </div>
+          </div>
+        </div>
+
+<!-- SETTINGS -->
+<h2 style="margin-bottom:10px;color:var(--accent)">Day-V Gas Supply Settings</h2>
+
+<div id="settings" class="page">
+  <div class="card">
+    <h3>Settings & Reset</h3>
+    <div style="display:grid;gap:8px">
+      <button id="resetSales" class="btn-danger">Reset Sales Only</button>
+      <button id="resetExpenses" class="btn-danger">Reset Expenses Only</button>
+      <button id="resetStock" class="btn-danger">Reset Stock Only</button>
+      <button id="resetAll" class="btn-danger">Reset EVERYTHING</button>
+    </div>
+    <div style="margin-top:12px" class="small-muted">
+      Tip: export JSON before resetting to keep a backup.
+    </div>
+  </div>
+
+  <!-- SITE LOGO (only visible on Settings page) -->
+  <div class="card settings-only" style="margin-top:12px">
+    <h4 style="margin:0 0 8px 0">Site Logo (Upload)</h4>
+
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div id="logoPreview"
+           style="width:120px;height:80px;border-radius:8px;border:1px dashed #ddd;display:flex;align-items:center;justify-content:center;background:#fff;cursor:pointer"
+           role="button" tabindex="0" aria-label="Upload site logo (click or press Enter)">
+        No logo
+      </div>
+
+      <div style="flex:1;min-width:220px">
+        <label for="siteLogoInput" class="pf-label small">Choose an image (png/jpg/svg)</label>
+
+        <!-- keep the input in DOM but visually small/hidden so programmatic click works -->
+        <input id="siteLogoInput" type="file" accept="image/*" style="position:absolute;left:-9999px;"/>
+
+        <div style="margin-top:8px;display:flex;gap:8px">
+          <!-- removed Save button per request -->
+          <button id="clearSiteLogo" class="btn-ghost">Clear</button>
+        </div>
+
+        <div class="small-muted" style="margin-top:8px">
+          Logo is saved locally in your browser and shown in the header. (No server upload)
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div> <!-- END SETTINGS PAGE -->
+
+
+      
+<!-- GENERAL GAS STOCK (new) -->
+<div id="generalstock" class="page">
+  <div class="card" style="--accent:#ff7a00; --accent-2:#ff8f33;">
+    <h3>General Gas Stock</h3>
+    <div class="small-muted">Independent cumulative stock for gases — tracks Available, Empty & To Be Sold</div>
+
+    <div style="display:flex;gap:8px;align-items:center;margin-top:12px">
+      <select id="gsProductSelect" style="min-width:220px"></select>
+      <button id="gsRefresh" class="btn-ghost">Refresh</button>
+      <button id="gsSeed" class="btn-ghost">Seed from products</button>
+      <div style="flex:1"></div>
+      <button id="gsSaveBtn" class="primary">Save General Stock</button>
+    </div>
+
+    <div style="margin-top:12px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+      <div style="flex:1;min-width:360px" class="card">
+        <h4 style="margin:0 0 8px 0">Per-product details</h4>
+        <table class="table" id="gsTable">
+          <thead><tr><th>Product</th><th>Available</th><th>Empty</th><th>To be sold</th><th></th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div style="margin-top:8px" class="small-muted" id="gsTotals"></div>
+      </div>
+
+      <div style="width:300px;min-width:260px" class="card">
+        <h4 style="margin:0 0 8px 0">Product distribution</h4>
+        <select id="gsPieSelect" style="width:100%;margin-bottom:8px"></select>
+        <div class="canvas-wrap"><canvas id="gsPie" width="280" height="280"></canvas></div>
+        <div id="gsPieLegend" class="small-muted" style="margin-top:8px"></div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px" class="card small-muted">
+      <strong>Cumulative / Average</strong>
+      <div id="gsCumulative" style="margin-top:6px"></div>
+    </div>
+  </div>
+</div>
+
+
+<!-- HELP / GUIDE -->
+        <div id="help" class="page" style="padding:20px;">
+          <div class="card" style="padding:20px; max-width:800px; margin:auto;">
+            <h3 style="margin-bottom:12px;">
+              <i style="color:#ff7a00;margin-right:8px">i</i>
+              Help & User Guide
+            </h3>
+            <p style="margin-bottom:20px;">Everything you need to know about using the Offline Records System.</p>
+
+            <div class="faq-item open" style="margin-bottom:15px;">
+              <div class="faq-title" style="cursor:pointer; padding:10px 0; border-bottom:1px solid #ddd;">
+                <span>What this app does</span>
+                <i class="fa-chevron-down"></i>
+              </div>
+              <div class="faq-content" style="padding:10px 0;">
+                <p>This system allows you to record daily sales completely offline. All data stays on your device — safe and private.</p>
+              </div>
+            </div>
+
+            <div class="faq-item" style="margin-bottom:15px;">
+              <div class="faq-title" style="cursor:pointer; padding:10px 0; border-bottom:1px solid #ddd;">
+                <span>How to add a new record</span>
+              </div>
+              <div class="faq-content" style="padding:10px 0;">
+                <ul>
+                  <li>Open the page from the menu (Sales / Products / Stock / Expenses).</li>
+                  <li>Enter the details and click Add.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div style="margin-top:25px; padding-top:15px; border-top:1px solid #ddd;">
+              <h4 style="margin-bottom:10px;">Need More Help?</h4>
+              <p>If you have additional questions, contact support at <b>Jeangift@example.com</b>.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Install controls -->
+        <div style="position:fixed; bottom:20px; right:20px; display:flex; gap:8px; z-index:1200;">
+          <button id="installBtn" class="primary" style="display:none;">Install App</button>
+          <a id="downloadBtn" class="primary" href="app/gaswater-package.zip" download style="display:none; text-decoration:none; color:#fff;">Download App Package</a>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <!-- modal -->
+  <div id="modal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <button id="modalClose" class="modal-close" title="Close">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+<!-- ===== PWA & SW logic (robust fallback, blob-based SW) ===== -->
+<script>
+/* Fallback SW script — tiny offline cache */
+const fallbackSW = `const CACHE_NAME = 'gw-cache-v1';
+const TO_CACHE = ['./', './index.html'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(TO_CACHE)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => { e.waitUntil(clients.claim()); });
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+});`;
+
+async function registerSW() {
+  if (!('serviceWorker' in navigator)) return console.log('No SW support');
+  try {
+    const reg = await navigator.serviceWorker.register('/service-worker.js', { scope: './' });
+    console.log('Registered service-worker.js at root', reg);
+    return reg;
+  } catch (err) {
+    console.warn('Root SW registration failed, using blob fallback', err);
+  }
+  try {
+    const blob = new Blob([fallbackSW], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const scope = '/';
+    const reg = await navigator.serviceWorker.register(url, { scope });
+    console.log('Registered blob SW', reg);
+    return reg;
+  } catch (e) {
+    console.error('Blob SW registration failed', e);
+  }
+}
+
+let deferredPrompt = null;
+const installBtn = document.getElementById('installBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  const installed = localStorage.getItem('pwa_installed') === 'true';
+  const downloaded = localStorage.getItem('app_downloaded') === 'true';
+  if (!installed && !downloaded && installBtn) installBtn.style.display = 'inline-block';
+});
+
+installBtn?.addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  installBtn.disabled = true;
+  deferredPrompt.prompt();
+  const choice = await deferredPrompt.userChoice;
+  if (choice.outcome === 'accepted') {
+    localStorage.setItem('pwa_installed', 'true');
+    installBtn.style.display = 'none';
+  } else {
+    installBtn.style.display = 'none';
+    setTimeout(() => {
+      if (localStorage.getItem('pwa_installed') !== 'true' && localStorage.getItem('app_downloaded') !== 'true') {
+        installBtn.style.display = 'inline-block';
+      }
+    }, 30000);
+  }
+  deferredPrompt = null;
+});
+
+window.addEventListener('appinstalled', () => {
+  localStorage.setItem('pwa_installed', 'true');
+  if (installBtn) installBtn.style.display = 'none';
+});
+
+function showInstallHelpOnce(){
+  if (localStorage.getItem('install_help_shown') === 'true') return;
+  if (localStorage.getItem('pwa_installed') === 'true' || localStorage.getItem('app_downloaded') === 'true') return;
+  setTimeout(()=> {
+    const msg = `<h3>Install tip</h3>
+    <p>If "Install" isn't shown automatically, open the browser menu (⋮) and choose <strong>Install app</strong> or on mobile use <strong>Add to Home screen</strong>.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button id="okInstallHelp" class="primary">OK</button></div>`;
+    const mb = document.getElementById('modal');
+    const mc = document.getElementById('modalContent');
+    if (mb && mc) {
+      mc.innerHTML = msg;
+      mb.classList.add('show');
+      mb.setAttribute('aria-hidden','false');
+      document.getElementById('okInstallHelp')?.addEventListener('click', ()=> { mb.classList.remove('show'); mb.setAttribute('aria-hidden','true'); });
+      localStorage.setItem('install_help_shown','true');
+    }
+  }, 2000);
+}
+
+if (downloadBtn) downloadBtn.style.display = 'none';
+document.addEventListener('DOMContentLoaded', () => {
+  if (localStorage.getItem('pwa_installed') === 'true' && installBtn) installBtn.style.display = 'none';
+  if (localStorage.getItem('app_downloaded') === 'true' && downloadBtn) downloadBtn.style.display = 'none';
+  showInstallHelpOnce();
+});
+registerSW();
+</script>
+
+<!-- ===== The remainder of your full application script (IndexedDB + UI + charts) ===== -->
+<script>
+/* ---------------------------- IndexedDB helper ---------------------------- */
+const DB_NAME='records-db', DB_VERSION=1;
+let db;
+function openDB(){ return new Promise((res,rej)=>{ const req = indexedDB.open(DB_NAME,DB_VERSION); req.onupgradeneeded = e => {
+  const d = e.target.result;
+  if(!d.objectStoreNames.contains('products')) d.createObjectStore('products',{keyPath:'id',autoIncrement:true});
+  if(!d.objectStoreNames.contains('sales')) d.createObjectStore('sales',{keyPath:'id',autoIncrement:true});
+  if(!d.objectStoreNames.contains('stock')) d.createObjectStore('stock',{keyPath:'id',autoIncrement:true});
+  if(!d.objectStoreNames.contains('expenses')) d.createObjectStore('expenses',{keyPath:'id',autoIncrement:true});
+}; req.onsuccess = e => { db = e.target.result; res(db) }; req.onerror = ()=> rej(req.error); }); }
+function add(store,obj){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readwrite'); const s = tx.objectStore(store); const r = s.add({...obj,t:Date.now()}); r.onsuccess = ()=> res(r.result); r.onerror = ()=> rej(r.error); }); }
+function put(store,obj){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readwrite'); const s = tx.objectStore(store); const r = s.put(obj); r.onsuccess = ()=> res(r.result); r.onerror = ()=> rej(r.error); }); }
+function del(store,key){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readwrite'); const s = tx.objectStore(store); const r = s.delete(key); r.onsuccess = ()=> res(); r.onerror = ()=> rej(r.error); }); }
+function getAll(store){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readonly'); const s = tx.objectStore(store); const r = s.getAll(); r.onsuccess = () => res(r.result); r.onerror = ()=> rej(r.error); }); }
+function clearStore(store){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readwrite'); tx.objectStore(store).clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+function clearAll(){ return new Promise((res,rej)=>{ const tx = db.transaction(['products','sales','stock','expenses'],'readwrite'); tx.objectStore('products').clear(); tx.objectStore('sales').clear(); tx.objectStore('stock').clear(); tx.objectStore('expenses').clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+
+/* ---------------------------- App init ---------------------------- */
+async function init(){
+  await openDB();
+  await seedDefault();
+  await refreshAllViews();
+}
+async function seedDefault(){
+  const ps = await getAll('products');
+  if(ps.length===0){
+    // inventory starts at 0 — use Stock to record restocks so history and audit trail exist.
+    await add('products',{name:'6kg Gas',price:350,cost:300, inventory:0});
+    await add('products',{name:'13kg Gas',price:1800,cost:1500, inventory:0});
+    await add('products',{name:'20L Water',price:100,cost:60, inventory:0});
+  } else {
+    // ensure inventory property exists for older products
+    for(const p of ps){
+      if(typeof p.inventory === 'undefined'){ p.inventory = 0; await put('products', p); }
+    }
+  }
+}
+
+/* ---------------------------- UI helpers ---------------------------- */
+const $id = id => document.getElementById(id);
+function showPage(pageId){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el = document.getElementById(pageId);
+  if(el) el.classList.add('active');
+  // update aria-pressed on sidebar buttons
+  document.querySelectorAll('.sidebar button').forEach(btn=>{
+    btn.setAttribute('aria-pressed', btn.getAttribute('data-page') === pageId ? 'true' : 'false');
+  });
+}
+/* wire sidebar buttons (ensure this runs even if DOMContentLoaded already fired) */
+function wireSidebar(){
+  document.querySelectorAll('.sidebar button').forEach(btn=>{
+    btn.removeEventListener('click', btn._gwClickListener);
+    btn._gwClickListener = ()=>{ const page = btn.getAttribute('data-page'); if(page) showPage(page); };
+    btn.addEventListener('click', btn._gwClickListener);
+  });
+}
+wireSidebar();
+
+/* Modal */
+const modal = $id('modal'); const modalContent = $id('modalContent'); const modalClose = $id('modalClose');
+function openModal(html){ if(!modal||!modalContent) return; modalContent.innerHTML = html; modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); }
+function closeModal(){ if(!modal) return; modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
+if(modalClose) modalClose.addEventListener('click', closeModal);
+if(modal) modal.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
+
+/* ---------------------------- Utilities for inventory correctness ---------------------------- */
+/* safe html escape */
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* update a product's inventory atomically (delta can be negative) */
+async function updateProductInventory(productId, delta){
+  const ps = await getAll('products');
+  const p = ps.find(x=>x.id===productId);
+  if(!p) return;
+  p.inventory = (Number(p.inventory) || 0) + Number(delta);
+  await put('products', p);
+}
+
+/* Recalculate inventory for all products from stock history (useful after import) */
+async function recalcInventoryFromStock(){
+  const products = await getAll('products');
+  const stock = await getAll('stock');
+  for(const p of products){
+    const sum = stock.filter(s=>s.productId==p.id).reduce((a,b)=>a+Number(b.qty),0);
+    p.inventory = sum;
+    await put('products', p);
+  }
+}
+
+/* ---------------------------- Refresh everything views ---------------------------- */
+async function refreshAllViews(){ await renderProducts(); await renderStock(); await renderSales(); await renderExpenses(); await updateDashboard(); await renderReports(); await renderCharts(); }
+
+/* ---------------------------- Products ---------------------------- */
+async function renderProducts(){
+  const ps = await getAll('products');
+  const saleSel = $id('saleProduct'), stockSel = $id('stockProduct'), prodTable = $id('productsTable')?.querySelector('tbody');
+  if(!saleSel || !stockSel || !prodTable) return;
+  saleSel.innerHTML=''; stockSel.innerHTML=''; prodTable.innerHTML='';
+  ps.forEach(p=>{
+    const o = document.createElement('option'); o.value=p.id; o.text = `${p.name} — ${p.price}`; saleSel.appendChild(o);
+    const o2=o.cloneNode(true); stockSel.appendChild(o2);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(p.name)}</td><td>KES ${p.price}</td><td>KES ${p.cost}</td><td>${Number(p.inventory)||0}</td>
+      <td style="text-align:right">
+        <button class="btn-ghost" data-id="${p.id}" data-action="edit-product">Edit</button>
+        <button class="btn-danger" data-id="${p.id}" data-action="del-product">Delete</button>
+      </td>`;
+    prodTable.appendChild(tr);
+  });
+  prodTable.querySelectorAll('button').forEach(b=>{
+    const id = Number(b.getAttribute('data-id')); const action = b.getAttribute('data-action');
+    b.addEventListener('click', async () => {
+      if(action==='edit-product'){
+        const prod = (await getAll('products')).find(x=>x.id===id);
+        if(!prod) return alert('Not found');
+        const html = `<h3>Edit product</h3>
+          <div style="display:grid;gap:8px">
+            <input id="editName" value="${escapeHtml(prod.name)}"/>
+            <input id="editPrice" type="number" value="${prod.price}"/>
+            <input id="editCost" type="number" value="${prod.cost}"/>
+            <div style="display:flex;gap:8px"><button id="saveProd" class="primary">Save</button><button id="cancelProd">Cancel</button></div>
+          </div>`;
+        openModal(html);
+        $id('cancelProd')?.addEventListener('click', closeModal);
+        $id('saveProd')?.addEventListener('click', async ()=>{
+          prod.name = $id('editName').value.trim() || prod.name;
+          prod.price = Number($id('editPrice').value) || prod.price;
+          prod.cost = Number($id('editCost').value) || prod.cost;
+          await put('products', prod);
+          closeModal(); await refreshAllDataViews();
+        }, { once: true });
+      } else if(action==='del-product'){
+        if(!confirm('Delete this product? This will not delete past sales records.')) return;
+        await del('products', id);
+        await refreshAllDataViews();
+      }
+    });
+  });
+}
+$id('addProductBtn')?.addEventListener('click', async ()=>{ const name = $id('pName').value.trim(); const price = Number($id('pPrice').value)||0; const cost = Number($id('pCost').value)||0; if(!name) return alert('Enter product name'); await add('products',{name,price,cost, inventory:0}); $id('pName').value=''; $id('pPrice').value=''; $id('pCost').value=''; await refreshAllDataViews(); });
+
+/* ---------------------------- Stock ---------------------------- */
+async function renderStock(){
+  const s = await getAll('stock');
+  const ps = await getAll('products');
+  const table = $id('stockTable')?.querySelector('tbody');
+  if(!table) return;
+  table.innerHTML = '';
+  s.slice().reverse().forEach(row=>{
+    const prod = ps.find(p=>p.id===row.productId) || {name:'?'};
+    const qtyDisplay = row.qty < 0 ? `${row.qty} (sale)` : String(row.qty);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(prod.name)}</td><td>${qtyDisplay}</td><td>${new Date(row.t).toLocaleString()}</td>
+      <td style="text-align:right"><button class="btn-ghost" data-id="${row.id}" data-action="del-stock">Delete</button></td>`;
+    table.appendChild(tr);
+  });
+  table.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      const id = Number(b.getAttribute('data-id'));
+      const allStock = await getAll('stock');
+      const entry = allStock.find(s=>s.id===id);
+      if(!entry) return;
+      if(!confirm('Delete this stock entry? This will adjust product inventory accordingly.')) return;
+      // adjust inventory opposite to entry.qty (deleting a +10 restock => remove 10 from inventory; deleting a -5 sale => add 5 back)
+      await updateProductInventory(entry.productId, -entry.qty);
+      await del('stock', id);
+      await renderStock(); await updateDashboard(); await renderProducts();
+    });
+  });
+}
+$id('addStockBtn')?.addEventListener('click', async ()=>{ const pid = Number($id('stockProduct').value); const qty = Number($id('stockQty').value)||0; if(!pid || qty<=0) return alert('Choose product and quantity'); await add('stock',{productId:pid,qty}); // update inventory
+  await updateProductInventory(pid, qty);
+  $id('stockQty').value=''; await renderStock(); await renderCharts(); await updateDashboard(); await renderProducts(); });
+
+/* ---------------------------- Sales ---------------------------- */
+
+/* helper: delete all stock entries linked to a sale */
+async function removeStockEntriesForSale(saleId){
+  const allStock = await getAll('stock');
+  for(const st of allStock){
+    if(st.saleId === saleId){
+      try{ 
+        // reverse their inventory impact before deleting (st.qty is negative)
+        await updateProductInventory(st.productId, -st.qty); // -(-5) => +5 when removing a sale entry; -10 => -10 when removing restock (unlikely)
+        await del('stock', st.id); 
+      }catch(e){console.warn('Failed removing stock for sale', saleId, e);}
+    }
+  }
+}
+
+/* render sales table */
+async function renderSales(){
+  const s = await getAll('sales'); const tbody = $id('salesTable')?.querySelector('tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  s.slice().reverse().forEach(row=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(row.productName)}</td><td>${row.qty}</td><td>KES ${row.total}</td><td>KES ${row.profit}</td><td class="small-muted">${new Date(row.t).toLocaleString()}</td>
+      <td style="text-align:right">
+        <button class="btn-ghost" data-id="${row.id}" data-action="edit-sale">Edit</button>
+        <button class="btn-danger" data-id="${row.id}" data-action="del-sale">Delete</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  tbody.querySelectorAll('button').forEach(b=>{
+    const id = Number(b.getAttribute('data-id')); const action = b.getAttribute('data-action');
+    b.addEventListener('click', async ()=>{
+      if(action==='del-sale'){
+        if(!confirm('Delete this sale? This will also restore the sold quantity back to inventory.')) return;
+        // find sale object first
+        const sale = (await getAll('sales')).find(x=>x.id===id);
+        if(sale){
+          // add back sold qty to inventory
+          await updateProductInventory(sale.productId, sale.qty);
+        }
+        // remove linked stock entries, then delete sale
+        await removeStockEntriesForSale(id);
+        await del('sales', id);
+        await renderSales(); await updateDashboard(); await renderCharts(); await renderProducts();
+      }
+      else if(action==='edit-sale'){
+        const sale = (await getAll('sales')).find(x=>x.id===id); if(!sale) return alert('Sale not found');
+        const prods = await getAll('products');
+        const prodOptions = prods.map(p=>`<option value="${p.id}" ${p.id===sale.productId?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
+        const html = `<h3>Edit Sale</h3><div style="display:grid;gap:8px"><select id="editSaleProd">${prodOptions}</select><input id="editSaleQty" type="number" value="${sale.qty}"/><div style="display:flex;gap:8px"><button id="saveSale" class="primary">Save</button><button id="cancelSale">Cancel</button></div></div>`;
+        openModal(html);
+        $id('cancelSale')?.addEventListener('click', closeModal);
+        $id('saveSale')?.addEventListener('click', async ()=>{
+          const newPid = Number($id('editSaleProd').value);
+          const newQty = Number($id('editSaleQty').value)||1;
+          const pNew = prods.find(x=>x.id===newPid);
+          if(!pNew) return alert('Product not found');
+          // adjust inventories:
+          if(newPid === sale.productId){
+            // same product: delta = old - new => inventory increases by delta (if new < old, more inventory)
+            const delta = sale.qty - newQty;
+            await updateProductInventory(sale.productId, delta);
+          } else {
+            // different product: restore old product, reduce new product
+            await updateProductInventory(sale.productId, sale.qty); // give back old qty to old product
+            await updateProductInventory(newPid, -newQty); // subtract new qty from new product
+          }
+          // update sale object
+          sale.productId = newPid;
+          sale.productName = pNew.name;
+          sale.qty = newQty;
+          sale.total = newQty * pNew.price;
+          sale.profit = (pNew.price - pNew.cost) * newQty;
+          await put('sales', sale);
+
+          // update or create stock entry representing this sale (negative qty)
+          const stockEntries = await getAll('stock');
+          const linked = stockEntries.find(s => s.saleId === sale.id);
+          if(linked){
+            // before changing linked.qty, reverse previous inventory contribution already handled above
+            linked.qty = -newQty;
+            linked.productId = newPid;
+            await put('stock', linked);
+          } else {
+            // create new negative stock entry and we already adjusted inventory so qty negative stored is for history
+            await add('stock', { productId: sale.productId, qty: -newQty, saleId: sale.id });
+          }
+
+          closeModal();
+          await renderSales(); await updateDashboard(); await renderCharts(); await renderProducts();
+        }, { once: true });
+      }
+    });
+  });
+}
+
+/* add sale: create sales record AND a negative stock entry tied to saleId, and reduce inventory */
+$id('addSaleBtn')?.addEventListener('click', async ()=>{
+  const pid = Number($id('saleProduct').value);
+  const qty = Number($id('saleQty').value)||1;
+  const paid = Number($id('salePaid').value)||0;
+  const prods = await getAll('products');
+  const p = prods.find(x=>x.id===pid);
+  if(!p) return alert('Select product');
+  const total = qty * p.price;
+  const profit = (p.price - p.cost) * qty;
+
+  // check current inventory (product.inventory is authoritative)
+  const currentInv = Number(p.inventory) || 0;
+  if(currentInv - qty < 0){
+    if(!confirm(`Warning: current remaining stock is ${currentInv}. Selling ${qty} will make stock negative. Proceed?`)) return;
+  }
+
+  // add sale, capture generated id
+  const saleId = await add('sales', { productId: pid, productName: p.name, qty, total, profit, paid });
+
+  // create a negative stock entry that references this sale (history)
+  await add('stock', { productId: pid, qty: -qty, saleId });
+
+  // decrease product inventory
+  await updateProductInventory(pid, -qty);
+
+  // reset inputs & refresh
+  $id('saleQty').value='1'; $id('salePaid').value='';
+  await renderSales(); await renderStock(); await updateDashboard(); await renderCharts(); await renderProducts();
+});
+
+/* ---------------------------- Expenses ---------------------------- */
+async function renderExpenses(){
+  const e = await getAll('expenses'); const tbody = $id('expTable')?.querySelector('tbody'); if(!tbody) return; tbody.innerHTML='';
+  e.slice().reverse().forEach(row=>{ const tr = document.createElement('tr'); tr.innerHTML = `<td>${escapeHtml(row.desc)}</td><td>KES ${row.amt}</td><td class="small-muted">${new Date(row.t).toLocaleString()}</td><td style="text-align:right"><button class="btn-danger" data-id="${row.id}" data-action="del-exp">Del</button></td>`; tbody.appendChild(tr); });
+  tbody.querySelectorAll('button').forEach(b=>{ const id = Number(b.getAttribute('data-id')); b.addEventListener('click', async ()=>{ if(confirm('Delete this expense?')){ await del('expenses', id); await renderExpenses(); await updateTotals(); await renderCharts(); } }); });
+}
+$id('addExpBtn')?.addEventListener('click', async ()=>{ const desc = $id('expDesc').value.trim() || 'expense'; const amt = Number($id('expAmt').value)||0; if(amt <= 0) return alert('Enter amount'); await add('expenses',{desc,amt}); $id('expDesc').value=''; $id('expAmt').value=''; await renderExpenses(); await updateTotals(); await renderCharts(); });
+
+/* ---------------------------- Dashboard & small lists ---------------------------- */
+async function updateDashboard(){
+  const s = await getAll('sales'); const e = await getAll('expenses');
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const salesToday = s.filter(x=>x.t >= todayStart.getTime());
+  const expensesToday = e.filter(x=>x.t >= todayStart.getTime());
+  const totalSales = salesToday.reduce((a,b)=>a+b.total,0);
+  const totalProfit = salesToday.reduce((a,b)=>a+b.profit,0);
+  const totalExp = expensesToday.reduce((a,b)=>a+b.amt,0);
+  if($id('salesToday')) $id('salesToday').textContent = 'KES ' + totalSales;
+  if($id('profitToday')) $id('profitToday').textContent = 'KES ' + totalProfit;
+  if($id('expensesToday')) $id('expensesToday').textContent = 'KES ' + totalExp;
+  if($id('netToday')) $id('netToday').textContent = 'KES ' + (totalProfit - totalExp);
+
+  // small lists
+  if($id('dashSalesList')){
+    const dashSales = $id('dashSalesList'); dashSales.innerHTML='';
+    s.slice().reverse().slice(0,8).forEach(row=>{
+      const div = document.createElement('div'); div.className='item';
+      div.innerHTML = `<div>${row.productName} x${row.qty} <div class="small-muted">${new Date(row.t).toLocaleString()}</div></div><div><strong>KES ${row.total}</strong></div>`;
+      dashSales.appendChild(div);
+    });
+  }
+
+  // top products
+  const grouped = {};
+  s.forEach(x=> grouped[x.productName] = (grouped[x.productName]||0) + x.qty );
+  const topSorted = Object.keys(grouped).sort((a,b)=>grouped[b]-grouped[a]).slice(0,5);
+  if($id('dashTop')) $id('dashTop').textContent = topSorted.length ? topSorted.map(t=>`${t} (${grouped[t]})`).join(' • ') : 'No sales yet';
+
+  // water tracking — use product.inventory as authoritative; fallback to stock sum if missing
+  if($id('dashWater')){
+    const stock = await getAll('stock');
+    const products = await getAll('products');
+    const trackEl = $id('dashWater'); trackEl.innerHTML='';
+    products.forEach(p=>{
+      const stockQty = (typeof p.inventory !== 'undefined') ? Number(p.inventory) : stock.filter(x=>x.productId==p.id).reduce((a,b)=>a+Number(b.qty),0);
+      const soldQty = s.filter(x=>x.productId==p.id).reduce((a,b)=>a+b.qty,0);
+      const el = document.createElement('div'); el.className='small-muted'; el.textContent = `${p.name}: Sold ${soldQty} • Remaining ${stockQty}`;
+      trackEl.appendChild(el);
+    });
+  }
+}
+</script>
+
+<!-- Reports & Charts + additional features (compiled from your second section) -->
+<script>
+/* ---------------------------- Reports & Charts (canvas) ---------------------------- */
+function clearCanvas(ctx, w, h){ ctx.clearRect(0,0,w,h); }
+function drawGrid(ctx,w,h,options={}){ const {stepsY=4,color='#e6eef2'} = options; ctx.strokeStyle = color; ctx.lineWidth = 1; for(let i=0;i<=stepsY;i++){ const y = 20 + i*( (h-40)/stepsY ); ctx.beginPath(); ctx.moveTo(40,y); ctx.lineTo(w-20,y); ctx.stroke(); } }
+function drawLineChartCanvas(ctx,w,h,labels,values,opts={}){ const paddingLeft = 40, paddingRight = 20, top=20, bottom=30; const max = Math.max(...values,1); const usableW = w - paddingLeft - paddingRight; const points = values.map((v,i)=>{ const x = paddingLeft + (i/(values.length-1 || 1))*usableW; const y = top + (1 - (v/max)) * (h - top - bottom); return {x,y}; }); ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y); points.forEach(p=> ctx.lineTo(p.x,p.y)); ctx.lineTo(points[points.length-1].x, h-bottom); ctx.lineTo(points[0].x, h-bottom); ctx.closePath(); ctx.fillStyle = 'rgba(15,118,110,0.12)'; ctx.fill(); ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = '#0f766e'; points.forEach((p,i)=> i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke(); ctx.fillStyle = '#0f766e'; points.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); }); ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.font = '12px Arial'; labels.forEach((lab,i)=>{ const p = points[i]; if(!p) return; ctx.fillText(lab, p.x - 18, h - 8); }); ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.font='12px Arial'; for(let i=0;i<=4;i++){ const val = Math.round(max * (1 - (i/4))); const y = top + i*((h-top-bottom)/4); ctx.fillText(val.toString(), 6, y+4); } }
+function drawBarChartCanvas(ctx,w,h,labels,values,opts={}){ const paddingLeft = 40, paddingRight = 20, top=20, bottom=40; const usableW = w - paddingLeft - paddingRight; const barWidth = usableW / values.length * 0.7; const max = Math.max(...values,1); values.forEach((v,i)=>{ const x = paddingLeft + i*(usableW/values.length) + (usableW/values.length - barWidth)/2; const height = (v / max) * (h - top - bottom); const y = h - bottom - height; ctx.fillStyle = '#0f766e'; ctx.fillRect(x,y,barWidth,height); ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.font='12px Arial'; ctx.fillText(labels[i], x, h - 8); ctx.fillText(String(v), x, y - 6); }); }
+
+async function getSalesByDay(days=10){
+  const sales = await getAll('sales');
+  const labels=[]; const values=[];
+  for(let i=days-1;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
+    const next = d.getTime() + 86400000;
+    const total = sales.filter(s=>s.t>=d.getTime() && s.t<next).reduce((a,b)=>a+b.total,0);
+    labels.push(d.toLocaleDateString());
+    values.push(total);
+  }
+  return {labels,values};
+}
+async function getSalesByMonth(months=12){
+  const sales = await getAll('sales');
+  const now = new Date();
+  const labels=[]; const values=[];
+  for(let i=months-1;i>=0;i--){
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const start = d.getTime();
+    const end = new Date(d.getFullYear(), d.getMonth()+1, 1).getTime();
+    const total = sales.filter(s=>s.t>=start && s.t<end).reduce((a,b)=>a+b.total,0);
+    labels.push(d.toLocaleString('default',{month:'short',year:'numeric'}));
+    values.push(total);
+  }
+  return {labels,values};
+}
+
+async function renderReports(){
+  if(!$id('reportCanvas')) return;
+  const canvas = $id('reportCanvas'); const ctx = canvas.getContext('2d');
+  const rangeEl = $id('reportRange');
+  const range = rangeEl ? rangeEl.value : '10days';
+  clearCanvas(ctx, canvas.width, canvas.height);
+  drawGrid(ctx, canvas.width, canvas.height, {stepsY:4});
+  if(range==='10days'){
+    const data = await getSalesByDay(10);
+    drawLineChartCanvas(ctx, canvas.width, canvas.height, data.labels, data.values);
+  } else if(range==='thisMonth'){
+    const now = new Date(); const days = new Date(now.getFullYear(), now.getMonth()+1,0).getDate();
+    const labels=[]; const values=[]; const sales = await getAll('sales');
+    for(let d=1; d<=days; d++){
+      const start = new Date(now.getFullYear(), now.getMonth(), d); start.setHours(0,0,0,0);
+      const end = start.getTime() + 86400000;
+      const total = sales.filter(s=>s.t>=start.getTime() && s.t<end).reduce((a,b)=>a+b.total,0);
+      labels.push(String(d)); values.push(total);
+    }
+    drawBarChartCanvas(ctx, canvas.width, canvas.height, labels, values);
+  } else if(range==='monthly'){
+    const data = await getSalesByMonth(12);
+    drawBarChartCanvas(ctx, canvas.width, canvas.height, data.labels, data.values);
+  } else if(range==='yearly'){
+    const sales = await getAll('sales');
+    const years = {};
+    sales.forEach(s=>{ const y = new Date(s.t).getFullYear(); years[y] = (years[y]||0) + s.total; });
+    const labels = Object.keys(years).sort(); const values = labels.map(l=>years[l]);
+    drawBarChartCanvas(ctx, canvas.width, canvas.height, labels, values);
+  }
+  const months = await getSalesByMonth(12);
+  const ranked = months.labels.map((lab,i)=>({lab,val:months.values[i]})).sort((a,b)=>b.val-a.val).slice(0,6);
+  if($id('bestMonths')) $id('bestMonths').textContent = ranked.map(r=> `${r.lab}: KES ${r.val}`).join(' • ') || 'No data';
+}
+$id('reportRange')?.addEventListener('change', renderReports);
+$id('compareSelect')?.addEventListener('change', renderReports);
+
+async function renderCharts(){
+  await renderReports();
+  if($id('dashMini')){
+    const mini = $id('dashMini'); const ctx = mini.getContext('2d');
+    const d = await getSalesByDay(10);
+    clearCanvas(ctx, mini.width, mini.height);
+    drawGrid(ctx, mini.width, mini.height, {stepsY:3});
+    drawLineChartCanvas(ctx, mini.width, mini.height, d.labels, d.values);
+  }
+}
+
+/* ---------------------------- Export / Import / Quick actions ---------------------------- */
+$id('quickExport')?.addEventListener('click', async ()=>{
+  const products = await getAll('products'); const sales = await getAll('sales'); const stock = await getAll('stock'); const expenses = await getAll('expenses');
+  const data = {products,sales,stock,expenses};
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'records-export.json'; a.click(); URL.revokeObjectURL(url);
+});
+$id('quickImport')?.addEventListener('click', ()=> $id('quickFile').click());
+$id('quickFile')?.addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const txt = await f.text(); const data = JSON.parse(txt);
+  if(!confirm('Import will replace current local data. Continue?')) return;
+  await clearAll();
+  // add products first
+  for(const p of data.products||[]) await add('products',{name:p.name,price:p.price,cost:p.cost, inventory:0});
+  // add stock history
+  for(const s of data.stock||[]) await add('stock',{productId:s.productId,qty:s.qty,t:s.t});
+  // import sales and create negative stock entries
+  for(const s of data.sales||[]){
+    const saleId = await add('sales',{productId:s.productId,productName:s.productName,qty:s.qty,total:s.total,profit:s.profit,paid:s.paid,t:s.t});
+    if(s.qty && s.qty > 0){
+      await add('stock',{productId:s.productId, qty:-s.qty, saleId, t:s.t});
+    }
+  }
+  // import expenses
+  for(const x of data.expenses||[]) await add('expenses',{desc:x.desc,amt:x.amt,t:x.t});
+  // recalc inventory from stock history (so inventory matches restocks and sales)
+  await recalcInventoryFromStock();
+  await refreshAllViews();
+});
+
+/* Reset buttons */
+$id('openReset')?.addEventListener('click', ()=> showPage('settings'));
+$id('resetSales')?.addEventListener('click', async ()=>{ if(confirm('Delete ALL sales?')){ await clearStore('sales'); // remove stock entries that reference sales
+  const allStock = await getAll('stock'); for(const st of allStock){ if(st.saleId) await del('stock', st.id); } await recalcInventoryFromStock(); await refreshAllViews(); }}); 
+$id('resetExpenses')?.addEventListener('click', async ()=>{ if(confirm('Delete ALL expenses?')){ await clearStore('expenses'); await refreshAllViews(); }}); 
+$id('resetStock')?.addEventListener('click', async ()=>{ if(confirm('Delete ALL stock entries?')){ await clearStore('stock'); await recalcInventoryFromStock(); await refreshAllViews(); }}); 
+$id('resetAll')?.addEventListener('click', async ()=>{ if(confirm('Delete EVERYTHING (products, sales, stock, expenses)?')){ await clearAll(); await seedDefault(); await refreshAllViews(); }});
+
+/* Theme toggle */
+const themeBtn = $id('themeToggle');
+if(themeBtn) themeBtn.addEventListener('click', ()=>{ const current = document.body.getAttribute('data-theme') || 'light'; const next = current === 'light' ? 'dark' : 'light'; document.body.setAttribute('data-theme', next); themeBtn.textContent = next==='light'?'Dark Mode':'Light Mode'; localStorage.setItem('theme', next); });
+const saved = localStorage.getItem('theme'); if(saved) document.body.setAttribute('data-theme', saved);
+
+/* Helper */
+async function refreshAllDataViews(){ await renderProducts(); await renderStock(); await renderSales(); await renderExpenses(); await updateDashboard(); await renderCharts(); }
+window.addEventListener('load', async ()=>{ await init(); await renderProducts(); await renderStock(); await renderSales(); await renderExpenses(); await updateDashboard(); await renderCharts(); });
+document.querySelectorAll('#help .faq-item').forEach(item => {
+  const content = item.querySelector('.faq-content');
+  if(item.classList.contains('open')) content.style.maxHeight = content.scrollHeight + 'px';
+  item.addEventListener('click', () => {
+    const isOpen = item.classList.contains('open');
+    document.querySelectorAll('#help .faq-item').forEach(i => {
+      i.classList.remove('open');
+      i.querySelector('.faq-content').style.maxHeight = null;
+    });
+    if(!isOpen){
+      item.classList.add('open');
+      content.style.maxHeight = content.scrollHeight + 'px';
+    }
+  });
+});
+
+/* Prevent missing helper errors */
+async function updateTotals(){ await updateDashboard(); }
+</script>
+
+<!-- BEGIN: Additional features injected by assistant -->
+<script>
+/* Inject extra UI elements (category select + image upload) into Products form if missing */
+(function enhanceProductsUI(){
+  try{
+    const prodCard = document.querySelector('#products .card') || document.getElementById('products');
+    if(!prodCard) return;
+    // find the controls container (grid)
+    const grid = prodCard.querySelector('div[style*="grid"], div > div');
+    // create category select and image input if they don't exist
+    if(!document.getElementById('pCategory')){
+      const sel = document.createElement('select');
+      sel.id = 'pCategory';
+      sel.innerHTML = '<option value=\"small\">Small Gas</option><option value=\"big\">Big Gas</option><option value=\"water\">Water</option><option value=\"other\">Other</option>';
+      sel.style.minWidth = '140px';
+      if(grid) grid.insertBefore(sel, grid.children[1] || null);
+    }
+    if(!document.getElementById('pImage')){
+      const file = document.createElement('input');
+      file.type = 'file'; file.accept = 'image/*'; file.id = 'pImage';
+      file.style.minWidth = '140px';
+      if(grid) grid.insertBefore(file, grid.children[2] || null);
+    }
+  }catch(e){ console.warn('Enhance UI failed', e); }
+})();
+
+/* Read file as DataURL */
+function readFileAsDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+
+/* Override addProductBtn to support image and category */
+document.addEventListener('click', async (e)=>{
+  if(e.target && e.target.id === 'addProductBtn'){
+    const name = (document.getElementById('pName')?.value || '').trim();
+    const price = Number(document.getElementById('pPrice')?.value || 0);
+    const cost = Number(document.getElementById('pCost')?.value || 0);
+    const category = document.getElementById('pCategory')?.value || 'other';
+    const file = document.getElementById('pImage')?.files?.[0] || null;
+    if(!name){ alert('Enter product name'); return; }
+    let imageData = null;
+    if(file){
+      try{ imageData = await readFileAsDataURL(file); } catch(e){ console.warn('Image read failed', e); }
+      if(imageData && imageData.length > 2_000_000){
+        if(!confirm('Image is large and may bloat your local DB. Continue?')) return;
+      }
+    }
+    // use existing add() method provided in app to store product
+    if(typeof add === 'function'){
+      await add('products', { name, price, cost, inventory:0, category, image: imageData });
+      // clear inputs
+      document.getElementById('pName').value=''; document.getElementById('pPrice').value=''; document.getElementById('pCost').value='';
+      if(document.getElementById('pImage')) document.getElementById('pImage').value='';
+      if(typeof refreshAllDataViews === 'function') await refreshAllDataViews(); else if(typeof refreshAllViews === 'function') await refreshAllViews();
+    } else {
+      alert('Add function not found in this page - please ensure base script loaded.');
+    }
+  }
+});
+
+/* Patch renderProducts to show thumb + category if image property exists; fallback gracefully */
+async function renderProductsWithThumbs(){
+  if(typeof getAll !== 'function') return;
+  const ps = await getAll('products');
+  const tbody = document.querySelector('#productsTable tbody');
+  if(!tbody) return;
+  tbody.innerHTML = '';
+  ps.forEach(p=>{
+    const tr = document.createElement('tr');
+    const thumb = p.image ? `<img src=\"${p.image}\" style=\"width:48px;height:32px;object-fit:cover;border-radius:6px\">` : '<div style=\"width:48px;height:32px;background:#f3f4f6;border-radius:6px\"></div>';
+    // if header doesn't have a Thumb column, add it
+    const thead = document.querySelector('#productsTable thead tr');
+    if(thead && thead.querySelectorAll('th').length < 6){
+      const th = document.createElement('th'); th.textContent = 'Thumb'; thead.insertBefore(th, thead.firstChild);
+    }
+    tr.innerHTML = `<td>${thumb}</td><td>${escapeHtml(p.name)}</td><td>${p.category||'other'}</td><td>KES ${p.price}</td><td>KES ${p.cost}</td><td>${p.inventory||0}</td>
+      <td style=\"text-align:right\">
+        <button class=\"btn-ghost\" data-id=\"${p.id}\" data-action=\"view-prod\">View</button>
+        <button class=\"btn-ghost\" data-id=\"${p.id}\" data-action=\"edit-prod\">Edit</button>
+        <button class=\"btn-danger\" data-id=\"${p.id}\" data-action=\"del-prod\">Delete</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
+  // bind view/edit/del
+  tbody.querySelectorAll('button').forEach(b=>{
+    const id = Number(b.getAttribute('data-id'));
+    const action = b.getAttribute('data-action');
+    b.addEventListener('click', async ()=>{
+      if(action==='view-prod'){
+        const prod = (await getAll('products')).find(x=>x.id===id); if(!prod) return;
+        // open modal showing image and short sales chart
+        const html = `<h3>${escapeHtml(prod.name)}</h3>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div>${prod.image?`<img src=\"${prod.image}\" style=\"width:120px;height:80px;object-fit:cover;border-radius:8px\">`:'<div style=\"width:120px;height:80px;background:#f3f4f6;border-radius:8px\"></div>'}</div>
+            <div style="flex:1"><div>Category: ${prod.category||'other'}</div><div>Price: KES ${prod.price}</div><div>Cost: KES ${prod.cost}</div></div>
+          </div>
+          <div style=\"margin-top:12px\"><canvas id=\"prodMiniChart\" width=\"520\" height=\"160\"></canvas></div>
+          <div style=\"text-align:right;margin-top:8px\"><button id=\"closeViewProd\" class=\"btn-ghost\">Close</button></div>`;
+        openModal(html);
+        document.getElementById('closeViewProd')?.addEventListener('click', closeModal);
+        // draw 14-day sales mini chart
+        setTimeout(async ()=>{
+          const sales = await getAll('sales');
+          const labels=[]; const values=[];
+          for(let i=13;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0); const next=d.getTime()+86400000; labels.push(d.toLocaleDateString()); values.push(sales.filter(s=>s.productId===prod.id && s.t>=d.getTime() && s.t<next).reduce((a,b)=>a+b.qty,0)); }
+          const c = document.getElementById('prodMiniChart'); if(!c) return; const ctx = c.getContext('2d'); ctx.clearRect(0,0,c.width,c.height);
+          // simple line
+          const max = Math.max(...values,1);
+          const paddingLeft=40, paddingRight=20, top=10, bottom=20;
+          const usableW = c.width - paddingLeft - paddingRight;
+          ctx.beginPath();
+          values.forEach((v,i)=>{
+            const x = paddingLeft + (i/(values.length-1||1))*usableW;
+            const y = top + (1 - (v/max))*(c.height-top-bottom);
+            i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);
+          });
+          ctx.lineWidth=2; ctx.strokeStyle='#0f766e'; ctx.stroke();
+        },80);
+      } else if(action==='edit-prod'){
+        const prod = (await getAll('products')).find(x=>x.id===id); if(!prod) return;
+        const html = `<h3>Edit product</h3><div style=\"display:grid;gap:8px\"><input id=\"editName\" value=\"${escapeHtml(prod.name)}\"/><input id=\"editPrice\" type=\"number\" value=\"${prod.price}\"/><input id=\"editCost\" type=\"number\" value=\"${prod.cost}\"/><select id=\"editCategory\"><option value=\"small\">Small</option><option value=\"big\">Big</option><option value=\"water\">Water</option><option value=\"other\">Other</option></select><div style=\"display:flex;gap:8px\"><button id=\"saveProd\" class=\"primary\">Save</button><button id=\"cancelProd\" class=\"btn-ghost\">Cancel</button></div></div>`;
+        openModal(html);
+        document.getElementById('editCategory').value = prod.category||'other';
+        document.getElementById('cancelProd')?.addEventListener('click', closeModal);
+        document.getElementById('saveProd')?.addEventListener('click', async ()=>{
+          prod.name = document.getElementById('editName').value.trim() || prod.name;
+          prod.price = Number(document.getElementById('editPrice').value) || prod.price;
+          prod.cost = Number(document.getElementById('editCost').value) || prod.cost;
+          prod.category = document.getElementById('editCategory').value || prod.category;
+          await put('products', prod);
+          closeModal(); if(typeof refreshAllDataViews==='function') await refreshAllDataViews(); else if(typeof refreshAllViews==='function') await refreshAllViews();
+        }, { once:true });
+      } else if(action==='del-prod'){
+        if(!confirm('Delete product? Past sales will remain.')) return;
+        await del('products', id);
+        if(typeof refreshAllDataViews==='function') await refreshAllDataViews(); else if(typeof refreshAllViews==='function') await refreshAllViews();
+      }
+    });
+  });
+}
+
+/* Replace original product render hook if present */
+document.addEventListener('DOMContentLoaded', ()=>{
+  // attempt to override renderProducts if present: call original then our thumb renderer
+  if(typeof renderProducts === 'function'){
+    const orig = renderProducts;
+    renderProducts = async function(){ await orig(); await renderProductsWithThumbs(); };
+  } else {
+    // if original missing, periodically try to render thumbs
+    setTimeout(renderProductsWithThumbs, 200);
+  }
+  // ensure stock pie canvas exists in the stock aside — create if missing
+  (function ensureStockPie(){
+    const stockCard = document.querySelector('#stock .card') || document.getElementById('stock');
+    if(!stockCard) return;
+    if(!document.getElementById('stockPie')){
+      const div = document.createElement('div'); div.className='card'; div.style.marginTop='12px';
+      div.innerHTML = '<h4 style=\"margin:0 0 8px 0\">Stock distribution</h4><div class=\"canvas-wrap\"><canvas id=\"stockPie\" width=\"300\" height=\"300\"></canvas></div><div id=\"stockLegend\" class=\"small-muted\"></div>';
+      stockCard.appendChild(div);
+    }
+  })();
+
+  // create small/big gas canvases in reports if missing
+  (function ensureCategoryCanvases(){
+    const wrap = document.querySelector('#reports .canvas-wrap') || document.querySelector('#reports');
+    if(!wrap) return;
+    if(!document.getElementById('smallGasCanvas')){
+      const el = document.createElement('div'); el.style.marginTop='12px'; el.innerHTML = '<h4 style=\"margin:6px 0\">Small Gases — per-type comparison</h4><canvas id=\"smallGasCanvas\" width=\"800\" height=\"220\" style=\"width:100%\"></canvas>';
+      wrap.appendChild(el);
+    }
+    if(!document.getElementById('bigGasCanvas')){
+      const el2 = document.createElement('div'); el2.style.marginTop='12px'; el2.innerHTML = '<h4 style=\"margin:6px 0\">Big Gases — per-type comparison</h4><canvas id=\"bigGasCanvas\" width=\"800\" height=\"220\" style=\"width:100%\"></canvas>';
+      wrap.appendChild(el2);
+    }
+    // add CSV export button
+    if(!document.getElementById('exportReportCsv')){
+      const btn = document.createElement('button'); btn.id='exportReportCsv'; btn.className='btn-ghost'; btn.textContent='Export report CSV'; const reportsCard = document.querySelector('#reports .card'); if(reportsCard) reportsCard.insertBefore(btn, reportsCard.querySelector('.canvas-wrap'));
+      btn.addEventListener('click', async ()=>{ await exportReportCSV(); });
+    }
+  })();
+  // initial draws
+  setTimeout(()=>{ renderStockPieSafe(); drawCategoryComparisons(); }, 300);
+});
+
+/* Stock pie renderer */
+async function renderStockPieSafe(){
+  if(typeof getAll !== 'function') return;
+  const products = await getAll('products');
+  const groups = {/* categories dynamic */};
+  products.forEach(p=>{ const cat = p.category || 'other'; groups[cat] = (groups[cat]||0) + (Number(p.inventory)||0); });
+  const labels = Object.keys(groups);
+  const data = labels.map(l=>groups[l]);
+  const colors = ['#0f766e','#0b84a5','#f59e0b','#ef4444','#7c3aed','#06b6d4'];
+  const canvas = document.getElementById('stockPie'); if(!canvas) return;
+  const ctx = canvas.getContext('2d'); const w = canvas.width, h = canvas.height; ctx.clearRect(0,0,w,h);
+  const total = data.reduce((a,b)=>a+b,0) || 1; let start=0; const cx=w/2, cy=h/2, r=Math.min(w,h)/2 - 8;
+  for(let i=0;i<data.length;i++){
+    const slice = data[i]/total; const end = start + slice;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r, start*Math.PI*2, end*Math.PI*2); ctx.closePath(); ctx.fillStyle = colors[i % colors.length]; ctx.fill();
+    start = end;
+  }
+  const legend = document.getElementById('stockLegend'); if(legend){ legend.innerHTML = labels.map((lab,i)=>`<div style=\"display:inline-block;margin-right:10px\"><span style=\"display:inline-block;width:12px;height:12px;background:${colors[i%colors.length]};margin-right:6px;border-radius:3px\"></span>${lab} — ${data[i]}</div>`).join(''); }
+}
+
+/* Draw comparisons per category: multi-line charts for each product type in small/big categories */
+async function drawCategoryComparisons(){
+  if(typeof getAll !== 'function') return;
+  const products = await getAll('products');
+  const sales = await getAll('sales');
+  // helper: get labels for last 30 days
+  const labels = []; for(let i=29;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0); labels.push(d.toLocaleDateString()); }
+  // draw for a category into canvasId
+  async function drawForCategory(category, canvasId){
+    const canvas = document.getElementById(canvasId); if(!canvas) return;
+    const ctx = canvas.getContext('2d'); ctx.clearRect(0,0,canvas.width,canvas.height);
+    const prods = products.filter(p=>p.category === category);
+    if(prods.length===0){ ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.font='14px Arial'; ctx.fillText('No products in category', 10, 20); return; }
+    // series: for each product, compute daily sold qty
+    const series = prods.map(p=>({name:p.name, values: labels.map((lab,idx)=>{ const start = new Date(); start.setDate(start.getDate() - (29-idx)); start.setHours(0,0,0,0); const next = start.getTime() + 86400000; return sales.filter(s=>s.productId===p.id && s.t>=start.getTime() && s.t<next).reduce((a,b)=>a+b.qty,0); }) }));
+    // determine max
+    const max = Math.max(...series.flatMap(s=>s.values),1);
+    const paddingLeft = 40, paddingRight = 20, top=20, bottom=30;
+    const usableW = canvas.width - paddingLeft - paddingRight;
+    const colors = ['#0f766e','#0b84a5','#ef4444','#f59e0b','#7c3aed','#06b6d4','#10b981'];
+    series.forEach((s,si)=>{
+      ctx.beginPath();
+      s.values.forEach((v,i)=>{ const x = paddingLeft + (i/(s.values.length-1||1))*usableW; const y = top + (1 - (v/max))*(canvas.height-top-bottom); i===0?ctx.moveTo(x,y):ctx.lineTo(x,y); });
+      ctx.lineWidth = 2; ctx.strokeStyle = colors[si % colors.length]; ctx.stroke();
+      // points
+      s.values.forEach((v,i)=>{ const x = paddingLeft + (i/(s.values.length-1||1))*usableW; const y = top + (1 - (v/max))*(canvas.height-top-bottom); ctx.beginPath(); ctx.arc(x,y,3,0,Math.PI*2); ctx.fillStyle = colors[si % colors.length]; ctx.fill(); });
+    });
+    // x labels few
+    ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.font='12px Arial';
+    for(let i=0;i<labels.length;i+=Math.ceil(labels.length/6)){ const x = paddingLeft + (i/(labels.length-1||1))*usableW; ctx.fillText(labels[i], x-18, canvas.height - 8); }
+    // legend
+    const legendId = canvasId + 'Legend';
+    let legend = document.getElementById(legendId);
+    if(!legend){
+      legend = document.createElement('div'); legend.id = legendId; legend.className='small-muted'; canvas.parentNode.appendChild(legend);
+    }
+    legend.innerHTML = series.map((s,si)=>`<span style=\"display:inline-block;margin-right:10px\"><span style=\"display:inline-block;width:10px;height:10px;background:${colors[si%colors.length]};margin-right:6px;border-radius:3px\"></span>${s.name}</span>`).join('');
+  }
+
+  await drawForCategory('small','smallGasCanvas');
+  await drawForCategory('big','bigGasCanvas');
+}
+
+/* CSV export of sales report (optionally filtered by category/range) */
+async function exportReportCSV(){
+  const range = document.getElementById('reportRange')?.value || '10days';
+  const products = await getAll('products'); const sales = await getAll('sales');
+  // filter sales by date range
+  let start = 0;
+  if(range==='10days'){ const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-9); start = d.getTime(); }
+  else if(range==='thisMonth'){ const now=new Date(); const d = new Date(now.getFullYear(), now.getMonth(), 1); start = d.getTime(); }
+  else if(range==='monthly'){ const now=new Date(); const last = new Date(now.getFullYear(), now.getMonth()-11, 1); start = last.getTime(); }
+  // pick relevant sales
+  const filtered = sales.filter(s=> s.t >= start );
+  // CSV header
+  const rows = [['sale_id','product_id','product_name','qty','total','profit','paid','timestamp']];
+  filtered.forEach(s=> rows.push([s.id,s.productId,`"${s.productName}"`,s.qty,s.total,s.profit,s.paid || 0, new Date(s.t).toISOString()]));
+  const csv = rows.map(r=>r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'sales-report.csv'; a.click(); URL.revokeObjectURL(url);
+}
+
+/* Ensure charts update after sales/stock/products changes */
+async function hookRefreshTriggers(){
+  const originalAddSale = window.addSaleHooked;
+  // simple periodic redraw if methods exist
+  setInterval(()=>{ try{ renderStockPieSafe(); drawCategoryComparisons(); renderReports(); }catch(e){} }, 2000);
+}
+hookRefreshTriggers();
+
+</script>
+<!-- END: Additional features injected by assistant -->
+
+
+<!-- BEGIN: Color mapping & dynamic color assignment (injected) -->
+<script>
+(function(){
+  // Palette of distinct colors (extendable)
+  const PALETTE = ['#0f766e','#0b84a5','#ef4444','#f59e0b','#7c3aed','#06b6d4','#10b981','#db2777','#7c2d12','#0ea5e9','#a3e635','#f97316'];
+
+  function loadColorMap(){
+    try{ return JSON.parse(localStorage.getItem('gw_color_map')||'{}'); }catch(e){ return {}; }
+  }
+  function saveColorMap(m){
+    try{ localStorage.setItem('gw_color_map', JSON.stringify(m)); }catch(e){}
+  }
+  function pickNextColor(used){
+    for(const c of PALETTE) if(!used.includes(c)) return c;
+    // if all used, pick random from palette
+    return PALETTE[Math.floor(Math.random()*PALETTE.length)];
+  }
+  // key should be a stable string (e.g. "prod:123" or "cat:small")
+  window.getColorForKey = function(key){
+    const map = loadColorMap();
+    if(map[key]) return map[key];
+    // collect used colors
+    const used = Object.values(map);
+    const color = pickNextColor(used);
+    map[key] = color;
+    saveColorMap(map);
+    return color;
+  };
+
+  // helper: convert hex to rgba
+  window.hexToRgba = function(hex, alpha){
+    if(!hex) return 'rgba(0,0,0,'+alpha+')';
+    hex = hex.replace('#','');
+    if(hex.length === 3) hex = hex.split('').map(c=>c+c).join('');
+    const r = parseInt(hex.substring(0,2),16);
+    const g = parseInt(hex.substring(2,4),16);
+    const b = parseInt(hex.substring(4,6),16);
+    return `rgba(${r},${g},${b},${alpha})`;
+  };
+
+  // Ensure every product has a persistent color assigned in DB (and stored in local color map)
+  async function ensureProductColors(){
+    if(typeof getAll !== 'function' || typeof put !== 'function') return;
+    try{
+      const prods = await getAll('products');
+      for(const p of prods){
+        const key = 'prod:' + (p.id || p.name);
+        const color = p.color || window.getColorForKey(key);
+        if(p.color !== color){
+          p.color = color;
+          await put('products', p);
+        }
+      }
+    }catch(e){ console.warn('ensureProductColors failed', e); }
+  }
+
+  // Override or patch drawCategoryComparisons & renderStockPieSafe usage of colors.
+  // We'll monkey-patch drawCategoryComparisons if it exists, otherwise provide our own safe renderer.
+  function patchDrawCategoryComparisons(){
+    if(typeof drawCategoryComparisons !== 'function'){
+      // define a simple implementation similar to existing but using getColorForKey
+      window.drawCategoryComparisons = async function(){
+        if(typeof getAll !== 'function') return;
+        const products = await getAll('products');
+        const sales = await getAll('sales');
+        const labels = []; for(let i=29;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0); labels.push(d.toLocaleDateString()); }
+        async function drawForCategory(category, canvasId){
+          const canvas = document.getElementById(canvasId); if(!canvas) return;
+          const ctx = canvas.getContext('2d'); const w=canvas.width, h=canvas.height;
+          ctx.clearRect(0,0,w,h);
+          const prods = products.filter(p=>p.category === category);
+          if(prods.length===0){ ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.font='14px Arial'; ctx.fillText('No products in category', 10, 20); return; }
+          const series = prods.map(p=>({
+            name: p.name,
+            color: p.color || window.getColorForKey('prod:'+(p.id||p.name)),
+            values: labels.map((lab,idx)=>{ const start = new Date(); start.setDate(start.getDate() - (29-idx)); start.setHours(0,0,0,0); const next = start.getTime() + 86400000; return sales.filter(s=>s.productId===p.id && s.t>=start.getTime() && s.t<next).reduce((a,b)=>a+b.qty,0); })
+          }));
+          const max = Math.max(...series.flatMap(s=>s.values),1);
+          const paddingLeft = 40, paddingRight = 20, top=20, bottom=30;
+          const usableW = w - paddingLeft - paddingRight;
+          // draw each series
+          series.forEach((s,si)=>{
+            const points = s.values.map((v,i)=>({ x: paddingLeft + (i/(s.values.length-1||1))*usableW, y: top + (1 - (v/max))*(h-top-bottom) }));
+            // light fill
+            ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y); points.forEach(p=>ctx.lineTo(p.x,p.y)); ctx.lineTo(points[points.length-1].x, h-bottom); ctx.lineTo(points[0].x, h-bottom); ctx.closePath();
+            ctx.fillStyle = window.hexToRgba(s.color, 0.08); ctx.fill();
+            // stroke
+            ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = s.color; points.forEach((p,i)=> i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke();
+            // dots
+            points.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fillStyle = s.color; ctx.fill(); });
+          });
+          // x labels
+          ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.font='12px Arial';
+          for(let i=0;i<labels.length;i+=Math.ceil(labels.length/6)){ const x = paddingLeft + (i/(labels.length-1||1))*usableW; ctx.fillText(labels[i], x-18, h-8); }
+          // legend
+          const legendId = canvasId + 'Legend';
+          let legend = document.getElementById(legendId);
+          if(!legend){ legend = document.createElement('div'); legend.id = legendId; legend.className='small-muted'; canvas.parentNode.appendChild(legend); }
+          legend.innerHTML = series.map(s=>`<span style="display:inline-block;margin-right:10px"><span style="display:inline-block;width:10px;height:10px;background:${s.color};margin-right:6px;border-radius:3px"></span>${s.name}</span>`).join('');
+        }
+        await drawForCategory('small','smallGasCanvas');
+        await drawForCategory('big','bigGasCanvas');
+      };
+    } else {
+      // if exists, wrap original to ensure colors are used
+      const orig = drawCategoryComparisons;
+      window.drawCategoryComparisons = async function(){
+        await ensureProductColors();
+        try{ await orig(); }catch(e){ console.warn('original drawCategoryComparisons failed, running fallback', e); await window.drawCategoryComparisons(); }
+      };
+    }
+  }
+
+  function patchRenderStockPieSafe(){
+    if(typeof renderStockPieSafe !== 'function'){
+      window.renderStockPieSafe = async function(){
+        if(typeof getAll !== 'function') return;
+        const products = await getAll('products');
+        const groups = {};
+        products.forEach(p=>{ const cat = p.category || 'other'; groups[cat] = (groups[cat]||0) + (Number(p.inventory)||0); });
+        const labels = Object.keys(groups);
+        const data = labels.map(l=>groups[l]);
+        const canvas = document.getElementById('stockPie'); if(!canvas) return;
+        const ctx = canvas.getContext('2d'); const w=canvas.width, h=canvas.height; ctx.clearRect(0,0,w,h);
+        const total = data.reduce((a,b)=>a+b,0) || 1; let start=0; const cx=w/2, cy=h/2, r=Math.min(w,h)/2 - 8;
+        for(let i=0;i<data.length;i++){
+          const slice = data[i]/total; const end = start + slice;
+          const color = window.getColorForKey('cat:' + labels[i]);
+          ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r, start*Math.PI*2, end*Math.PI*2); ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+          start = end;
+        }
+        const legend = document.getElementById('stockLegend');
+        if(legend){ legend.innerHTML = labels.map((lab,i)=>`<div style="display:inline-block;margin-right:10px"><span style="display:inline-block;width:12px;height:12px;background:${window.getColorForKey('cat:'+lab)};margin-right:6px;border-radius:3px"></span>${lab} — ${data[i]}</div>`).join(''); }
+      };
+    } else {
+      const orig = renderStockPieSafe;
+      window.renderStockPieSafe = async function(){
+        await ensureProductColors();
+        try{ await orig(); }catch(e){ console.warn('renderStockPieSafe original failed', e); }
+        // after original, fix colors in legend to use persistent mapping
+        const legend = document.getElementById('stockLegend');
+        if(legend){
+          // try parse existing labels and update color swatches
+          try{
+            const products = await getAll('products');
+            const groups = {};
+            products.forEach(p=>{ const cat = p.category || 'other'; groups[cat] = (groups[cat]||0) + (Number(p.inventory)||0); });
+            const labels = Object.keys(groups);
+            legend.innerHTML = labels.map((lab,i)=>`<div style="display:inline-block;margin-right:10px"><span style="display:inline-block;width:12px;height:12px;background:${window.getColorForKey('cat:'+lab)};margin-right:6px;border-radius:3px"></span>${lab} — ${groups[lab]}</div>`).join('');
+          }catch(e){ console.warn('update legend failed', e); }
+        }
+      };
+    }
+  }
+
+  // Hook into product creation: after a product is added (various handlers), ensure it gets a color.
+  async function hookAssignColorAfterAdd(){
+    // wrap the global add function to detect when adding to 'products'
+    if(typeof add !== 'function') return;
+    const origAdd = add;
+    window.add = async function(store, obj){
+      const id = await origAdd(store, obj);
+      try{
+        if(store === 'products'){
+          // fetch product by id and ensure color
+          const prods = await getAll('products');
+          const p = prods.find(x=>x.id === id);
+          if(p){
+            const key = 'prod:' + (p.id || p.name);
+            const color = p.color || window.getColorForKey(key);
+            if(p.color !== color){
+              p.color = color;
+              await put('products', p);
+            }
+          }
+        }
+      }catch(e){ console.warn('post-add color assign failed', e); }
+      // return id to callers
+      return id;
+    };
+  }
+
+  // Initialize patches on DOMContentLoaded
+  document.addEventListener('DOMContentLoaded', async ()=>{
+    try{
+      await ensureProductColors();
+      patchDrawCategoryComparisons();
+      patchRenderStockPieSafe();
+      await hookAssignColorAfterAdd();
+      // call once to ensure visuals pick up colors
+      setTimeout(()=>{ try{ renderStockPieSafe(); if(typeof drawCategoryComparisons==='function') drawCategoryComparisons(); }catch(e){} }, 250);
+    }catch(e){ console.warn('color injection init failed', e); }
+  });
+
+  // also expose a manual utility
+  window.GW_assignColorsNow = ensureProductColors;
+})();
+var __pImageEl = document.getElementById("pImage"); if(__pImageEl) __pImageEl.addEventListener("change", function(){
+    const file = this.files[0];
+    const preview = document.getElementById("pPreview");
+
+    if(file){
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = "block";
+    } else {
+        preview.style.display = "none";
+        preview.src = "";
+    }
+});
+
+</script>
+<!-- END: Color mapping injection -->
+<!-- assistant-image-preview-patch -->
+<script>
+document.addEventListener('DOMContentLoaded', ()=> {
+  (function ensureImagePreview(){
+    try{
+      const pImage = document.getElementById('pImage');
+      if(!pImage) return;
+      // ensure .image-picker exists and preview exists
+      let picker = document.querySelector('.image-picker');
+      if(!picker){
+        picker = document.createElement('div');
+        picker.className = 'image-picker';
+        // try to place next to the input
+        pImage.parentNode.insertBefore(picker, pImage);
+        picker.appendChild(pImage);
+      }
+      let preview = document.getElementById('pPreview');
+      if(!preview){
+        preview = document.createElement('img');
+        preview.id = 'pPreview';
+        preview.className = 'preview-img';
+        preview.style.display = 'none';
+        picker.appendChild(preview);
+      }
+      function showFile(file){
+        if(!file){ preview.style.display='none'; preview.src=''; return; }
+        const url = URL.createObjectURL(file);
+        preview.src = url;
+        preview.style.display = 'block';
+        preview.onload = ()=> URL.revokeObjectURL(url);
+      }
+      pImage.addEventListener('change', (e)=> showFile(e.target.files?.[0] || null), { passive: true });
+      // if a file is already present (edge cases) show it
+      if(pImage.files && pImage.files[0]) showFile(pImage.files[0]);
+      // ensure thumbnails render when product list updates (if function exists)
+      if(typeof renderProductsWithThumbs === 'function'){
+        try{ renderProductsWithThumbs(); }catch(e){ /* ignore */ }
+      }
+    }catch(err){
+      console.warn('assistant preview patch error', err);
+    }
+  })();
+});
+</script>
+<!-- end assistant-image-preview-patch -->
+
+
+<!-- Assistant patch: make image-picker visible, show preview, save images per-product, and render thumbnails -->
+<script>
+(function patchProductImageUX(){
+  // helper to read file as data URL (safe duplicate if not present)
+  function readFileAsDataURL(file){
+    return new Promise((res,rej)=>{ if(!file) return res(null); const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(r.error); r.readAsDataURL(file); });
+  }
+
+  // show preview when selecting image
+  const pImageEl = document.getElementById('pImage');
+  const pPreview = document.getElementById('pPreview');
+  if(pImageEl){
+    pImageEl.style.display = ''; // ensure visible
+    pImageEl.addEventListener('change', async function onImgChange(e){
+      const f = pImageEl.files && pImageEl.files[0];
+      if(!pPreview) return;
+      if(!f){ pPreview.style.display = 'none'; pPreview.src = ''; return; }
+      try{
+        const data = await readFileAsDataURL(f);
+        pPreview.src = data;
+        pPreview.style.display = 'inline-block';
+      }catch(err){
+        console.warn('Preview failed', err);
+        pPreview.style.display = 'none';
+      }
+    });
+  }
+
+  // Replace old addProductBtn (removes previously attached listeners)
+  const oldBtn = document.getElementById('addProductBtn');
+  if(oldBtn && oldBtn.parentNode){
+    const newBtn = oldBtn.cloneNode(true);
+    oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+    newBtn.addEventListener('click', async function addProductWithImage(e){
+      const name = (document.getElementById('pName')?.value || '').trim();
+      const price = Number(document.getElementById('pPrice')?.value || 0);
+      const cost = Number(document.getElementById('pCost')?.value || 0);
+      const category = document.getElementById('pCategory')?.value || 'other';
+      const file = document.getElementById('pImage')?.files?.[0] || null;
+      if(!name){ alert('Enter product name'); return; }
+      let imageData = null;
+      if(file){
+        try{ imageData = await readFileAsDataURL(file); } catch(e){ console.warn('Image read failed', e); }
+        if(imageData && imageData.length > 2_000_000){
+          if(!confirm('Image is large and may bloat your local DB. Continue?')) return;
+        }
+      }
+      // use existing add() method
+      if(typeof add === 'function'){
+        await add('products', { name, price, cost, inventory:0, category, image: imageData });
+        // clear inputs
+        document.getElementById('pName').value=''; document.getElementById('pPrice').value=''; document.getElementById('pCost').value='';
+        if(document.getElementById('pImage')){ document.getElementById('pImage').value=''; }
+        if(pPreview) { pPreview.style.display='none'; pPreview.src=''; }
+        if(typeof refreshAllDataViews === 'function') await refreshAllDataViews();
+        else if(typeof refreshAllViews === 'function') await refreshAllViews();
+        else if(typeof renderProducts === 'function') await renderProducts();
+      } else {
+        alert('Add function not found on page.');
+      }
+    });
+  }
+
+  // Override renderProducts to show thumbnails & category column (safe override)
+  window.renderProducts = async function renderProductsOverride(){
+    if(typeof getAll !== 'function') return;
+    const ps = await getAll('products');
+    const saleSel = document.getElementById('saleProduct');
+    const stockSel = document.getElementById('stockProduct');
+    const prodTableBody = document.querySelector('#productsTable tbody');
+    if(saleSel) saleSel.innerHTML='';
+    if(stockSel) stockSel.innerHTML='';
+    if(!prodTableBody) return;
+    prodTableBody.innerHTML='';
+
+    // ensure header has thumb column
+    const theadRow = document.querySelector('#productsTable thead tr');
+    if(theadRow){
+      const headers = Array.from(theadRow.querySelectorAll('th')).map(th=>th.textContent.trim().toLowerCase());
+      if(!headers.includes('thumb')){
+        const th = document.createElement('th'); th.textContent = 'Thumb';
+        theadRow.insertBefore(th, theadRow.firstChild);
+      }
+      if(!headers.includes('category')){
+        // find where to insert category: after Name if Name exists otherwise before Price
+        const nameIdx = headers.indexOf('name');
+        const ref = theadRow.children[nameIdx+1] || theadRow.querySelector('th:nth-child(3)');
+        const thc = document.createElement('th'); thc.textContent='Category';
+        if(ref) theadRow.insertBefore(thc, ref);
+        else theadRow.appendChild(thc);
+      }
+    }
+
+    ps.forEach(p => {
+      // populate selects
+      const opt = document.createElement('option'); opt.value = p.id; opt.text = `${p.name} — ${p.price}`;
+      if(saleSel) saleSel.appendChild(opt);
+      if(stockSel) stockSel.appendChild(opt.cloneNode(true));
+
+      const tr = document.createElement('tr');
+      const thumbHtml = p.image ? `<img src="${p.image}" alt="${p.name}" style="width:48px;height:32px;object-fit:cover;border-radius:6px">` : '<div style="width:48px;height:32px;background:#f3f4f6;border-radius:6px"></div>';
+      tr.innerHTML = `
+        <td>${thumbHtml}</td>
+        <td>${escapeHtml(p.name)}</td>
+        <td>${escapeHtml(p.category || 'other')}</td>
+        <td>KES ${p.price}</td>
+        <td>KES ${p.cost}</td>
+        <td>${Number(p.inventory)||0}</td>
+        <td style="text-align:right">
+          <button class="btn-ghost" data-id="${p.id}" data-action="view-prod">View</button>
+          <button class="btn-ghost" data-id="${p.id}" data-action="edit-prod">Edit</button>
+          <button class="btn-danger" data-id="${p.id}" data-action="del-prod">Delete</button>
+        </td>`;
+      prodTableBody.appendChild(tr);
+    });
+
+    // bind buttons
+    prodTableBody.querySelectorAll('button').forEach(b=>{
+      const id = Number(b.getAttribute('data-id'));
+      const action = b.getAttribute('data-action');
+      b.addEventListener('click', async ()=>{
+        if(action === 'view-prod'){
+          const prod = (await getAll('products')).find(x=>x.id===id);
+          if(!prod) return alert('Product not found');
+          const imgHtml = prod.image ? `<img src="${prod.image}" style="max-width:100%;border-radius:8px;margin-bottom:8px">` : '<div class="small-muted">No image</div>';
+          openModal(`<h3>${escapeHtml(prod.name)}</h3><div>${imgHtml}<div><strong>Price:</strong> KES ${prod.price} • <strong>Cost:</strong> KES ${prod.cost}</div><div class="small-muted">Category: ${escapeHtml(prod.category||'other')}</div></div>`);
+        } else if(action === 'edit-prod'){
+          const prod = (await getAll('products')).find(x=>x.id===id);
+          if(!prod) return alert('Product not found');
+          const html = `<h3>Edit product</h3>
+            <div style="display:grid;gap:8px">
+              <input id="editName" value="${escapeHtml(prod.name)}"/>
+              <input id="editPrice" type="number" value="${prod.price}"/>
+              <input id="editCost" type="number" value="${prod.cost}"/>
+              <select id="editCategory">
+                <option value="small" ${prod.category==='small'?'selected':''}>Small Gas</option>
+                <option value="big" ${prod.category==='big'?'selected':''}>Big Gas</option>
+                <option value="water" ${prod.category==='water'?'selected':''}>Water</option>
+                <option value="other" ${prod.category==='other'?'selected':''}>Other</option>
+              </select>
+              <div style="display:flex;gap:8px"><button id="saveProd" class="primary">Save</button><button id="cancelProd" class="btn-ghost">Cancel</button></div>
+            </div>`;
+          openModal(html);
+          document.getElementById('cancelProd')?.addEventListener('click', closeModal);
+          document.getElementById('saveProd')?.addEventListener('click', async ()=>{
+            prod.name = document.getElementById('editName').value.trim() || prod.name;
+            prod.price = Number(document.getElementById('editPrice').value) || prod.price;
+            prod.cost = Number(document.getElementById('editCost').value) || prod.cost;
+            prod.category = document.getElementById('editCategory').value || prod.category;
+            await put('products', prod);
+            closeModal();
+            if(typeof refreshAllDataViews === 'function') await refreshAllDataViews();
+            else if(typeof refreshAllViews === 'function') await refreshAllViews();
+            else if(typeof renderProducts === 'function') await renderProducts();
+          }, { once: true });
+        } else if(action === 'del-prod'){
+          if(!confirm('Delete this product? This will not delete past sales.')) return;
+          await del('products', id);
+          if(typeof refreshAllDataViews === 'function') await refreshAllDataViews();
+          else if(typeof refreshAllViews === 'function') await refreshAllViews();
+          else if(typeof renderProducts === 'function') await renderProducts();
+        }
+      });
+    });
+  };
+
+  // if app already loaded, run once to update UI immediately
+  if(window.indexedDB && document.readyState === 'complete'){
+    if(typeof renderProducts === 'function') renderProducts();
+  }
+})();
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', ()=> {
+  const btn = document.getElementById('addProductBtn');
+  if(!btn) return;
+  // clone to remove any previously attached listeners, then attach a single controlled handler
+  const newBtn = btn.cloneNode(true);
+  btn.parentNode.replaceChild(newBtn, btn);
+  async function handleAddProduct(e){
+    e.preventDefault();
+    const name = (document.getElementById('pName')?.value || '').trim();
+    if(!name){ alert('Enter product name'); return; }
+    const price = Number(document.getElementById('pPrice')?.value || 0);
+    const cost = Number(document.getElementById('pCost')?.value || 0);
+    const category = document.getElementById('pCategory')?.value || 'other';
+    const file = document.getElementById('pImage')?.files?.[0] || null;
+    let imageData = null;
+    if(file){
+      try{
+        imageData = await new Promise((res,rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=()=>rej(fr.error); fr.readAsDataURL(file); });
+      }catch(err){ console.warn('image read failed', err); }
+      if(imageData && imageData.length > 2_000_000){
+        if(!confirm('Image is large and may bloat your local DB. Continue?')) return;
+      }
+    }
+    if(typeof add !== 'function'){ alert('Add function not found'); return; }
+    await add('products', { name, price, cost, inventory:0, category, image: imageData });
+    // clear inputs and refresh views safely
+    const pName = document.getElementById('pName'); const pPrice = document.getElementById('pPrice'); const pCost = document.getElementById('pCost'); const pImage = document.getElementById('pImage');
+    if(pName) pName.value=''; if(pPrice) pPrice.value=''; if(pCost) pCost.value=''; if(pImage) pImage.value='';
+    if(typeof refreshAllDataViews === 'function') await refreshAllDataViews();
+    else if(typeof refreshAllViews === 'function') await refreshAllViews();
+    else if(typeof renderProducts === 'function') await renderProducts();
+  }
+  newBtn.addEventListener('click', handleAddProduct);
+});
+</script>
+
+
+<!-- BEGIN: General Gas Stock feature -->
+<script>
+(function(){
+  const STORAGE_KEY = 'generalStock_v1';
+
+  function lsGet(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }catch(e){ return {}; }
+  }
+  function lsSet(v){ localStorage.setItem(STORAGE_KEY, JSON.stringify(v)); }
+
+  async function getProducts(){
+    if(typeof getAll === 'function') return await getAll('products');
+    // fallback: try reading options in saleProduct select
+    const sel = document.getElementById('saleProduct');
+    if(!sel) return [];
+    return Array.from(sel.options).map(o=>({id: Number(o.value), name: o.text}));
+  }
+
+  async function seedGeneralStockFromProducts(){
+    const ps = await getProducts();
+    const state = lsGet();
+    let changed = false;
+    ps.forEach(p=>{
+      const id = p.id;
+      if(!state[id]){
+        state[id] = { productId: id, name: p.name || String(id), available: 0, empty: 0, toBeSold: 0 };
+        changed = true;
+      }
+    });
+    if(changed) lsSet(state);
+    return state;
+  }
+
+  async function renderGSPages(){
+    const state = await seedGeneralStockFromProducts();
+    const ps = await getProducts();
+    const select = document.getElementById('gsProductSelect');
+    const pieSel = document.getElementById('gsPieSelect');
+    const tbody = document.querySelector('#gsTable tbody');
+    select.innerHTML=''; pieSel.innerHTML=''; tbody.innerHTML='';
+    // ensure mapping names up-to-date
+    ps.forEach(p=>{
+      const id = p.id;
+      if(state[id]) state[id].name = p.name;
+    });
+    // build selects
+    ps.forEach(p=>{
+      const o = document.createElement('option'); o.value = p.id; o.textContent = p.name; select.appendChild(o);
+      const o2 = o.cloneNode(true); pieSel.appendChild(o2);
+    });
+    // build table rows
+    ps.forEach(p=>{
+      const s = state[p.id] || { available:0, empty:0, toBeSold:0 };
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${escapeHtml(p.name)}</td>
+        <td><input class="gs-num" data-field="available" data-id="${p.id}" type="number" value="${Number(s.available)||0}" style="width:100px" /></td>
+        <td><input class="gs-num" data-field="empty" data-id="${p.id}" type="number" value="${Number(s.empty)||0}" style="width:100px" /></td>
+        <td><input class="gs-num" data-field="toBeSold" data-id="${p.id}" type="number" value="${Number(s.toBeSold)||0}" style="width:100px" /></td>
+        <td style="text-align:right"><button class="btn-ghost gs-save-row" data-id="${p.id}">Save</button></td>`;
+      tbody.appendChild(tr);
+    });
+    updateGSTotals();
+    renderGSPie();
+  }
+
+  function updateGSTotals(){
+    const state = lsGet();
+    let totalAvailable=0, totalEmpty=0, totalToBeSold=0, count=0;
+    Object.keys(state).forEach(k=>{
+      const s = state[k];
+      totalAvailable += Number(s.available)||0;
+      totalEmpty += Number(s.empty)||0;
+      totalToBeSold += Number(s.toBeSold)||0;
+      count++;
+    });
+    const cumEl = document.getElementById('gsCumulative');
+    const txt = `Total Available: ${totalAvailable} • Empty: ${totalEmpty} • To be sold: ${totalToBeSold} • Average per product: ${ (count? ( (totalAvailable+totalEmpty+totalToBeSold)/count ).toFixed(2):0) }`;
+    if(cumEl) cumEl.textContent = txt;
+    const totals = document.getElementById('gsTotals');
+    if(totals) totals.textContent = `Available: ${totalAvailable} • Empty: ${totalEmpty} • To be sold: ${totalToBeSold}`;
+  }
+
+  function renderGSPie(){
+    const pie = document.getElementById('gsPie');
+    const pieSel = document.getElementById('gsPieSelect');
+    if(!pie) return;
+    const state = lsGet();
+    const pid = Number(pieSel.value) || Number(document.getElementById('gsProductSelect').value) || (Object.keys(state)[0] && Number(Object.keys(state)[0]));
+    const s = state[pid] || {available:0, empty:0, toBeSold:0};
+    const data = [Number(s.available)||0, Number(s.empty)||0, Number(s.toBeSold)||0];
+    const labels = ['Available','Empty','To be sold'];
+    const colors = ['#ff7a00','#f59e0b','#ffb76b'];
+    const ctx = pie.getContext('2d'); const w=pie.width,h=pie.height; ctx.clearRect(0,0,w,h);
+    const total = data.reduce((a,b)=>a+b,0) || 1;
+    let start= -Math.PI/2;
+    for(let i=0;i<data.length;i++){
+      const slice = data[i]/total;
+      const end = start + slice * Math.PI*2;
+      ctx.beginPath(); ctx.moveTo(w/2,h/2); ctx.arc(w/2,h/2, Math.min(w,h)/2 - 8, start, end); ctx.closePath();
+      ctx.fillStyle = colors[i%colors.length]; ctx.fill();
+      start = end;
+    }
+    // legend
+    const legend = document.getElementById('gsPieLegend');
+    if(legend){
+      legend.innerHTML = labels.map((l,i)=>`${l}: ${data[i]}`).join(' • ');
+    }
+  }
+
+  // save handlers
+  document.addEventListener('click', async (e)=>{
+    if(e.target && e.target.id === 'gsSaveBtn'){
+      // save current table values to localStorage
+      const inputs = document.querySelectorAll('.gs-num');
+      const state = lsGet();
+      inputs.forEach(inp=>{
+        const id = inp.getAttribute('data-id'); const field = inp.getAttribute('data-field');
+        if(!state[id]) state[id] = { productId: Number(id), name: '', available:0, empty:0, toBeSold:0 };
+        state[id][field] = Number(inp.value) || 0;
+      });
+      lsSet(state);
+      updateGSTotals();
+      renderGSPie();
+      alert('General stock saved locally.');
+    } else if(e.target && e.target.classList.contains('gs-save-row')){
+      const id = e.target.getAttribute('data-id');
+      const state = lsGet();
+      if(!state[id]) state[id] = { productId: Number(id), name:'', available:0, empty:0, toBeSold:0 };
+      const rowInputs = document.querySelectorAll(`.gs-num[data-id="${id}"]`);
+      rowInputs.forEach(inp => { state[id][inp.getAttribute('data-field')] = Number(inp.value)||0; });
+      lsSet(state);
+      updateGSTotals();
+      renderGSPie();
+      e.target.textContent = 'Saved'; setTimeout(()=> e.target.textContent='Save',800);
+    } else if(e.target && e.target.id === 'gsSeed'){
+      await seedGeneralStockFromProducts(); await renderGSPages(); alert('Seeded general stock from products (inventory values used where available).');
+    } else if(e.target && e.target.id === 'gsRefresh'){
+      await renderGSPages();
+    }
+  });
+
+  // input change handlers update totals live
+  document.addEventListener('input', (e)=>{
+    if(e.target && e.target.classList && e.target.classList.contains('gs-num')){
+      updateGSTotals();
+      // update pie if current product changed
+      renderGSPie();
+    }
+  });
+
+  // when selects change, update pie
+  document.addEventListener('change', (e)=>{
+    if(e.target && (e.target.id === 'gsPieSelect' || e.target.id === 'gsProductSelect')){
+      renderGSPie();
+    }
+  });
+
+  // expose simple API to adjust general stock silently on sales or restocks
+  async function adjustGeneralStockOnSale(productId, qty){
+    const state = lsGet();
+    const id = String(productId);
+    if(!state[id]) state[id] = { productId: Number(id), name:'', available:0, empty:0, toBeSold:0 };
+    state[id].available = (Number(state[id].available)||0) - Number(qty||0);
+    if(state[id].available < 0) state[id].available = Number(state[id].available); // allow negative if needed
+    lsSet(state);
+    // reflect immediately in UI if open
+    updateGSTotals(); renderGSPie(); await renderGSPagesSafe();
+  }
+
+  async function adjustGeneralStockOnRestock(productId, qty){
+    const state = lsGet();
+    const id = String(productId);
+    if(!state[id]) state[id] = { productId: Number(id), name:'', available:0, empty:0, toBeSold:0 };
+    state[id].available = (Number(state[id].available)||0) + Number(qty||0);
+    lsSet(state);
+    updateGSTotals(); renderGSPie(); await renderGSPagesSafe();
+  }
+
+  // safe rendering (no errors if page not present)
+  async function renderGSPagesSafe(){ try{ await renderGSPages(); }catch(e){ /* ignore */ } }
+  // try initial render after DOM ready
+  document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(renderGSPagesSafe, 300); });
+
+  // Intercept existing add() calls (wrap) to keep general stock in sync when sales or stock entries are added
+  if(typeof add === 'function'){
+    const _origAdd = add;
+    window.add = async function(store,obj){
+      const res = await _origAdd(store,obj);
+      try{
+        if(store === 'sales' && obj && typeof obj.qty !== 'undefined'){
+          // obj might be the record being added; when sales added, reduce available
+          await adjustGeneralStockOnSale(obj.productId || obj.productId, obj.qty || 0);
+        } else if(store === 'stock' && obj && typeof obj.qty !== 'undefined' && Number(obj.qty) > 0){
+          // positive stock is restock
+          await adjustGeneralStockOnRestock(obj.productId || obj.productId, obj.qty || 0);
+        }
+      }catch(e){ console.warn('GS sync error', e); }
+      return res;
+    };
+  }
+
+  // also listen for explicit sale-button clicks (in case add() was not invoked due to other code paths)
+  document.addEventListener('click', async (e)=>{
+    if(e.target && e.target.id === 'addSaleBtn'){
+      // wait shortly to let original add() run, then sync using last sale record
+      setTimeout(async ()=>{
+        try{
+          if(typeof getAll === 'function'){
+            const sales = await getAll('sales');
+            if(sales && sales.length){
+              const last = sales[sales.length-1];
+              if(last && last.productId && last.qty) await adjustGeneralStockOnSale(last.productId, last.qty);
+            }
+          }
+        }catch(err){ console.warn('GS fallback sync failed', err); }
+      }, 300);
+    }
+  });
+
+})();
+</script>
+
+<!-- END: General Gas Stock feature -->
+
+
+
+</body>
+</html>
