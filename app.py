@@ -262,6 +262,9 @@ def require_login():
 def index():
     return send_from_directory('.', 'index.html')
 
+@app.route('/day')
+def day_page():
+    return send_from_directory('.', 'day.html')
 # ---------------- User Endpoints ----------------
 @app.route('/register', methods=['POST'])
 def register():
