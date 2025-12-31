@@ -1628,5 +1628,12 @@
         "user_agent": "Mozilla/5.0 (Linux; U; Android 14; SM-A042F Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/143.0.7499.116 Mobile Safari/537.36 OPR/97.1.2254.80849"
       }
     ]
+  },
+  {
+    "name": "Shawn Sibanda",
+    "email": "shawnisheanesu@gmail.com",
+    "password": "scrypt:32768:8:1$81wOTo4PbEXKPe3q$52fa781c89ecd77e9f46661250d2f701d35d78f8944b8a83c439a033f11d46dcb0a7d02678f0449ef18da8bcb4d943109adaf8fc418cc82d3a81980c51ad0d50",
+    "enabled": true,
+    "login_history": []
   }
 ]
