@@ -1,3 +1,4 @@
+# app.py
 import threading
 import time
 import random
@@ -21,17 +22,15 @@ from flask import send_file
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("UpdateServer")
 
+# Serve static files from same folder as app.py
 app = Flask(__name__, static_url_path='', static_folder='.')
 app.secret_key = os.getenv("FLASK_SECRET_KEY", "supersecretkey")
 
 # --- Defaults to help keep the app awake when editing on GitHub ---
-# These act as fallbacks if you don't set them in your Render service settings
-# (safe — only used when env vars are absent)
 os.environ.setdefault("SELF_URL", "https://tomorrow-au2q.onrender.com")
 os.environ.setdefault("KEEPALIVE_ENABLED", "true")
 os.environ.setdefault("KEEPALIVE_INTERVAL", "30")
 
-# small startup trace to help hosting logs
 log.info("UpdateServer initialized at %s", datetime.utcnow().isoformat())
 
 # ---------------- Config ----------------
@@ -44,29 +43,22 @@ USERS_FILE = "users.json"
 APK_FILE = "apk.json"
 APK_FOLDER = "apks"
 
-# ensure local folder exists as a safe fallback (harmless)
 os.makedirs(APK_FOLDER, exist_ok=True)
 
 GITHUB_API_BASE = "https://api.github.com"
 
-# ----- Commission defaults (can be overridden by env vars) -----
-# DEFAULT_COMMISSION and BONUS_COMMISSION are decimal fractions (e.g., 0.10 = 10%)
-# BONUS_THRESHOLD for your existing logic is interpreted as a count threshold (number of approved sales).
-DEFAULT_COMMISSION = float(os.getenv("DEFAULT_COMMISSION", "0.10"))  # default 10%
-BONUS_COMMISSION   = float(os.getenv("BONUS_COMMISSION", "0.15"))    # default 15%
-BONUS_THRESHOLD    = int(os.getenv("BONUS_THRESHOLD", "5"))         # default: 5 approved sales => bonus
+DEFAULT_COMMISSION = float(os.getenv("DEFAULT_COMMISSION", "0.10"))
+BONUS_COMMISSION   = float(os.getenv("BONUS_COMMISSION", "0.15"))
+BONUS_THRESHOLD    = int(os.getenv("BONUS_THRESHOLD", "5"))
 
-# --- Single admin email enforcement (optional) ---
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
 if ADMIN_EMAIL:
     ADMIN_EMAIL = ADMIN_EMAIL.strip().lower()
-ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")  # optional hashed admin password
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH")
 
-# --- Helper to hash email consistently ---
 def hash_email(email: str) -> str:
     return hashlib.sha256(email.encode()).hexdigest()
 
-# --- GitHub API Helpers ---
 def gh_headers():
     headers = {"Accept": "application/vnd.github.v3+json", "User-Agent": "UpdateServer-App"}
     if GITHUB_TOKEN:
@@ -74,10 +66,6 @@ def gh_headers():
     return headers
 
 def github_get_file(filename, default):
-    """
-    Try to fetch file from GitHub. On any failure, try local file fallback.
-    Returns parsed JSON or `default`.
-    """
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}?ref={BRANCH}"
     try:
         r = requests.get(url, headers=gh_headers(), timeout=20)
@@ -95,7 +83,6 @@ def github_get_file(filename, default):
     except Exception:
         log.exception("GitHub GET exception for %s", filename)
 
-    # fallback to local file if exists
     try:
         if os.path.exists(filename):
             with open(filename, 'r', encoding='utf-8') as f:
@@ -114,10 +101,6 @@ def github_get_file_metadata(filename):
     return None
 
 def github_push_file(filename, content_str, message=None):
-    """
-    Push a file to GitHub. Returns (ok: bool, resp).
-    If GITHUB_TOKEN missing returns (False, "GITHUB_TOKEN missing")
-    """
     if not GITHUB_TOKEN:
         return False, "GITHUB_TOKEN missing"
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
@@ -143,10 +126,6 @@ def github_push_file(filename, content_str, message=None):
     return (r.status_code in (200, 201), r.json() if r.status_code in (200, 201) else r.text)
 
 def github_push_binary(filename, binary_bytes, message=None):
-    """
-    Push a binary file (like sales.db) to GitHub by base64-encoding binary_bytes.
-    Returns (ok, resp).
-    """
     if not GITHUB_TOKEN:
         return False, "GITHUB_TOKEN missing"
     url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
@@ -171,27 +150,16 @@ def github_push_binary(filename, binary_bytes, message=None):
         return False, str(e)
     return (r.status_code in (200, 201), r.json() if r.status_code in (200, 201) else r.text)
 
-# ---------------- Admin persistence helpers ----------------
 def load_admin():
-    """
-    Try to load admin.json from GitHub (preferred). If not present or fails,
-    fall back to a local admin.json file if it exists. Returns dict or None.
-    """
     try:
-        # attempt GitHub first (works even without token but may be rate-limited)
         data = github_get_file('admin.json', None)
         if isinstance(data, dict):
             return data
-        # local fallback handled in github_get_file if present
     except Exception:
         log.exception("load_admin failed")
     return None
 
 def save_admin(admin_obj):
-    """
-    Save admin_obj (dict) to GitHub if token available; otherwise write local file.
-    Returns (ok, resp) where ok is True on success.
-    """
     try:
         content = json.dumps(admin_obj, indent=2)
         if GITHUB_TOKEN:
@@ -199,7 +167,6 @@ def save_admin(admin_obj):
             if ok:
                 return True, resp
             log.error("github_push_file for admin.json failed: %s", resp)
-        # fallback: write to local file
         admin_json_path = 'admin.json'
         with open(admin_json_path, 'w', encoding='utf-8') as f:
             f.write(content)
@@ -208,18 +175,12 @@ def save_admin(admin_obj):
         log.exception("save_admin exception")
         return False, str(e)
 
-# ---------------- Data Helpers ----------------
 def load_users():
-    # prefer GitHub content but fall back to local file
     default = []
     data = github_get_file(USERS_FILE, default)
     return data if isinstance(data, list) else default
 
 def save_users(users_list):
-    """
-    Persist users.json. Try GitHub push if token exists; otherwise write local file.
-    Returns (ok, resp)
-    """
     try:
         content = json.dumps(users_list, indent=2)
         if GITHUB_TOKEN:
@@ -227,7 +188,6 @@ def save_users(users_list):
             if ok:
                 return True, resp
             log.error("github_push_file for users.json failed: %s", resp)
-        # fallback to local write
         with open(USERS_FILE, 'w', encoding='utf-8') as f:
             f.write(content)
         return True, "written-local"
@@ -245,10 +205,6 @@ def load_apk():
     return data
 
 def save_apk(apk_obj):
-    """
-    Persist apk.json. Try GitHub push if token exists; otherwise write local file.
-    Returns (ok, resp)
-    """
     try:
         content = json.dumps(apk_obj, indent=2)
         if GITHUB_TOKEN:
@@ -256,7 +212,6 @@ def save_apk(apk_obj):
             if ok:
                 return True, resp
             log.error("github_push_file for apk.json failed: %s", resp)
-        # fallback to local write
         with open(APK_FILE, 'w', encoding='utf-8') as f:
             f.write(content)
         return True, "written-local"
@@ -264,7 +219,6 @@ def save_apk(apk_obj):
         log.exception("save_apk exception")
         return False, str(e)
 
-# ---------------- SQLite helpers for sales.db ----------------
 DB_PATH = "sales.db"
 
 def init_db():
@@ -297,10 +251,6 @@ def get_db_connection():
     return conn
 
 def push_sales_db_to_github():
-    """
-    Read sales.db binary and push to GitHub as 'sales.db' file in repo.
-    Returns (ok, resp) just like github_push_binary.
-    """
     if not os.path.exists(DB_PATH):
         return False, "DB missing"
     try:
@@ -323,35 +273,24 @@ def push_sales_db_to_github():
 # ---------------- Public/Private Enforcement ----------------
 @app.before_request
 def require_login():
-    # endpoints allowed to proceed to their handler regardless of 'user_email' session
     public_endpoints = {
-        'login', 'register', 'index', 'day_page', 'get_users', # <-- 'day_page' added here
+        'login', 'register', 'index', 'day_page', 'get_users',
         'check_update', 'download_apk', 'get_apk',
-        # admin login page and its POST handler must be allowed so their logic runs
         'admin_login_page', 'simplemind_login', 'admin_dashboard',
-        # allow the mysales page itself to be served publicly (login happens via /login)
-        'mysales_page'
+        'mysales_page'  # allow the mysales endpoint
     }
 
     ep = request.endpoint
-
-    # allow if endpoint is public
     if ep in public_endpoints:
         return
 
-    # allow if admin session flag is present (so admin-dashboard JS can call admin endpoints)
-    # admin session is created by /simplemind_login and stored as session['simple_admin']
     if session.get('simple_admin'):
         return
 
-    # For API-ish calls (prefixes) return JSON auth error
     if 'user_email' not in session:
         if request.path.startswith('/api') or request.is_json or request.path.startswith('/get_') or request.path.startswith('/login_analytics'):
             return jsonify({"success": False, "message": "Authentication required."}), 401
-
-        # for non-public pages requested without session, return 404 (do not redirect to index)
         return Response("Not found", status=404)
-
 
 # ---------------- Pages ----------------
 @app.route('/')
@@ -402,7 +341,6 @@ def login():
                     "country": country,
                     "user_agent": user_agent
                 })
-                # attempt to persist login history, but even if persistence fails we still allow login
                 ok, resp = save_users(users)
                 if not ok:
                     log.error("Failed to persist login history for %s: %s", email, resp)
@@ -498,27 +436,17 @@ def login_analytics():
 # ---------------- APK Endpoints (admin-only for uploads/deletes) ----------------
 @app.route('/download_apk')
 def download_apk():
-    """
-    Robust download endpoint:
-      - Try serve local file in apks/ first (if filename set in apk.json and file exists).
-      - Otherwise attempt to stream the download_url (GitHub raw or other).
-      - Returns JSON 404 if neither available.
-    """
     apk_data = load_apk()
-
-    # 1) Try local file first (fast, offline-safe)
     filename = apk_data.get("filename")
     if filename:
         local_path = os.path.join(APK_FOLDER, filename)
         if os.path.exists(local_path):
-            # serve local file
             try:
                 return send_from_directory(APK_FOLDER, filename, as_attachment=True,
                                            mimetype="application/vnd.android.package-archive")
             except Exception:
                 log.exception("Failed to send local APK file %s", local_path)
 
-    # 2) Fallback: stream from download_url (existing behaviour)
     download_url = apk_data.get("download_url") or ""
     if download_url:
         try:
@@ -533,7 +461,6 @@ def download_apk():
         except Exception:
             log.exception("download_apk: exception when streaming remote url")
 
-    # 3) Nothing available
     return jsonify({"success": False, "message": "No APK available or remote fetch failed."}), 404
 
 @app.route('/upload_apk', methods=['POST'])
@@ -549,7 +476,6 @@ def upload_apk():
     filename = secure_filename(f"app-v{version}.apk")
     apk_bytes = file.read()
 
-    # 1) Save locally always (safe fallback)
     local_path = os.path.join(APK_FOLDER, filename)
     try:
         with open(local_path, 'wb') as f:
@@ -558,7 +484,6 @@ def upload_apk():
         log.exception("Failed to save local APK %s", local_path)
         return jsonify({"success": False, "message": f"Failed to save local APK: {e}"}), 500
 
-    # 2) Try upload to GitHub if token present
     api_path = f"{APK_FOLDER}/{filename}"
     download_url = ""
     sha = None
@@ -577,13 +502,10 @@ def upload_apk():
         except Exception:
             log.exception("GitHub upload exception for %s", api_path)
 
-    # 3) If GitHub not used or upload failed, expose local download endpoint as download_url
     if not github_ok:
-        # Provide a server-local download URL so clients can fetch the file
         try:
             download_url = url_for('download_apk', _external=True)
         except Exception:
-            # If url_for fails (shouldn't in request context), leave download_url blank
             download_url = ""
 
     apk_obj = {
@@ -597,7 +519,6 @@ def upload_apk():
     ok, resp = save_apk(apk_obj)
     if not ok:
         log.error("save_apk failed: %s", resp)
-        # still return success (local file is saved) but inform admin and return url if available
         return jsonify({"success": True, "url": download_url, "message": "APK saved locally but metadata push failed."})
 
     return jsonify({"success": True, "url": download_url})
@@ -651,13 +572,8 @@ def get_apk():
     return jsonify(load_apk())
 
 # ===== Keepalive (safe) =====
-# This block is intentionally small and non-invasive. It writes only to `keepalive.json`.
 @app.route('/_fake_ping', methods=['GET', 'POST'])
 def fake_ping():
-    """
-    Internal keep-alive endpoint — accepts a small JSON payload
-    and appends a timestamped record to keepalive.json for inspection.
-    """
     data = request.get_json(silent=True) or {}
     record = {
         "timestamp": datetime.utcnow().isoformat(),
@@ -672,10 +588,8 @@ def fake_ping():
                 with open(path, 'r', encoding='utf-8') as f:
                     existing = json.load(f)
             except Exception:
-                # corrupted or unreadable -> reset
                 existing = []
         existing.append(record)
-        # keep just a small recent history
         existing = existing[-100:]
         try:
             with open(path, 'w', encoding='utf-8') as f:
@@ -711,10 +625,6 @@ def _keepalive_worker(ping_url, interval_seconds, fake_profiles):
 _keepalive_started = False
 
 def start_keepalive():
-    """
-    Start the keepalive thread once per process (idempotent).
-    Called from @app.before_first_request so it works under Gunicorn.
-    """
     global _keepalive_started
     if _keepalive_started:
         return
@@ -753,7 +663,6 @@ def start_keepalive():
 
 with app.app_context():
     start_keepalive()
-    # initialize sales DB when app context is available
     try:
         init_db()
     except Exception:
@@ -794,7 +703,6 @@ def admin_login_page():
     </html>
     """
 
-# Helper: find admin user in users list (by is_admin flag or by ADMIN_EMAIL)
 def find_admin_in_users(users, email=None):
     for u in users:
         if isinstance(u, dict) and u.get('is_admin'):
@@ -818,11 +726,9 @@ def simplemind_login():
 
     email = email_raw.strip().lower()
 
-    # enforce ADMIN_EMAIL if configured
     if ADMIN_EMAIL and email != ADMIN_EMAIL:
         return "Wrong email or password", 403
 
-    # 1) prefer admin.json if present (GitHub or local via load_admin)
     admin_data = load_admin()
     if admin_data:
         try:
@@ -838,7 +744,6 @@ def simplemind_login():
         except Exception:
             log.exception("checking admin_data failed")
 
-    # 2) check users.json for a user marked is_admin (or matches ADMIN_EMAIL)
     users = load_users()
     admin_user = find_admin_in_users(users, email=email)
 
@@ -853,7 +758,6 @@ def simplemind_login():
             return redirect('/admin-dashboard')
         return "Wrong email or password", 403
 
-    # 3) no admin found anywhere -> first-time setup: add admin to users.json AND save admin.json
     updated = False
     for u in users:
         if isinstance(u, dict) and u.get('email', '').strip().lower() == email:
@@ -880,7 +784,6 @@ def simplemind_login():
         log.error("Failed to persist admin user to users.json: %s", resp)
         return "Server error saving admin", 500
 
-    # Also persist admin.json as a direct admin record so it's always available
     admin_record = {"email_hash": hash_email(email), "password": generate_password_hash(password)}
     ok2, resp2 = save_admin(admin_record)
     if not ok2:
@@ -893,14 +796,10 @@ def simplemind_login():
 
 @app.route('/admin-dashboard')
 def admin_dashboard():
-    # require both flags: simple_admin and allow_admin (one-time)
     if not session.get('simple_admin') or not session.get('allow_admin'):
         session.pop('allow_admin', None)
-        # Not allowed: send user to admin login page (not index), per your requirement
         return redirect('/simplemindserverisgone')
-    # consume allow token so direct paste later won't work
     session.pop('allow_admin', None)
-
     admin_file_path = os.path.join(os.getcwd(), 'admin.html')
     if not os.path.exists(admin_file_path):
         return "Admin file missing", 404
@@ -908,13 +807,11 @@ def admin_dashboard():
         content = f.read()
     return Response(content, mimetype='text/html')
 
-# Block direct access to admin.html or /admin
 @app.route('/admin')
 @app.route('/admin.html')
 def block_admin_direct():
     return "Forbidden", 403
 
-# ---------------- Admin helper endpoints (search/delete) ----------------
 @app.route('/admin_search_users', methods=['GET'])
 def admin_search_users():
     if not session.get('simple_admin'):
@@ -936,219 +833,45 @@ def admin_delete_user():
     email = data.get("email")
     if not email:
         return jsonify({"success": False, "message": "Email required"}), 400
-    
+
     users = load_users()
     new_users = [u for u in users if isinstance(u, dict) and u.get('email') != email]
-    
+
     if len(new_users) == len(users):
         return jsonify({"success": False, "message": "User not found"}), 404
-    
+
     ok, resp = save_users(new_users)
     if not ok:
         return jsonify({"success": False, "message": "Failed to save users"}), 500
-    
+
     return jsonify({"success": True})
 
-# ----------------- NEW: Serve mysales.html and API endpoints -----------------
+# ----------------- Serve mysales.html from disk -----------------
 @app.route('/mysales.html')
 def mysales_page():
-    # Serve a single-file client that uses the server's /register, /login and /api/* endpoints.
-    html = r"""<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>MySales - Server-backed</title>
-  <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;padding:10px;background:#f6f8fb;color:#07102a}
-    .container{max-width:960px;margin:10px auto;background:white;padding:18px;border-radius:10px;box-shadow:0 8px 24px rgba(10,20,40,0.06)}
-    input,select,button{padding:8px;border-radius:6px;border:1px solid #e6eefc;margin:4px 0}
-    .row{display:flex;gap:12px}
-    table{width:100%;border-collapse:collapse;margin-top:12px}
-    th,td{padding:8px;border-bottom:1px solid #f1f6ff;text-align:left}
-    .btn{background:#0b5cff;color:#fff;padding:8px 10px;border-radius:6px;border:0;cursor:pointer}
-    .btn-accept{background:#06ad5e}
-    .btn-danger{background:#ff5757}
-    .small{font-size:0.9rem;color:#54607a}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h2>MySales (Server mode)</h2>
-    <div id="authArea">
-      <h3>Register or Login</h3>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input id="reg_name" placeholder="Full name" />
-        <input id="reg_email" placeholder="Email" />
-        <input id="reg_pass" placeholder="Password" type="password" />
-        <button id="btn_register" class="btn">Register</button>
-      </div>
-      <div style="height:8px"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input id="login_email" placeholder="Email" />
-        <input id="login_pass" placeholder="Password" type="password" />
-        <button id="btn_login" class="btn btn-accept">Login</button>
-      </div>
-      <div style="height:8px"></div>
-      <div id="whoami" class="small"></div>
-    </div>
-
-    <div id="appArea" style="display:none">
-      <h3>Record a sale</h3>
-      <div class="row" style="align-items:flex-end">
-        <div style="flex:2">
-          <label>Product</label><br/>
-          <input id="product" />
-        </div>
-        <div style="width:140px">
-          <label>Price</label><br/>
-          <input id="price" type="number" />
-        </div>
-        <div style="width:140px">
-          <label>Currency</label><br/>
-          <select id="currency">
-            <option>KES</option><option>USD</option><option>ZAR</option><option>ZMW</option><option>ETB</option><option>NGN</option><option>UGX</option><option>TZS</option><option>RWF</option><option>Other</option>
-          </select>
-        </div>
-        <div style="width:180px">
-          <button id="btn_record" class="btn">Record sale (pending)</button>
-        </div>
-      </div>
-
-      <h3 style="margin-top:18px">Your sales</h3>
-      <div id="salesList" class="small">Loading...</div>
-
-      <div id="adminPanel" style="display:none;margin-top:16px">
-        <h3>Admin tools</h3>
-        <div id="adminPending"></div>
-      </div>
-    </div>
-  </div>
-
-<script>
-async function api(path, opts){
-  const res = await fetch(path, opts);
-  const ct = res.headers.get('content-type') || '';
-  if(ct.includes('application/json')){
-    const j = await res.json();
-    if(!res.ok) throw new Error(j && j.message ? j.message : 'API error');
-    return j;
-  }
-  if(!res.ok) throw new Error('API error');
-  return res.text();
-}
-
-document.getElementById('btn_register').addEventListener('click', async ()=>{
-  const name = document.getElementById('reg_name').value.trim();
-  const email = document.getElementById('reg_email').value.trim();
-  const pass = document.getElementById('reg_pass').value;
-  if(!name||!email||!pass) return alert('provide name/email/password');
-  try{
-    const r = await fetch('/register', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({name,email,password:pass})});
-    const j = await r.json();
-    if(j.success){ alert('Registered — please login'); } else { alert('Register failed: '+(j.message||JSON.stringify(j))); }
-  }catch(e){ alert(e.message) }
-});
-
-document.getElementById('btn_login').addEventListener('click', async ()=>{
-  const email = document.getElementById('login_email').value.trim();
-  const pass = document.getElementById('login_pass').value;
-  if(!email||!pass) return alert('provide email/password');
-  try{
-    const r = await fetch('/login', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({email,password:pass})});
-    const j = await r.json();
-    if(j.success){ await refreshWhoami(); } else { alert('Login failed: '+(j.message||JSON.stringify(j))); }
-  }catch(e){ alert(e.message) }
-});
-
-async function refreshWhoami(){
-  try{
-    const j = await api('/api/whoami');
-    if(j.email){
-      document.getElementById('whoami').textContent = 'Logged in as '+j.email + (j.isAdmin? ' (ADMIN)':'');
-      document.getElementById('authArea').style.display='none';
-      document.getElementById('appArea').style.display='block';
-      if(j.isAdmin) document.getElementById('adminPanel').style.display='block';
-      loadSales();
-      if(j.isAdmin) loadPending();
-    } else {
-      document.getElementById('whoami').textContent = 'Not logged in';
-      document.getElementById('authArea').style.display='block';
-      document.getElementById('appArea').style.display='none';
-    }
-  }catch(e){
-    console.warn(e);
-  }
-}
-
-document.getElementById('btn_record').addEventListener('click', async ()=>{
-  const product = document.getElementById('product').value.trim();
-  const price = Number(document.getElementById('price').value);
-  const currency = document.getElementById('currency').value;
-  if(!product||!price||!currency) return alert('provide product, price, currency');
-  try{
-    const j = await api('/api/record_sale', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({product,price,currency})});
-    alert('Sale recorded (pending)');
-    document.getElementById('product').value=''; document.getElementById('price').value='';
-    loadSales();
-    loadPending();
-  }catch(e){ alert(e.message) }
-});
-
-async function loadSales(){
-  try{
-    const j = await api('/api/get_sales');
-    const list = j.sales || [];
-    if(!list.length){ document.getElementById('salesList').innerHTML = '<div class="small">No sales yet.</div>'; return; }
-    let html = '<table><thead><tr><th>Date</th><th>Product</th><th>Price</th><th>Status</th><th>Commission</th></tr></thead><tbody>';
-    for(const s of list){
-      html += `<tr><td>${s.created_at}</td><td>${s.product}</td><td>${Number(s.price).toLocaleString()} ${s.currency}</td><td>${s.status}</td><td>${s.commission_rate? (s.commission_rate*100).toFixed(0)+'% — '+(s.commission_amount? s.commission_amount+' '+s.currency:''): '—'}</td></tr>`;
-    }
-    html += '</tbody></table>';
-    document.getElementById('salesList').innerHTML = html;
-  }catch(e){ console.warn(e); }
-}
-
-async function loadPending(){
-  try{
-    const j = await api('/api/get_sales');
-    const pending = (j.sales || []).filter(s=>s.status==='pending');
-    if(!pending.length){ document.getElementById('adminPending').innerHTML = '<div class="small">No pending sales</div>'; return; }
-    let html = '<h4>Pending</h4><table><thead><tr><th>Date</th><th>User</th><th>Product</th><th>Price</th><th>Action</th></tr></thead><tbody>';
-    for(const s of pending){
-      html += `<tr><td>${s.created_at}</td><td>${s.user_email}</td><td>${s.product}</td><td>${Number(s.price).toLocaleString()} ${s.currency}</td><td><button onclick="approve(${s.id})" class="btn btn-accept">Approve</button> <button onclick="reject(${s.id})" class="btn btn-danger">Reject</button></td></tr>`;
-    }
-    html += '</tbody></table>';
-    document.getElementById('adminPending').innerHTML = html;
-  }catch(e){ console.warn(e); }
-}
-
-window.approve = async function(id){
-  try{
-    await api('/api/approve_sale', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({id})});
-    alert('Approved');
-    loadSales(); loadPending();
-  }catch(e){ alert(e.message) }
-};
-
-window.reject = async function(id){
-  try{
-    await api('/api/reject_sale', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({id})});
-    alert('Rejected');
-    loadSales(); loadPending();
-  }catch(e){ alert(e.message) }
-};
-
-refreshWhoami();
-</script>
-</body>
-</html>"""
-    return Response(html, mimetype='text/html')
+    """
+    Serve the local mysales.html file (must be in same folder as app.py).
+    Falls back to a small inline client if the file is missing so server stays usable.
+    """
+    local_file = os.path.join(os.getcwd(), 'mysales.html')
+    if os.path.exists(local_file):
+        # send the file directly from the app root
+        try:
+            return send_from_directory('.', 'mysales.html')
+        except Exception:
+            log.exception("send_from_directory failed for mysales.html")
+    # Fallback: return the original simplified inline HTML (keeps server working if file missing)
+    return Response("""
+<!doctype html>
+<html><head><meta charset="utf-8"/><title>MySales (fallback)</title></head><body>
+<h3>MySales (Server mode) — fallback page</h3>
+<p>If you want the enhanced UI, put <code>mysales.html</code> next to <code>app.py</code> and restart the server.</p>
+</body></html>
+""", mimetype='text/html')
 
 @app.route('/api/whoami')
 def api_whoami():
     if 'user_email' in session:
-        # check if this user has is_admin flag in users.json
         users = load_users()
         email = session['user_email']
         user_doc = None
@@ -1173,7 +896,6 @@ def api_record_sale():
     email = session['user_email']
     created_at = datetime.utcnow().isoformat()
     usd_value = None
-    # try to fetch rates (best-effort)
     try:
         r = requests.get(f'https://api.exchangerate.host/latest?base=USD&symbols={currency},USD', timeout=8)
         jr = r.json()
@@ -1194,7 +916,6 @@ def api_record_sale():
         conn.commit()
         sale_id = c.lastrowid
         conn.close()
-        # attempt push to GitHub (best-effort)
         ok, resp = push_sales_db_to_github()
         if not ok:
             log.warning("sales.db push failed after record_sale: %s", resp)
@@ -1269,28 +990,22 @@ def api_approve_sale():
 
         user_email = row["user_email"]
 
-        # Count approved sales in the last 7 days for this user (preserves your existing intent)
         seven_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
         c.execute("SELECT COUNT(*) as cnt FROM sales WHERE user_email = ? AND status = 'approved' AND created_at >= ?", (user_email, seven_ago))
         cnt_row = c.fetchone()
         approved_count = cnt_row["cnt"] if cnt_row else 0
 
-        # prospective is "where the sale would land" using your existing approach
         prospective = (approved_count or 0) + 1
 
-        # Ensure commission constants exist (use defined env/defaults above).
         try:
             rate = BONUS_COMMISSION if prospective >= BONUS_THRESHOLD else DEFAULT_COMMISSION
         except NameError:
-            # last-resort fallback
             rate = 0.10
 
-        # prefer usd_value when available, else use price
         base_value = None
         try:
             base_value = float(row["usd_value"]) if row["usd_value"] is not None else float(row["price"])
         except Exception:
-            # final fallback: try price anyway
             try:
                 base_value = float(row["price"])
             except Exception:
@@ -1306,7 +1021,6 @@ def api_approve_sale():
         conn.commit()
         conn.close()
 
-        # best-effort push of DB to GitHub (preserve your original push behavior)
         ok, resp = push_sales_db_to_github()
         if not ok:
             log.warning("sales.db push failed after approve: %s", resp)
@@ -1320,7 +1034,6 @@ def api_approve_sale():
 
     except Exception as exc:
         log.exception("approve_sale failed")
-        # keep response useful for client-side debugging but not too noisy
         return jsonify({"success": False, "message": "Server error", "error": str(exc)}), 500
 
 @app.route('/api/reject_sale', methods=['POST'])
