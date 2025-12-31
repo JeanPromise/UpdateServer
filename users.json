@@ -1554,5 +1554,12 @@
         "user_agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36"
       }
     ]
+  },
+  {
+    "name": "Damaris malina",
+    "email": "damarismalina@g.mail.com",
+    "password": "scrypt:32768:8:1$USJ9ki7Eu7ToqYJi$3dfa3e6c5de8a4e7f7901b28a6568f681f079d21664e37b6681aff4e21c6a8d0c5a4f20461eba92f1cfb9d13bc6dfc8d3a00ab0ee991779c88a6432550050658",
+    "enabled": true,
+    "login_history": []
   }
 ]
