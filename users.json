@@ -1502,20 +1502,6 @@
     ]
   },
   {
-    "name": "Stella Nyobencha",
-    "email": "snyobencha@gmail.com",
-    "password": "scrypt:32768:8:1$CAYDOLj4VMf1Q6x4$8069cd846c76afd7ddc2b61007e1252abc70efdc6ff49eeb9bc4dc57ddc66d03a635cfdc20b8f1026c425414759b7bbb287d1d4247ed311367f47b47cf98d487",
-    "enabled": true,
-    "login_history": [
-      {
-        "timestamp": "2025-12-07T11:58:20.571536",
-        "ip": "41.139.194.245, 172.68.38.146, 10.23.117.180",
-        "country": "Unknown",
-        "user_agent": "Mozilla/5.0 (Linux; Android 11; Infinix X689C Build/RP1A.200720.011; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/142.0.7444.102 Mobile Safari/537.36"
-      }
-    ]
-  },
-  {
     "name": "Josiah",
     "email": "josiahmukung@gmail.com",
     "password": "scrypt:32768:8:1$VPzlgtbtZpnSsFd5$4a1c924b8d17fc814bab0c7f8e569890565d78fdb6dffe066189b95f69edb08c6e2ea7bfb018a95608c26c9df779143522b1e0a7b91673c70f46b198a6ffdd2b",
