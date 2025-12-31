@@ -1590,6 +1590,13 @@
     "email": "damarismalina@gmail.com",
     "password": "scrypt:32768:8:1$YQ9H6XQJuD05CSd9$0d0db13d14df75703638ccbed8364bdbf6a9a2cfd981dc2bcb697ac0c8d67cd51f159ea5a1d2bc8274e1316ba2308cf726d16a126c2abd0bde8e00614cdff175",
     "enabled": true,
-    "login_history": []
+    "login_history": [
+      {
+        "timestamp": "2025-12-31T12:44:33.675358",
+        "ip": "196.96.214.9,82.145.223.145, 172.68.174.219, 10.23.45.146",
+        "country": "Unknown",
+        "user_agent": "Mozilla/5.0 (Linux; U; Android 14; SM-A042F Build/UP1A.231005.007; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/143.0.7499.116 Mobile Safari/537.36 OPR/97.1.2254.80849"
+      }
+    ]
   }
 ]
