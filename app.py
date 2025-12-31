@@ -1,4 +1,3 @@
-# app.py (public admin.html, admin only via /simplemindserverisgone)
 import threading
 import time
 import random
@@ -49,6 +48,13 @@ APK_FOLDER = "apks"
 os.makedirs(APK_FOLDER, exist_ok=True)
 
 GITHUB_API_BASE = "https://api.github.com"
+
+# ----- Commission defaults (can be overridden by env vars) -----
+# DEFAULT_COMMISSION and BONUS_COMMISSION are decimal fractions (e.g., 0.10 = 10%)
+# BONUS_THRESHOLD for your existing logic is interpreted as a count threshold (number of approved sales).
+DEFAULT_COMMISSION = float(os.getenv("DEFAULT_COMMISSION", "0.10"))  # default 10%
+BONUS_COMMISSION   = float(os.getenv("BONUS_COMMISSION", "0.15"))    # default 15%
+BONUS_THRESHOLD    = int(os.getenv("BONUS_THRESHOLD", "5"))         # default: 5 approved sales => bonus
 
 # --- Single admin email enforcement (optional) ---
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL")
@@ -1242,10 +1248,12 @@ def api_approve_sale():
     admin_check = require_simple_admin_json_internal()
     if admin_check:
         return admin_check
+
     data = request.get_json() or {}
     sale_id = data.get('id')
     if not sale_id:
         return jsonify({"success": False, "message": "id required"}), 400
+
     try:
         conn = get_db_connection()
         c = conn.cursor()
@@ -1254,28 +1262,66 @@ def api_approve_sale():
         if not row:
             conn.close()
             return jsonify({"success": False, "message": "sale not found"}), 404
+
         if row["status"] != 'pending':
             conn.close()
             return jsonify({"success": False, "message": "sale not pending"}), 400
+
         user_email = row["user_email"]
+
+        # Count approved sales in the last 7 days for this user (preserves your existing intent)
         seven_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
         c.execute("SELECT COUNT(*) as cnt FROM sales WHERE user_email = ? AND status = 'approved' AND created_at >= ?", (user_email, seven_ago))
         cnt_row = c.fetchone()
         approved_count = cnt_row["cnt"] if cnt_row else 0
-        prospective = approved_count + 1
-        rate = BONUS_COMMISSION if prospective >= BONUS_THRESHOLD else DEFAULT_COMMISSION
-        commission_amount = float(row["price"]) * rate
+
+        # prospective is "where the sale would land" using your existing approach
+        prospective = (approved_count or 0) + 1
+
+        # Ensure commission constants exist (use defined env/defaults above).
+        try:
+            rate = BONUS_COMMISSION if prospective >= BONUS_THRESHOLD else DEFAULT_COMMISSION
+        except NameError:
+            # last-resort fallback
+            rate = 0.10
+
+        # prefer usd_value when available, else use price
+        base_value = None
+        try:
+            base_value = float(row["usd_value"]) if row["usd_value"] is not None else float(row["price"])
+        except Exception:
+            # final fallback: try price anyway
+            try:
+                base_value = float(row["price"])
+            except Exception:
+                base_value = 0.0
+
+        commission_amount = round(base_value * float(rate), 2)
+
         approved_at = datetime.utcnow().isoformat()
-        c.execute("UPDATE sales SET status = 'approved', commission_rate = ?, commission_amount = ?, approved_at = ? WHERE id = ?", (rate, commission_amount, approved_at, sale_id))
+        c.execute(
+            "UPDATE sales SET status = 'approved', commission_rate = ?, commission_amount = ?, approved_at = ? WHERE id = ?",
+            (rate, commission_amount, approved_at, sale_id)
+        )
         conn.commit()
         conn.close()
+
+        # best-effort push of DB to GitHub (preserve your original push behavior)
         ok, resp = push_sales_db_to_github()
         if not ok:
             log.warning("sales.db push failed after approve: %s", resp)
-        return jsonify({"success": True, "commission_rate": rate, "commission_amount": commission_amount})
-    except Exception:
+
+        return jsonify({
+            "success": True,
+            "commission_rate": rate,
+            "commission_amount": commission_amount,
+            "approved_at": approved_at
+        }), 200
+
+    except Exception as exc:
         log.exception("approve_sale failed")
-        return jsonify({"success": False, "message": "Server error"}), 500
+        # keep response useful for client-side debugging but not too noisy
+        return jsonify({"success": False, "message": "Server error", "error": str(exc)}), 500
 
 @app.route('/api/reject_sale', methods=['POST'])
 def api_reject_sale():
