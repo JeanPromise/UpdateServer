@@ -8,12 +8,13 @@ import requests
 import os
 import logging
 import hashlib
+import sqlite3
+from datetime import datetime, timedelta
 from flask import (
     Flask, request, jsonify, send_from_directory, Response, session, redirect, url_for
 )
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
 from flask import Response, url_for
 from flask import send_file
 
@@ -135,6 +136,35 @@ def github_push_file(filename, content_str, message=None):
         return False, str(e)
     return (r.status_code in (200, 201), r.json() if r.status_code in (200, 201) else r.text)
 
+def github_push_binary(filename, binary_bytes, message=None):
+    """
+    Push a binary file (like sales.db) to GitHub by base64-encoding binary_bytes.
+    Returns (ok, resp).
+    """
+    if not GITHUB_TOKEN:
+        return False, "GITHUB_TOKEN missing"
+    url = f"{GITHUB_API_BASE}/repos/{GITHUB_OWNER}/{GITHUB_REPO}/contents/{filename}"
+    headers = gh_headers()
+    try:
+        r_get = requests.get(url, headers=headers, timeout=20)
+        sha = r_get.json().get("sha") if r_get.status_code == 200 else None
+    except Exception:
+        sha = None
+
+    payload = {
+        "message": message or f"Update {filename} at {datetime.utcnow().isoformat()}",
+        "content": base64.b64encode(binary_bytes).decode(),
+        "branch": BRANCH
+    }
+    if sha:
+        payload["sha"] = sha
+    try:
+        r = requests.put(url, headers=headers, json=payload, timeout=120)
+    except Exception as e:
+        log.exception("GitHub PUT exception for binary %s", filename)
+        return False, str(e)
+    return (r.status_code in (200, 201), r.json() if r.status_code in (200, 201) else r.text)
+
 # ---------------- Admin persistence helpers ----------------
 def load_admin():
     """
@@ -228,6 +258,62 @@ def save_apk(apk_obj):
         log.exception("save_apk exception")
         return False, str(e)
 
+# ---------------- SQLite helpers for sales.db ----------------
+DB_PATH = "sales.db"
+
+def init_db():
+    try:
+        with sqlite3.connect(DB_PATH) as conn:
+            c = conn.cursor()
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS sales (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_email TEXT NOT NULL,
+                    product TEXT NOT NULL,
+                    price REAL NOT NULL,
+                    currency TEXT NOT NULL,
+                    usd_value REAL,
+                    commission_rate REAL,
+                    commission_amount REAL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    approved_at TEXT
+                )
+            """)
+            conn.commit()
+        log.info("Initialized SQLite DB at %s", DB_PATH)
+    except Exception:
+        log.exception("Failed to initialize DB")
+
+def get_db_connection():
+    conn = sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES|sqlite3.PARSE_COLNAMES)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def push_sales_db_to_github():
+    """
+    Read sales.db binary and push to GitHub as 'sales.db' file in repo.
+    Returns (ok, resp) just like github_push_binary.
+    """
+    if not os.path.exists(DB_PATH):
+        return False, "DB missing"
+    try:
+        with open(DB_PATH, 'rb') as f:
+            data = f.read()
+        if GITHUB_TOKEN:
+            ok, resp = github_push_binary('sales.db', data, f"Update sales.db at {datetime.utcnow().isoformat()}")
+            if ok:
+                log.info("Pushed sales.db to GitHub")
+                return True, resp
+            else:
+                log.error("Failed to push sales.db to GitHub: %s", resp)
+                return False, resp
+        else:
+            return True, "local-only"
+    except Exception:
+        log.exception("push_sales_db_to_github failed")
+        return False, "exception"
+
 # ---------------- Public/Private Enforcement ----------------
 @app.before_request
 def require_login():
@@ -236,7 +322,9 @@ def require_login():
         'login', 'register', 'index', 'day_page', 'get_users', # <-- 'day_page' added here
         'check_update', 'download_apk', 'get_apk',
         # admin login page and its POST handler must be allowed so their logic runs
-        'admin_login_page', 'simplemind_login', 'admin_dashboard'
+        'admin_login_page', 'simplemind_login', 'admin_dashboard',
+        # allow the mysales page itself to be served publicly (login happens via /login)
+        'mysales_page'
     }
 
     ep = request.endpoint
@@ -659,6 +747,11 @@ def start_keepalive():
 
 with app.app_context():
     start_keepalive()
+    # initialize sales DB when app context is available
+    try:
+        init_db()
+    except Exception:
+        log.exception("init_db call failed at startup")
 
 # ===== End Keepalive =====
 
@@ -849,6 +942,373 @@ def admin_delete_user():
         return jsonify({"success": False, "message": "Failed to save users"}), 500
     
     return jsonify({"success": True})
+
+# ----------------- NEW: Serve mysales.html and API endpoints -----------------
+@app.route('/mysales.html')
+def mysales_page():
+    # Serve a single-file client that uses the server's /register, /login and /api/* endpoints.
+    html = r"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>MySales - Server-backed</title>
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial;margin:0;padding:10px;background:#f6f8fb;color:#07102a}
+    .container{max-width:960px;margin:10px auto;background:white;padding:18px;border-radius:10px;box-shadow:0 8px 24px rgba(10,20,40,0.06)}
+    input,select,button{padding:8px;border-radius:6px;border:1px solid #e6eefc;margin:4px 0}
+    .row{display:flex;gap:12px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px solid #f1f6ff;text-align:left}
+    .btn{background:#0b5cff;color:#fff;padding:8px 10px;border-radius:6px;border:0;cursor:pointer}
+    .btn-accept{background:#06ad5e}
+    .btn-danger{background:#ff5757}
+    .small{font-size:0.9rem;color:#54607a}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>MySales (Server mode)</h2>
+    <div id="authArea">
+      <h3>Register or Login</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="reg_name" placeholder="Full name" />
+        <input id="reg_email" placeholder="Email" />
+        <input id="reg_pass" placeholder="Password" type="password" />
+        <button id="btn_register" class="btn">Register</button>
+      </div>
+      <div style="height:8px"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="login_email" placeholder="Email" />
+        <input id="login_pass" placeholder="Password" type="password" />
+        <button id="btn_login" class="btn btn-accept">Login</button>
+      </div>
+      <div style="height:8px"></div>
+      <div id="whoami" class="small"></div>
+    </div>
+
+    <div id="appArea" style="display:none">
+      <h3>Record a sale</h3>
+      <div class="row" style="align-items:flex-end">
+        <div style="flex:2">
+          <label>Product</label><br/>
+          <input id="product" />
+        </div>
+        <div style="width:140px">
+          <label>Price</label><br/>
+          <input id="price" type="number" />
+        </div>
+        <div style="width:140px">
+          <label>Currency</label><br/>
+          <select id="currency">
+            <option>KES</option><option>USD</option><option>ZAR</option><option>ZMW</option><option>ETB</option><option>NGN</option><option>UGX</option><option>TZS</option><option>RWF</option><option>Other</option>
+          </select>
+        </div>
+        <div style="width:180px">
+          <button id="btn_record" class="btn">Record sale (pending)</button>
+        </div>
+      </div>
+
+      <h3 style="margin-top:18px">Your sales</h3>
+      <div id="salesList" class="small">Loading...</div>
+
+      <div id="adminPanel" style="display:none;margin-top:16px">
+        <h3>Admin tools</h3>
+        <div id="adminPending"></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+async function api(path, opts){
+  const res = await fetch(path, opts);
+  const ct = res.headers.get('content-type') || '';
+  if(ct.includes('application/json')){
+    const j = await res.json();
+    if(!res.ok) throw new Error(j && j.message ? j.message : 'API error');
+    return j;
+  }
+  if(!res.ok) throw new Error('API error');
+  return res.text();
+}
+
+document.getElementById('btn_register').addEventListener('click', async ()=>{
+  const name = document.getElementById('reg_name').value.trim();
+  const email = document.getElementById('reg_email').value.trim();
+  const pass = document.getElementById('reg_pass').value;
+  if(!name||!email||!pass) return alert('provide name/email/password');
+  try{
+    const r = await fetch('/register', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({name,email,password:pass})});
+    const j = await r.json();
+    if(j.success){ alert('Registered — please login'); } else { alert('Register failed: '+(j.message||JSON.stringify(j))); }
+  }catch(e){ alert(e.message) }
+});
+
+document.getElementById('btn_login').addEventListener('click', async ()=>{
+  const email = document.getElementById('login_email').value.trim();
+  const pass = document.getElementById('login_pass').value;
+  if(!email||!pass) return alert('provide email/password');
+  try{
+    const r = await fetch('/login', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({email,password:pass})});
+    const j = await r.json();
+    if(j.success){ await refreshWhoami(); } else { alert('Login failed: '+(j.message||JSON.stringify(j))); }
+  }catch(e){ alert(e.message) }
+});
+
+async function refreshWhoami(){
+  try{
+    const j = await api('/api/whoami');
+    if(j.email){
+      document.getElementById('whoami').textContent = 'Logged in as '+j.email + (j.isAdmin? ' (ADMIN)':'');
+      document.getElementById('authArea').style.display='none';
+      document.getElementById('appArea').style.display='block';
+      if(j.isAdmin) document.getElementById('adminPanel').style.display='block';
+      loadSales();
+      if(j.isAdmin) loadPending();
+    } else {
+      document.getElementById('whoami').textContent = 'Not logged in';
+      document.getElementById('authArea').style.display='block';
+      document.getElementById('appArea').style.display='none';
+    }
+  }catch(e){
+    console.warn(e);
+  }
+}
+
+document.getElementById('btn_record').addEventListener('click', async ()=>{
+  const product = document.getElementById('product').value.trim();
+  const price = Number(document.getElementById('price').value);
+  const currency = document.getElementById('currency').value;
+  if(!product||!price||!currency) return alert('provide product, price, currency');
+  try{
+    const j = await api('/api/record_sale', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({product,price,currency})});
+    alert('Sale recorded (pending)');
+    document.getElementById('product').value=''; document.getElementById('price').value='';
+    loadSales();
+    loadPending();
+  }catch(e){ alert(e.message) }
+});
+
+async function loadSales(){
+  try{
+    const j = await api('/api/get_sales');
+    const list = j.sales || [];
+    if(!list.length){ document.getElementById('salesList').innerHTML = '<div class="small">No sales yet.</div>'; return; }
+    let html = '<table><thead><tr><th>Date</th><th>Product</th><th>Price</th><th>Status</th><th>Commission</th></tr></thead><tbody>';
+    for(const s of list){
+      html += `<tr><td>${s.created_at}</td><td>${s.product}</td><td>${Number(s.price).toLocaleString()} ${s.currency}</td><td>${s.status}</td><td>${s.commission_rate? (s.commission_rate*100).toFixed(0)+'% — '+(s.commission_amount? s.commission_amount+' '+s.currency:''): '—'}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    document.getElementById('salesList').innerHTML = html;
+  }catch(e){ console.warn(e); }
+}
+
+async function loadPending(){
+  try{
+    const j = await api('/api/get_sales');
+    const pending = (j.sales || []).filter(s=>s.status==='pending');
+    if(!pending.length){ document.getElementById('adminPending').innerHTML = '<div class="small">No pending sales</div>'; return; }
+    let html = '<h4>Pending</h4><table><thead><tr><th>Date</th><th>User</th><th>Product</th><th>Price</th><th>Action</th></tr></thead><tbody>';
+    for(const s of pending){
+      html += `<tr><td>${s.created_at}</td><td>${s.user_email}</td><td>${s.product}</td><td>${Number(s.price).toLocaleString()} ${s.currency}</td><td><button onclick="approve(${s.id})" class="btn btn-accept">Approve</button> <button onclick="reject(${s.id})" class="btn btn-danger">Reject</button></td></tr>`;
+    }
+    html += '</tbody></table>';
+    document.getElementById('adminPending').innerHTML = html;
+  }catch(e){ console.warn(e); }
+}
+
+window.approve = async function(id){
+  try{
+    await api('/api/approve_sale', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({id})});
+    alert('Approved');
+    loadSales(); loadPending();
+  }catch(e){ alert(e.message) }
+};
+
+window.reject = async function(id){
+  try{
+    await api('/api/reject_sale', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({id})});
+    alert('Rejected');
+    loadSales(); loadPending();
+  }catch(e){ alert(e.message) }
+};
+
+refreshWhoami();
+</script>
+</body>
+</html>"""
+    return Response(html, mimetype='text/html')
+
+@app.route('/api/whoami')
+def api_whoami():
+    if 'user_email' in session:
+        # check if this user has is_admin flag in users.json
+        users = load_users()
+        email = session['user_email']
+        user_doc = None
+        for u in users:
+            if isinstance(u, dict) and u.get('email') == email:
+                user_doc = u
+                break
+        is_admin = bool(user_doc and user_doc.get('is_admin')) or (ADMIN_EMAIL and email==ADMIN_EMAIL) or bool(session.get('simple_admin'))
+        return jsonify({"email": email, "isAdmin": is_admin})
+    return jsonify({})
+
+@app.route('/api/record_sale', methods=['POST'])
+def api_record_sale():
+    if 'user_email' not in session:
+        return jsonify({"success": False, "message": "Authentication required."}), 401
+    data = request.get_json() or {}
+    product = data.get('product')
+    price = data.get('price')
+    currency = data.get('currency')
+    if not (product and price and currency):
+        return jsonify({"success": False, "message": "product, price, currency required"}), 400
+    email = session['user_email']
+    created_at = datetime.utcnow().isoformat()
+    usd_value = None
+    # try to fetch rates (best-effort)
+    try:
+        r = requests.get(f'https://api.exchangerate.host/latest?base=USD&symbols={currency},USD', timeout=8)
+        jr = r.json()
+        if jr and jr.get('rates') and jr['rates'].get(currency):
+            rate = jr['rates'][currency]
+            if rate:
+                usd_value = float(price) / float(rate)
+    except Exception:
+        log.exception("failed to fetch exchange rate")
+
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("""
+            INSERT INTO sales (user_email, product, price, currency, usd_value, commission_rate, commission_amount, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (email, product, float(price), currency, usd_value, None, None, 'pending', created_at))
+        conn.commit()
+        sale_id = c.lastrowid
+        conn.close()
+        # attempt push to GitHub (best-effort)
+        ok, resp = push_sales_db_to_github()
+        if not ok:
+            log.warning("sales.db push failed after record_sale: %s", resp)
+        return jsonify({"success": True, "id": sale_id})
+    except Exception:
+        log.exception("Failed to record sale")
+        return jsonify({"success": False, "message": "Server error"}), 500
+
+@app.route('/api/get_sales')
+def api_get_sales():
+    if 'user_email' not in session and not session.get('simple_admin'):
+        return jsonify({"success": False, "message": "Authentication required."}), 401
+    email = session.get('user_email')
+    is_admin = bool(session.get('simple_admin'))
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        if is_admin:
+            c.execute("SELECT * FROM sales ORDER BY created_at DESC")
+        else:
+            c.execute("SELECT * FROM sales WHERE user_email = ? ORDER BY created_at DESC", (email,))
+        rows = c.fetchall()
+        conn.close()
+        sales = []
+        for r in rows:
+            sales.append({
+                "id": r["id"],
+                "user_email": r["user_email"],
+                "product": r["product"],
+                "price": r["price"],
+                "currency": r["currency"],
+                "usd_value": r["usd_value"],
+                "commission_rate": r["commission_rate"],
+                "commission_amount": r["commission_amount"],
+                "status": r["status"],
+                "created_at": r["created_at"],
+                "approved_at": r["approved_at"]
+            })
+        return jsonify({"success": True, "sales": sales})
+    except Exception:
+        log.exception("api_get_sales failed")
+        return jsonify({"success": False, "message": "Server error"}), 500
+
+def require_simple_admin_json_internal():
+    if not session.get('simple_admin'):
+        return jsonify({"success": False, "message": "Unauthorized"}), 403
+    return None
+
+@app.route('/api/approve_sale', methods=['POST'])
+def api_approve_sale():
+    admin_check = require_simple_admin_json_internal()
+    if admin_check:
+        return admin_check
+    data = request.get_json() or {}
+    sale_id = data.get('id')
+    if not sale_id:
+        return jsonify({"success": False, "message": "id required"}), 400
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT * FROM sales WHERE id = ?", (sale_id,))
+        row = c.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({"success": False, "message": "sale not found"}), 404
+        if row["status"] != 'pending':
+            conn.close()
+            return jsonify({"success": False, "message": "sale not pending"}), 400
+        user_email = row["user_email"]
+        seven_ago = (datetime.utcnow() - timedelta(days=7)).isoformat()
+        c.execute("SELECT COUNT(*) as cnt FROM sales WHERE user_email = ? AND status = 'approved' AND created_at >= ?", (user_email, seven_ago))
+        cnt_row = c.fetchone()
+        approved_count = cnt_row["cnt"] if cnt_row else 0
+        prospective = approved_count + 1
+        rate = BONUS_COMMISSION if prospective >= BONUS_THRESHOLD else DEFAULT_COMMISSION
+        commission_amount = float(row["price"]) * rate
+        approved_at = datetime.utcnow().isoformat()
+        c.execute("UPDATE sales SET status = 'approved', commission_rate = ?, commission_amount = ?, approved_at = ? WHERE id = ?", (rate, commission_amount, approved_at, sale_id))
+        conn.commit()
+        conn.close()
+        ok, resp = push_sales_db_to_github()
+        if not ok:
+            log.warning("sales.db push failed after approve: %s", resp)
+        return jsonify({"success": True, "commission_rate": rate, "commission_amount": commission_amount})
+    except Exception:
+        log.exception("approve_sale failed")
+        return jsonify({"success": False, "message": "Server error"}), 500
+
+@app.route('/api/reject_sale', methods=['POST'])
+def api_reject_sale():
+    admin_check = require_simple_admin_json_internal()
+    if admin_check:
+        return admin_check
+    data = request.get_json() or {}
+    sale_id = data.get('id')
+    if not sale_id:
+        return jsonify({"success": False, "message": "id required"}), 400
+    try:
+        conn = get_db_connection()
+        c = conn.cursor()
+        c.execute("SELECT * FROM sales WHERE id = ?", (sale_id,))
+        row = c.fetchone()
+        if not row:
+            conn.close()
+            return jsonify({"success": False, "message": "sale not found"}), 404
+        if row["status"] != 'pending':
+            conn.close()
+            return jsonify({"success": False, "message": "sale not pending"}), 400
+        c.execute("UPDATE sales SET status = 'rejected', approved_at = ? WHERE id = ?", (datetime.utcnow().isoformat(), sale_id))
+        conn.commit()
+        conn.close()
+        ok, resp = push_sales_db_to_github()
+        if not ok:
+            log.warning("sales.db push failed after reject: %s", resp)
+        return jsonify({"success": True})
+    except Exception:
+        log.exception("reject_sale failed")
+        return jsonify({"success": False, "message": "Server error"}), 500
+
+# ---------------- End of mysales additions -----------------
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
