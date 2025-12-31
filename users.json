@@ -1534,6 +1534,13 @@
     "email": "nakailitheresa02@icloud.com",
     "password": "scrypt:32768:8:1$TvDq3Vh0mJA2NWVM$6937202d6d5ba24b714a8d9da50a0febc17efc6643b4070834c080e44c5599cda7e1092c0d54e63d70ccdc735e3cc4aed20c64fb8e7a02aaecf55557fd550e38",
     "enabled": true,
-    "login_history": []
+    "login_history": [
+      {
+        "timestamp": "2025-12-31T10:44:03.772284",
+        "ip": "102.148.43.145, 197.234.242.107, 10.22.205.188",
+        "country": "Unknown",
+        "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_8_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6.7 Mobile/15E148 Safari/604.1"
+      }
+    ]
   }
 ]
