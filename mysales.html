@@ -1,0 +1,756 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>MySales — Sales & Commission</title>
+<style>
+:root{--blue:#0b5cff;--green:#06ad5e;--red:#ff5757;--muted:#586072}
+*{box-sizing:border-box}
+html[dir="rtl"]{direction:rtl}
+body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f5f7fb;color:#0b1220}
+.wrap{max-width:1100px;margin:18px auto;padding:18px}
+.header-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.brand{display:flex;gap:12px;align-items:center}
+.logo{background:linear-gradient(135deg,#ffffff22,#ffffff00);padding:10px;border-radius:8px}
+.controls{display:flex;gap:8px;align-items:center}
+.panel{background:#fff;border-radius:10px;padding:14px;margin-top:6px;box-shadow:0 8px 30px rgba(10,20,40,0.06)}
+.row{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+label{font-size:0.9rem;color:#334155}
+input,select,textarea,button{padding:8px;border-radius:8px;border:1px solid #e6eefc}
+input[type=number]{-moz-appearance:textfield}
+button{cursor:pointer;background:var(--blue);color:#fff;border:0}
+.btn-accept{background:var(--green)}
+.btn-danger{background:var(--red)}
+.small{font-size:0.9rem;color:var(--muted)}
+.status-pending{color:#c084fc;font-weight:600}
+.status-approved{color:var(--green);font-weight:600}
+.status-rejected{color:var(--red);font-weight:600}
+.hidden{display:none}
+.table{width:100%;border-collapse:collapse;margin-top:10px}
+.table th,.table td{padding:8px;border-bottom:1px solid #f1f6ff;text-align:left}
+.kv{display:flex;gap:8px;align-items:center}
+.kv b{min-width:160px;display:inline-block;color:#0b1220}
+.small-muted{color:var(--muted);font-size:0.9rem}
+.totals{display:flex;gap:16px;align-items:center;margin-top:10px;flex-wrap:wrap}
+.lang-select{background:#fff;border-radius:6px;padding:6px;border:1px solid #dbeafe}
+.country-select{background:#fff;border-radius:6px;padding:6px;border:1px solid #dbeafe}
+@media (max-width:900px){
+  .kv b{min-width:110px}
+  .header-row{flex-direction:column;align-items:stretch}
+  .controls{margin-top:6px;justify-content:flex-end}
+  .row{flex-direction:column;align-items:stretch}
+}
+.notice{background:#fff9e6;padding:10px;border-radius:8px;border:1px solid #fff0c2;color:#6b4f00}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="header-row">
+      <div class="brand">
+        <div class="logo"><strong style="font-size:1.05rem">MySales</strong></div>
+        <div>
+          <div id="appTitle"><strong>MySales — Sales & Commission Tracker</strong></div>
+          <div id="appSubtitle" class="small-muted">Instant commission previews + convert to your currency</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <div>
+          <label class="small" for="langSelect">Language</label><br>
+          <select id="langSelect" class="lang-select">
+            <option value="en">English</option>
+            <option value="sw">Kiswahili</option>
+            <option value="fr">Français</option>
+            <option value="ar">العربية</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="small" for="countrySelect">Country</label><br>
+          <select id="countrySelect" class="country-select"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTH PANEL -->
+    <div class="panel" id="authPanel">
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:2">
+          <label id="lblFullName" class="small">Full name (for registration)</label><br>
+          <input id="reg_name" placeholder="Jane Doe" />
+        </div>
+        <div style="flex:2">
+          <label id="lblEmailReg" class="small">Email</label><br>
+          <input id="reg_email" placeholder="you@example.com" />
+        </div>
+        <div style="width:220px">
+          <label id="lblPassReg" class="small">Password</label><br>
+          <input id="reg_pass" type="password" placeholder="choose a password" />
+        </div>
+        <div style="width:140px">
+          <button id="btn_register">Register</button>
+        </div>
+      </div>
+
+      <hr style="margin:12px 0">
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+        <div style="flex:2">
+          <input id="login_email" placeholder="Email" />
+        </div>
+        <div style="width:220px">
+          <input id="login_pass" type="password" placeholder="Password" />
+        </div>
+        <div style="width:140px">
+          <button id="btn_login" class="btn-accept">Login</button>
+        </div>
+        <div style="margin-left:auto" id="whoami" class="small">Not logged in</div>
+      </div>
+      <div style="margin-top:10px" class="small">Tip: commissions simulate instantly in the UI. Server approval finalizes the stored commission.</div>
+    </div>
+
+    <!-- APP PANEL -->
+    <div class="panel hidden" id="appPanel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <strong id="userEmail"></strong>
+          <div id="uidDisplay" class="small-muted"></div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="btn_export" class="small">Export CSV</button>
+          <button id="btn_logout" class="btn-danger small">Logout</button>
+        </div>
+      </div>
+
+      <hr style="margin:12px 0">
+
+      <h3 id="hdrRecord">Record a sale (instant commission preview)</h3>
+
+      <div class="row">
+        <div style="flex:2">
+          <label id="lblProduct">Product / Software</label><br>
+          <input id="product" placeholder="Software Pro v1" />
+        </div>
+
+        <div style="width:160px">
+          <label id="lblPrice">Price</label><br>
+          <input id="price" type="number" step="0.01" placeholder="10000" />
+        </div>
+
+        <div style="width:180px">
+          <label id="lblCurrency">Currency</label><br>
+          <select id="currency">
+            <option value="KES">KES</option><option value="USD">USD</option><option value="ZAR">ZAR</option><option value="ZMW">ZMW</option>
+            <option value="ETB">ETB</option><option value="RWF">RWF</option><option value="UGX">UGX</option><option value="TZS">TZS</option>
+            <option value="NGN">NGN</option><option value="BWP">BWP</option><option value="GBP">GBP</option><option value="EUR">EUR</option>
+            <option value="Other">Other</option>
+          </select>
+          <input id="currencyOther" placeholder="ISO (e.g. BND)" class="hidden" style="margin-top:6px;width:100%"/>
+        </div>
+
+        <div style="width:220px">
+          <label>&nbsp;</label><br>
+          <button id="btn_record" class="btn">Record sale (pending)</button>
+        </div>
+      </div>
+
+      <!-- Instant calculation row -->
+      <div style="display:flex;gap:12px;margin-top:10px;flex-wrap:wrap">
+        <div class="kv"><b id="lblRate">Exchange rate (1 USD → )</b><div id="rateDisplay" class="small">—</div></div>
+        <div class="kv"><b id="lblPriceUsd">Price in USD</b><div id="usdDisplay" class="small">—</div></div>
+        <div class="kv"><b id="lblCommRate">Commission rate</b><div id="ratePct" class="small">—</div></div>
+        <div class="kv"><b id="lblCommLocal">Commission (local)</b><div id="commLocal" class="small">—</div></div>
+        <div class="kv"><b id="lblCommUsd">Commission (USD)</b><div id="commUsd" class="small">—</div></div>
+      </div>
+
+      <p id="rulesText" class="small">Rules: default commission = 10% of sale. If you have <strong>5 or more approved sales</strong> within a rolling 7-day window, commission becomes <strong>25%</strong> for that user's sales.</p>
+
+      <hr style="margin:12px 0">
+
+      <h3 id="hdrRecent">Your recent sales</h3>
+      <div id="salesList" class="small">Loading...</div>
+
+      <div class="totals" id="totalsArea"></div>
+    </div>
+
+  </div>
+
+<script>
+/*
+  Enhanced mysales.html
+  - Language (EN/SW/FR/AR) + country selector -> convert commission & totals into chosen country currency.
+  - Works with existing Flask endpoints (register/login/get_sales/record_sale/logout).
+  - Rates via exchangerate.host (best-effort), cached 10 minutes.
+*/
+
+const $ = id => document.getElementById(id);
+
+/* Elements */
+const langSelect = $('langSelect');
+const countrySelect = $('countrySelect');
+
+const authPanel = $('authPanel');
+const appPanel = $('appPanel');
+const whoamiEl = $('whoami');
+const userEmailEl = $('userEmail');
+const uidDisplay = $('uidDisplay');
+
+const regName = $('reg_name'), regEmail = $('reg_email'), regPass = $('reg_pass');
+const loginEmail = $('login_email'), loginPass = $('login_pass');
+const btnRegister = $('btn_register'), btnLogin = $('btn_login'), btnLogout = $('btn_logout');
+const btnRecord = $('btn_record'), productEl = $('product'), priceEl = $('price');
+const currencyEl = $('currency'), currencyOtherEl = $('currencyOther');
+
+const rateDisplay = $('rateDisplay'), usdDisplay = $('usdDisplay'), ratePctEl = $('ratePct'), commLocalEl = $('commLocal'), commUsdEl = $('commUsd');
+const salesListEl = $('salesList'), totalsArea = $('totalsArea');
+const btnExport = $('btn_export');
+
+/* State */
+let exchangeRates = {}; // rates: 1 USD -> X currency
+let lastRatesFetchedAt = 0;
+let whoami = null;
+let cachedSales = [];
+let selectedCountry = null; // {code, name, currency}
+let selectedCurrencyForCountry = null;
+let lang = 'en';
+
+/* Commission rules (client-side preview) */
+const DEFAULT_COMMISSION = 0.10;
+const BONUS_COMMISSION = 0.25;
+const BONUS_THRESHOLD = 5;
+
+/* Country -> currency mapping (subset; add/remove as you like) */
+const COUNTRIES = [
+  {code:'KE', name:'Kenya', currency:'KES'},
+  {code:'US', name:'United States', currency:'USD'},
+  {code:'GB', name:'United Kingdom', currency:'GBP'},
+  {code:'ZA', name:'South Africa', currency:'ZAR'},
+  {code:'ZM', name:'Zambia', currency:'ZMW'},
+  {code:'ET', name:'Ethiopia', currency:'ETB'},
+  {code:'RW', name:'Rwanda', currency:'RWF'},
+  {code:'UG', name:'Uganda', currency:'UGX'},
+  {code:'TZ', name:'Tanzania', currency:'TZS'},
+  {code:'NG', name:'Nigeria', currency:'NGN'},
+  {code:'IN', name:'India', currency:'INR'},
+  {code:'AU', name:'Australia', currency:'AUD'},
+  {code:'CA', name:'Canada', currency:'CAD'},
+  {code:'NZ', name:'New Zealand', currency:'NZD'},
+  {code:'BW', name:'Botswana', currency:'BWP'},
+  {code:'EG', name:'Egypt', currency:'EGP'},
+  {code:'SA', name:'Saudi Arabia', currency:'SAR'},
+  {code:'AE', name:'UAE', currency:'AED'},
+  {code:'FR', name:'France', currency:'EUR'},
+  {code:'ZM', name:'Zambia', currency:'ZMW'},
+  {code:'BW', name:'Botswana', currency:'BWP'},
+  {code:'BW', name:'Botswana', currency:'BWP'},
+  // you can add more here; the selector will show all
+];
+
+/* Translations */
+const TRANSLATIONS = {
+  en: {
+    appTitle: 'MySales — Sales & Commission Tracker',
+    appSubtitle: 'Instant commission previews + convert to your currency',
+    fullName: 'Full name (for registration)',
+    email: 'Email',
+    password: 'Password',
+    register: 'Register',
+    login: 'Login',
+    logout: 'Logout',
+    recordHeader: 'Record a sale (instant commission preview)',
+    product: 'Product / Software',
+    price: 'Price',
+    currency: 'Currency',
+    recordSaleBtn: 'Record sale (pending)',
+    exchangeRate: 'Exchange rate (1 USD → )',
+    priceUsd: 'Price in USD',
+    commissionRate: 'Commission rate',
+    commissionLocal: 'Commission (local)',
+    commissionUsd: 'Commission (USD)',
+    rules: 'Rules: default commission = 10%. If you have 5 or more approved sales within a rolling 7-day window, commission becomes 25%. UI shows preview; server controls final approval.',
+    recentSales: 'Your recent sales',
+    exportCSV: 'Export CSV',
+    notLogged: 'Not logged in'
+  },
+  sw: {
+    appTitle: 'MySales — Rejista za Mauzo na Kamisheni',
+    appSubtitle: 'Onyesha kamisheni mara moja + badilisha kwa sarafu yako',
+    fullName: 'Jina kamili (kwa usajili)',
+    email: 'Barua pepe',
+    password: 'Nenosiri',
+    register: 'Jisajili',
+    login: 'Ingia',
+    logout: 'Toka',
+    recordHeader: 'Rekodi mauzo (tathmini ya kamisheni mara moja)',
+    product: 'Bidhaa / Programu',
+    price: 'Bei',
+    currency: 'Sarafu',
+    recordSaleBtn: 'Rekodi mauzo (kusubiri)',
+    exchangeRate: 'Kiwango (1 USD → )',
+    priceUsd: 'Bei kwa USD',
+    commissionRate: 'Kiwango cha kamisheni',
+    commissionLocal: 'Kamisheni (mtaa)',
+    commissionUsd: 'Kamisheni (USD)',
+    rules: 'Sheria: kamisheni ya msingi = 10%. Ukiwa na mauzo 5+ yaliyothibitishwa ndani ya siku 7, kamisheni inakuwa 25%. UI inaonyesha makadirio; seva inathibitisha.',
+    recentSales: 'Mauzo yako ya hivi karibuni',
+    exportCSV: 'Pakua CSV',
+    notLogged: 'Haujaingia'
+  },
+  fr: {
+    appTitle: 'MySales — Ventes & Commission',
+    appSubtitle: 'Aperçu instantané de la commission + conversion vers votre devise',
+    fullName: 'Nom complet (pour l\'inscription)',
+    email: 'E-mail',
+    password: 'Mot de passe',
+    register: 'S\'inscrire',
+    login: 'Se connecter',
+    logout: 'Se déconnecter',
+    recordHeader: 'Enregistrer une vente (aperçu instantané de la commission)',
+    product: 'Produit / Logiciel',
+    price: 'Prix',
+    currency: 'Devise',
+    recordSaleBtn: 'Enregistrer (en attente)',
+    exchangeRate: 'Taux de change (1 USD → )',
+    priceUsd: 'Prix en USD',
+    commissionRate: 'Taux de commission',
+    commissionLocal: 'Commission (locale)',
+    commissionUsd: 'Commission (USD)',
+    rules: 'Règles : commission par défaut = 10%. Si vous avez 5 ventes approuvées en 7 jours, la commission devient 25%. L\'UI montre un aperçu ; le serveur finalise.',
+    recentSales: 'Vos ventes récentes',
+    exportCSV: 'Exporter CSV',
+    notLogged: 'Non connecté'
+  },
+  ar: {
+    appTitle: 'MySales — المبيعات والعمولات',
+    appSubtitle: 'معاينة العمولة فوراً + التحويل لعملتك المحلية',
+    fullName: 'الاسم الكامل (للتسجيل)',
+    email: 'البريد الإلكتروني',
+    password: 'كلمة المرور',
+    register: 'تسجيل',
+    login: 'تسجيل الدخول',
+    logout: 'تسجيل الخروج',
+    recordHeader: 'تسجيل عملية بيع (معاينة العمولة الفورية)',
+    product: 'المنتج / البرنامج',
+    price: 'السعر',
+    currency: 'العملة',
+    recordSaleBtn: 'سجل البيع (قيد الانتظار)',
+    exchangeRate: 'سعر الصرف (1 USD → )',
+    priceUsd: 'السعر بالدولار',
+    commissionRate: 'نسبة العمولة',
+    commissionLocal: 'العمولة (محلي)',
+    commissionUsd: 'العمولة (دولار)',
+    rules: 'القواعد: العمولة الافتراضية = 10%. إذا كان لديك 5 مبيعات معتمدة خلال 7 أيام، تصبح العمولة 25%. الواجهة تعرض تقدير؛ الخادم هو المسؤول النهائي.',
+    recentSales: 'مبيعاتك الأخيرة',
+    exportCSV: 'تصدير CSV',
+    notLogged: 'غير مسجل الدخول'
+  }
+};
+
+/* Helpers: translations */
+function t(key){
+  if(!TRANSLATIONS[lang]) lang = 'en';
+  return (TRANSLATIONS[lang][key] !== undefined) ? TRANSLATIONS[lang][key] : TRANSLATIONS['en'][key] || key;
+}
+
+function applyTranslations(){
+  document.getElementById('appTitle').textContent = t('appTitle');
+  document.getElementById('appSubtitle').textContent = t('appSubtitle');
+  document.getElementById('lblFullName').textContent = t('fullName');
+  document.getElementById('lblEmailReg').textContent = t('email');
+  document.getElementById('lblPassReg').textContent = t('password');
+  btnRegister.textContent = t('register');
+  btnLogin.textContent = t('login');
+  btnLogout.textContent = t('logout');
+  document.getElementById('hdrRecord').textContent = t('recordHeader');
+  document.getElementById('lblProduct').textContent = t('product');
+  document.getElementById('lblPrice').textContent = t('price');
+  document.getElementById('lblCurrency').textContent = t('currency');
+  btnRecord.textContent = t('recordSaleBtn');
+  document.getElementById('lblRate').textContent = t('exchangeRate');
+  document.getElementById('lblPriceUsd').textContent = t('priceUsd');
+  document.getElementById('lblCommRate').textContent = t('commissionRate');
+  document.getElementById('lblCommLocal').textContent = t('commissionLocal');
+  document.getElementById('lblCommUsd').textContent = t('commissionUsd');
+  document.getElementById('rulesText').textContent = t('rules');
+  document.getElementById('hdrRecent').textContent = t('recentSales');
+  btnExport.textContent = t('exportCSV');
+  if(!whoami) whoamiEl.textContent = t('notLogged');
+  // Arabic special-case: set dir to rtl
+  if(lang === 'ar'){
+    document.documentElement.setAttribute('dir','rtl');
+  } else {
+    document.documentElement.setAttribute('dir','ltr');
+  }
+}
+
+/* Fill country selector */
+function populateCountries(){
+  // unique by code
+  const seen = new Set();
+  COUNTRIES.forEach(c=>{
+    if(seen.has(c.code)) return;
+    seen.add(c.code);
+    const opt = document.createElement('option');
+    opt.value = c.code + '|' + c.currency;
+    opt.textContent = `${c.name} — ${c.currency}`;
+    countrySelect.appendChild(opt);
+  });
+  // add a generic 'Choose' at top
+  const first = document.createElement('option');
+  first.value = '';
+  first.textContent = '— Choose country (optional) —';
+  countrySelect.insertBefore(first, countrySelect.firstChild);
+}
+
+/* Exchange rates */
+async function fetchRatesOnce(){
+  const now = Date.now();
+  if(exchangeRates && lastRatesFetchedAt && (now - lastRatesFetchedAt < 10*60*1000)) return;
+  try {
+    const r = await fetch('https://api.exchangerate.host/latest?base=USD');
+    if(!r.ok) throw new Error('rate fetch failed');
+    const j = await r.json();
+    if(j && j.rates){
+      exchangeRates = j.rates; // 1 USD => X units
+      lastRatesFetchedAt = Date.now();
+    }
+  } catch(e){
+    console.warn('Failed to fetch exchange rates', e);
+  }
+}
+
+/* Rate helpers */
+function getUsdToLocalRate(currency){
+  if(!currency) return null;
+  if(currency === 'USD') return 1;
+  if(exchangeRates && exchangeRates[currency]) return exchangeRates[currency];
+  return null;
+}
+
+// convert amount from `fromCur` to `toCur` using rates (returns null if not possible)
+function convertCurrency(amount, fromCur, toCur){
+  if(fromCur === toCur) return Number(amount);
+  const rateFrom = getUsdToLocalRate(fromCur);
+  const rateTo = getUsdToLocalRate(toCur);
+  if(!rateFrom || !rateTo) return null;
+  const usd = Number(amount) / Number(rateFrom);
+  return usd * Number(rateTo);
+}
+
+// local -> USD
+function localToUsd(amountLocal, currency){
+  const rate = getUsdToLocalRate(currency);
+  if(!rate) return null;
+  return Number(amountLocal) / Number(rate);
+}
+
+// usd -> local
+function usdToLocal(amountUsd, currency){
+  const rate = getUsdToLocalRate(currency);
+  if(!rate) return null;
+  return Number(amountUsd) * Number(rate);
+}
+
+/* Commission logic (client-side preview) */
+function computeUserCommissionRate(salesList, email){
+  const cutoff = Date.now() - 7*24*60*60*1000;
+  const approvedRecent = (salesList || []).filter(s => s.user_email === email && s.status === 'approved' && Date.parse(s.created_at) >= cutoff);
+  const approvedCount = approvedRecent.length;
+  if(approvedCount >= BONUS_THRESHOLD) return BONUS_COMMISSION;
+  if(approvedCount >= BONUS_THRESHOLD - 1) return BONUS_COMMISSION;
+  return DEFAULT_COMMISSION;
+}
+
+function computePreview(priceLocal, currency, salesList, email){
+  const usd = localToUsd(Number(priceLocal), currency);
+  const commissionRate = computeUserCommissionRate(salesList, email);
+  const commissionLocal = Number(priceLocal) * commissionRate;
+  const commissionUsd = (usd == null) ? null : usd * commissionRate;
+  return { commissionRate, commissionLocal, commissionUsd, usdValue: usd };
+}
+
+/* UI preview update */
+async function updatePreview(){
+  await fetchRatesOnce();
+  let currency = currencyEl.value;
+  if(currency === 'Other') currency = currencyOtherEl.value.trim().toUpperCase();
+  const price = Number(priceEl.value);
+  const r = getUsdToLocalRate(currency);
+  rateDisplay.textContent = r ? `1 USD = ${Number(r).toLocaleString()} ${currency}` : `rate unavailable for ${currency || ''}`;
+  if(!price || !currency || !whoami || !whoami.email){
+    usdDisplay.textContent = '—';
+    ratePctEl.textContent = '—';
+    commLocalEl.textContent = '—';
+    commUsdEl.textContent = '—';
+    return;
+  }
+  const preview = computePreview(price, currency, cachedSales, whoami.email);
+  usdDisplay.textContent = preview.usdValue ? `${Number(preview.usdValue).toLocaleString(undefined,{maximumFractionDigits:2})} USD` : '—';
+  ratePctEl.textContent = `${(preview.commissionRate*100).toFixed(0)}%`;
+  commLocalEl.textContent = `${Number(preview.commissionLocal).toLocaleString(undefined,{maximumFractionDigits:2})} ${currency}`;
+  commUsdEl.textContent = preview.commissionUsd ? `${Number(preview.commissionUsd).toLocaleString(undefined,{maximumFractionDigits:2})} USD` : '—';
+}
+
+/* API helper that throws useful errors */
+async function api(path, opts){
+  const res = await fetch(path, opts);
+  const ct = res.headers.get('content-type') || '';
+  if(ct.includes('application/json')){
+    const j = await res.json();
+    if(!res.ok) throw new Error(j.message || 'API error');
+    return j;
+  }
+  if(!res.ok){
+    const txt = await res.text().catch(()=> '');
+    throw new Error(txt || 'Network error');
+  }
+  return res.text();
+}
+
+/* Registration / login */
+btnRegister.addEventListener('click', async ()=>{
+  const name = regName.value.trim(), email = regEmail.value.trim(), pass = regPass.value;
+  if(!name||!email||!pass) return alert(t('fullName') + ' / ' + t('email') + ' / ' + t('password') );
+  try{
+    const r = await fetch('/register',{method:'POST',headers:{'content-type':'application/json'},body: JSON.stringify({name,email,password:pass})});
+    const j = await r.json();
+    if(j.success){ alert(t('register') + ' OK — please login'); regPass.value=''; } else alert('Register failed: ' + (j.message || JSON.stringify(j)));
+  }catch(e){ alert('Register error: ' + e.message) }
+});
+
+btnLogin.addEventListener('click', async ()=>{
+  const email = loginEmail.value.trim(), pass = loginPass.value;
+  if(!email||!pass) return alert(t('email') + ' / ' + t('password'));
+  try{
+    const r = await fetch('/login',{method:'POST',headers:{'content-type':'application/json'},body: JSON.stringify({email,password:pass})});
+    const j = await r.json();
+    if(j.success){ await refreshWhoami(); } else alert('Login failed: ' + (j.message || JSON.stringify(j)));
+  }catch(e){ alert('Login error: ' + e.message) }
+});
+
+btnLogout.addEventListener('click', async ()=>{
+  try{ await fetch('/logout'); }catch(e){}
+  location.reload();
+});
+
+/* Record sale */
+btnRecord.addEventListener('click', async ()=>{
+  const product = productEl.value.trim();
+  let currency = currencyEl.value;
+  if(currency === 'Other') currency = currencyOtherEl.value.trim().toUpperCase();
+  const price = Number(priceEl.value);
+  if(!product || !price || !currency) return alert('Provide product, price and currency');
+  try{
+    const preview = computePreview(price, currency, cachedSales, whoami.email);
+    const j = await api('/api/record_sale', {method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({product, price, currency})});
+    if(j && j.success){
+      alert('Sale recorded (pending). Preview: ' + (preview.commissionRate*100).toFixed(0) + '%');
+      productEl.value=''; priceEl.value='';
+      await loadSales();
+    } else {
+      alert('Record failed: ' + (j.message || JSON.stringify(j)));
+    }
+  }catch(e){ alert('Record failed: ' + e.message) }
+});
+
+/* Load sales */
+async function loadSales(){
+  try{
+    await fetchRatesOnce();
+    const j = await api('/api/get_sales');
+    cachedSales = (j && j.sales) ? j.sales : [];
+    renderSales();
+    updatePreview();
+  }catch(e){
+    console.warn('loadSales', e);
+    salesListEl.innerHTML = '<div class="small">Failed to load sales</div>';
+    cachedSales = [];
+  }
+}
+
+/* Render sales table with conversions into selected country currency */
+function renderSales(){
+  if(!cachedSales || !cachedSales.length){
+    salesListEl.innerHTML = '<div class="small">No sales yet.</div>';
+    totalsArea.innerHTML = '';
+    return;
+  }
+  const chosenCurrency = selectedCurrencyForCountry || null;
+  let rowsHtml = '';
+  // build rows and compute totals in USD (most reliable)
+  let usdTotal = 0;
+  let usdCommissionTotal = 0;
+  for(const s of cachedSales){
+    const date = s.created_at || '';
+    const product = s.product || '';
+    const origPrice = Number(s.price) || 0;
+    const origCur = s.currency || '';
+    // compute usd value: use stored usd_value if present else convert
+    let usdValue = (s.usd_value != null) ? Number(s.usd_value) : localToUsd(origPrice, origCur);
+    if(usdValue != null) usdTotal += usdValue;
+    // commission stored maybe null -> compute preview if missing
+    let commissionAmount = (s.commission_amount != null) ? Number(s.commission_amount) : null;
+    // commission currency — assume stored in sale.currency (server uses base_value logic earlier), so treat commissionAmount as in origCur if present
+    let commissionUsd = null;
+    if(commissionAmount != null){
+      // convert commissionAmount (origCur) -> USD
+      commissionUsd = localToUsd(commissionAmount, origCur);
+    } else {
+      // compute using preview logic
+      const rate = computeUserCommissionRate(cachedSales, s.user_email);
+      if(usdValue != null) commissionUsd = usdValue * rate;
+      else commissionUsd = null;
+    }
+    if(commissionUsd != null) usdCommissionTotal += commissionUsd;
+
+    // convert price and commission to chosen currency
+    let convertedPriceText = '—';
+    let convertedCommText = '—';
+    if(chosenCurrency){
+      const cp = (usdValue != null) ? usdToLocal(usdValue, chosenCurrency) : convertCurrency(origPrice, origCur, chosenCurrency);
+      if(cp != null) convertedPriceText = `${Number(cp).toLocaleString(undefined,{maximumFractionDigits:2})} ${chosenCurrency}`;
+      if(commissionUsd != null){
+        const cc = usdToLocal(commissionUsd, chosenCurrency);
+        if(cc != null) convertedCommText = `${Number(cc).toLocaleString(undefined,{maximumFractionDigits:2})} ${chosenCurrency}`;
+      } else {
+        const cc = (commissionAmount!=null) ? convertCurrency(commissionAmount, origCur, chosenCurrency) : null;
+        if(cc != null) convertedCommText = `${Number(cc).toLocaleString(undefined,{maximumFractionDigits:2})} ${chosenCurrency}`;
+      }
+    }
+
+    const status = s.status==='pending' ? `<span class="status-pending">${t('recordSaleBtn').includes('pending') ? 'PENDING':'PENDING'}</span>` :
+                   s.status==='approved' ? `<span class="status-approved">APPROVED</span>` : `<span class="status-rejected">REJECTED</span>`;
+
+    const commissionDisplay = (s.commission_rate ? `${(s.commission_rate*100).toFixed(0)}% — ${s.commission_amount != null ? Number(s.commission_amount).toLocaleString() + ' ' + s.currency : ''}` : '—');
+    rowsHtml += `<tr>
+      <td>${escapeHtml(date)}</td>
+      <td>${escapeHtml(product)}</td>
+      <td>${Number(origPrice).toLocaleString(undefined,{maximumFractionDigits:2})} ${origCur}</td>
+      <td>${convertedPriceText}</td>
+      <td>${status}</td>
+      <td>${commissionDisplay}</td>
+      <td>${convertedCommText}</td>
+    </tr>`;
+  }
+
+  const tableHtml = `<table class="table"><thead><tr>
+    <th>Date</th><th>Product</th><th>Price (orig)</th><th>Price (converted)</th><th>Status</th><th>Commission (orig)</th><th>Commission (converted)</th>
+  </tr></thead><tbody>${rowsHtml}</tbody></table>`;
+  salesListEl.innerHTML = tableHtml;
+
+  // totals: show in USD and in chosen currency (if available)
+  let totalsHtml = '';
+  totalsHtml += `<div class="small-muted">Total (USD): ${Number(usdTotal).toLocaleString(undefined,{maximumFractionDigits:2})} USD</div>`;
+  totalsHtml += `<div class="small-muted">Commission total (USD): ${Number(usdCommissionTotal).toLocaleString(undefined,{maximumFractionDigits:2})} USD</div>`;
+  if(selectedCurrencyForCountry){
+    const totLocal = usdToLocal(usdTotal, selectedCurrencyForCountry);
+    const commLocal = usdToLocal(usdCommissionTotal, selectedCurrencyForCountry);
+    totalsHtml += `<div style="min-width:12px"></div>`;
+    totalsHtml += `<div><strong>Total (${selectedCurrencyForCountry}):</strong> ${totLocal != null ? Number(totLocal).toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + selectedCurrencyForCountry : '—'}</div>`;
+    totalsHtml += `<div><strong>Commission total (${selectedCurrencyForCountry}):</strong> ${commLocal != null ? Number(commLocal).toLocaleString(undefined,{maximumFractionDigits:2}) + ' ' + selectedCurrencyForCountry : '—'}</div>`;
+  } else {
+    totalsHtml += `<div class="small-muted">Choose a country to see totals in your local currency.</div>`;
+  }
+  totalsArea.innerHTML = totalsHtml;
+}
+
+/* Export CSV */
+btnExport.addEventListener('click', async ()=>{
+  try{
+    const j = await api('/api/get_sales');
+    const rows = j.sales || [];
+    if(!rows.length) return alert('No sales to export');
+    const headers = ['id','user_email','product','price','currency','usd_value','commission_rate','commission_amount','status','created_at','approved_at'];
+    const csv = [headers.join(',')];
+    for(const r of rows){
+      const line = headers.map(h => {
+        const v = (r[h] == null) ? '' : String(r[h]).replace(/"/g,'""');
+        return `"${v}"`;
+      }).join(',');
+      csv.push(line);
+    }
+    const blob = new Blob([csv.join('\n')], {type:'text/csv'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'mysales_export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }catch(e){ alert('Export failed: ' + e.message) }
+});
+
+/* Whoami / refresh */
+async function refreshWhoami(){
+  try{
+    await fetchRatesOnce();
+    const j = await api('/api/whoami');
+    if(j && j.email){
+      whoami = j;
+      whoamiEl.textContent = j.email;
+      userEmailEl.textContent = j.email;
+      uidDisplay.textContent = '';
+      authPanel.classList.add('hidden');
+      appPanel.classList.remove('hidden');
+      await loadSales();
+    } else {
+      whoami = null;
+      whoamiEl.textContent = t('notLogged');
+      authPanel.classList.remove('hidden');
+      appPanel.classList.add('hidden');
+    }
+  }catch(e){
+    console.warn('whoami failed', e);
+    whoami = null;
+    whoamiEl.textContent = t('notLogged');
+    authPanel.classList.remove('hidden');
+    appPanel.classList.add('hidden');
+  }
+}
+
+/* Render translations on language change */
+langSelect.addEventListener('change', ()=>{
+  lang = langSelect.value || 'en';
+  applyTranslations();
+});
+
+/* Country selector change */
+countrySelect.addEventListener('change', async ()=>{
+  const v = countrySelect.value;
+  if(!v){
+    selectedCountry = null;
+    selectedCurrencyForCountry = null;
+  } else {
+    const [code, cur] = v.split('|');
+    selectedCountry = COUNTRIES.find(c=>c.code===code) || {code, name: code, currency: cur};
+    selectedCurrencyForCountry = cur;
+  }
+  await fetchRatesOnce();
+  renderSales();
+  updatePreview();
+});
+
+/* Currency selector change (for sale input) */
+currencyEl.addEventListener('change', ()=>{
+  if(currencyEl.value === 'Other') currencyOtherEl.classList.remove('hidden'); else currencyOtherEl.classList.add('hidden');
+  updatePreview();
+});
+currencyOtherEl.addEventListener('input', updatePreview);
+priceEl.addEventListener('input', updatePreview);
+productEl.addEventListener('input', updatePreview);
+
+/* Utilities */
+function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]); }
+
+/* Init */
+(async function init(){
+  populateCountries();
+  applyTranslations();
+  await fetchRatesOnce();
+  await refreshWhoami();
+  // periodic rates refresh
+  setInterval(async ()=>{
+    await fetchRatesOnce();
+    renderSales();
+    updatePreview();
+  }, 1000*60*10);
+})();
+</script>
+</body>
+</html>
