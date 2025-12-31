@@ -1516,32 +1516,6 @@
     ]
   },
   {
-    "name": "JOSIAH",
-    "email": "jean@gmail.com",
-    "password": "scrypt:32768:8:1$j879SAlryq72CcSo$1e7849e9e6a7844027692795970b7d9fa4a513a70b5222595cc10ed110355afc1bdca4c6ec621af4bc6789d165513c70af1328093ccef5c8cddf827b3ac6ae7a",
-    "enabled": true,
-    "login_history": [
-      {
-        "timestamp": "2025-12-31T09:13:28.171813",
-        "ip": "154.152.56.31, 197.234.242.106, 10.22.205.188",
-        "country": "Unknown",
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
-      },
-      {
-        "timestamp": "2025-12-31T09:25:04.674957",
-        "ip": "154.152.56.31, 197.234.242.106, 10.23.197.185",
-        "country": "Unknown",
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:146.0) Gecko/20100101 Firefox/146.0"
-      },
-      {
-        "timestamp": "2025-12-31T09:46:08.586777",
-        "ip": "154.152.56.31, 197.234.242.106, 10.22.174.160",
-        "country": "Unknown",
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
-      }
-    ]
-  },
-  {
     "name": "Josiah",
     "email": "josiahmukung@gmail.com",
     "password": "scrypt:32768:8:1$VPzlgtbtZpnSsFd5$4a1c924b8d17fc814bab0c7f8e569890565d78fdb6dffe066189b95f69edb08c6e2ea7bfb018a95608c26c9df779143522b1e0a7b91673c70f46b198a6ffdd2b",
