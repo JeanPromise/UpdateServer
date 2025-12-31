@@ -1513,6 +1513,13 @@
     "email": "josiahmukung@gmail.com",
     "password": "scrypt:32768:8:1$LMtFdy7zf76fP2HB$d93d31f04517b03f2883420d8c57e805a645f0d11d3a61e1604093ba74e25dff8080a851927c4cadf19f10c0d9733224b47427e5df0b99cdd8d84d66cd046d32",
     "enabled": true,
-    "login_history": []
+    "login_history": [
+      {
+        "timestamp": "2025-12-31T10:19:45.781079",
+        "ip": "154.152.56.31, 172.68.42.79, 10.23.197.185",
+        "country": "Unknown",
+        "user_agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36"
+      }
+    ]
   }
 ]
