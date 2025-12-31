@@ -1528,5 +1528,12 @@
     "password": "scrypt:32768:8:1$elmFiJrZJ7gbGUFA$e472f585c828c64431d9b412724d2bf1427ad43240b324634d08600068f076f616ae34125d388a32082e1689bb99c1bb340f2dc41066bd9b288a434f515e2f54",
     "enabled": true,
     "login_history": []
+  },
+  {
+    "name": "Nakaili Thresa",
+    "email": "nakailitheresa02@icloud.com",
+    "password": "scrypt:32768:8:1$TvDq3Vh0mJA2NWVM$6937202d6d5ba24b714a8d9da50a0febc17efc6643b4070834c080e44c5599cda7e1092c0d54e63d70ccdc735e3cc4aed20c64fb8e7a02aaecf55557fd550e38",
+    "enabled": true,
+    "login_history": []
   }
 ]
