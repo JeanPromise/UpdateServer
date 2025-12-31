@@ -1540,5 +1540,12 @@
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36"
       }
     ]
+  },
+  {
+    "name": "Josiah",
+    "email": "josiahmukung@gmail.com",
+    "password": "scrypt:32768:8:1$VPzlgtbtZpnSsFd5$4a1c924b8d17fc814bab0c7f8e569890565d78fdb6dffe066189b95f69edb08c6e2ea7bfb018a95608c26c9df779143522b1e0a7b91673c70f46b198a6ffdd2b",
+    "enabled": true,
+    "login_history": []
   }
 ]
