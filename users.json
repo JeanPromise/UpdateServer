@@ -1584,5 +1584,12 @@
         "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 15_8_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6.7 Mobile/15E148 Safari/604.1"
       }
     ]
+  },
+  {
+    "name": "Damaris Malina",
+    "email": "damarismalina@gmail.com",
+    "password": "scrypt:32768:8:1$YQ9H6XQJuD05CSd9$0d0db13d14df75703638ccbed8364bdbf6a9a2cfd981dc2bcb697ac0c8d67cd51f159ea5a1d2bc8274e1316ba2308cf726d16a126c2abd0bde8e00614cdff175",
+    "enabled": true,
+    "login_history": []
   }
 ]
