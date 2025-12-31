@@ -1514,5 +1514,12 @@
         "user_agent": "Mozilla/5.0 (Linux; Android 11; Infinix X689C Build/RP1A.200720.011; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/142.0.7444.102 Mobile Safari/537.36"
       }
     ]
+  },
+  {
+    "name": "JOSIAH",
+    "email": "jean@gmail.com",
+    "password": "scrypt:32768:8:1$j879SAlryq72CcSo$1e7849e9e6a7844027692795970b7d9fa4a513a70b5222595cc10ed110355afc1bdca4c6ec621af4bc6789d165513c70af1328093ccef5c8cddf827b3ac6ae7a",
+    "enabled": true,
+    "login_history": []
   }
 ]
