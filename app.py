@@ -11,12 +11,10 @@ import hashlib
 import sqlite3
 from datetime import datetime, timedelta
 from flask import (
-    Flask, request, jsonify, send_from_directory, Response, session, redirect, url_for
+    Flask, request, jsonify, send_file, Response, session, redirect, url_for
 )
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Response, url_for
-from flask import send_file
 
 # --- Basic logging ---
 logging.basicConfig(level=logging.INFO)
@@ -277,7 +275,8 @@ def require_login():
         'login', 'register', 'index', 'day_page', 'get_users',
         'check_update', 'download_apk', 'get_apk',
         'admin_login_page', 'simplemind_login', 'admin_dashboard',
-        'mysales_page', 'goodday_page'  # allow the mysales and goodday endpoints
+        'mysales_page', 'goodday_page',
+        'pos_page', 'business_page', 'cover_page', 'spy_page', 'dashboard_page'
     }
 
     ep = request.endpoint
@@ -295,11 +294,24 @@ def require_login():
 # ---------------- Pages ----------------
 @app.route('/')
 def index():
-    return send_from_directory('.', 'index.html')
+    local_file = os.path.join(os.getcwd(), 'index.html')
+    if os.path.exists(local_file):
+        try:
+            # send_file with conditional=False avoids 304 responses
+            return send_file(local_file, conditional=False)
+        except Exception:
+            log.exception("send_file failed for index.html")
+    return Response("<h1>Index missing</h1><p>Place index.html next to app.py</p>", mimetype='text/html')
 
 @app.route('/day')
 def day_page():
-    return send_from_directory('.', 'day.html')
+    local_file = os.path.join(os.getcwd(), 'day.html')
+    if os.path.exists(local_file):
+        try:
+            return send_file(local_file, conditional=False)
+        except Exception:
+            log.exception("send_file failed for day.html")
+    return Response("<h1>Day page missing</h1><p>Place day.html next to app.py</p>", mimetype='text/html')
 
 # ---------------- User Endpoints ----------------
 @app.route('/register', methods=['POST'])
@@ -442,8 +454,8 @@ def download_apk():
         local_path = os.path.join(APK_FOLDER, filename)
         if os.path.exists(local_path):
             try:
-                return send_from_directory(APK_FOLDER, filename, as_attachment=True,
-                                           mimetype="application/vnd.android.package-archive")
+                return send_file(local_path, as_attachment=True,
+                                 mimetype="application/vnd.android.package-archive", conditional=False)
             except Exception:
                 log.exception("Failed to send local APK file %s", local_path)
 
@@ -527,13 +539,12 @@ def upload_apk():
 @app.route('/goodday')
 @app.route('/goodday.html')
 def goodday_page():
-    # mirror index/day behavior and rely on current working dir
     local_file = os.path.join(os.getcwd(), 'goodday.html')
     if os.path.exists(local_file):
         try:
-            return send_from_directory('.', 'goodday.html')
+            return send_file(local_file, conditional=False)
         except Exception:
-            log.exception("send_from_directory failed for goodday.html")
+            log.exception("send_file failed for goodday.html")
     return Response("""
 <!doctype html>
 <html><head><meta charset="utf-8"/><title>Good Day</title></head>
@@ -542,7 +553,6 @@ def goodday_page():
 <p>Put <code>goodday.html</code> next to <code>app.py</code> to see the full page.</p>
 </body></html>
 """, mimetype='text/html')
-
 
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
@@ -870,23 +880,161 @@ def admin_delete_user():
 # ----------------- Serve mysales.html from disk -----------------
 @app.route('/mysales.html')
 def mysales_page():
-    """
-    Serve the local mysales.html file (must be in same folder as app.py).
-    Falls back to a small inline client if the file is missing so server stays usable.
-    """
     local_file = os.path.join(os.getcwd(), 'mysales.html')
     if os.path.exists(local_file):
-        # send the file directly from the app root
         try:
-            return send_from_directory('.', 'mysales.html')
+            return send_file(local_file, conditional=False)
         except Exception:
-            log.exception("send_from_directory failed for mysales.html")
-    # Fallback: return the original simplified inline HTML (keeps server working if file missing)
+            log.exception("send_file failed for mysales.html")
     return Response("""
 <!doctype html>
 <html><head><meta charset="utf-8"/><title>MySales (fallback)</title></head><body>
 <h3>MySales (Server mode) — fallback page</h3>
 <p>If you want the enhanced UI, put <code>mysales.html</code> next to <code>app.py</code> and restart the server.</p>
+</body></html>
+""", mimetype='text/html')
+
+# New file-serving endpoints for pos.html, business.html, cover.html, spy.html, dashboard.html
+@app.route('/pos')
+@app.route('/pos.html')
+def pos_page():
+    local_file = os.path.join(os.getcwd(), 'pos.html')
+    if os.path.exists(local_file):
+        try:
+            return send_file(local_file, conditional=False)
+        except Exception:
+            log.exception("send_file failed for pos.html")
+    return Response("""
+<!doctype html>
+<html><head><meta charset="utf-8"/><title>POS</title></head>
+<body>
+<h3>POS Page (Fallback)</h3>
+<p>Put <code>pos.html</code> next to <code>app.py</code> to see the full page.</p>
+</body></html>
+""", mimetype='text/html')
+
+@app.route('/business')
+@app.route('/business.html')
+def business_page():
+    local_file = os.path.join(os.getcwd(), 'business.html')
+    if os.path.exists(local_file):
+        try:
+            return send_file(local_file, conditional=False)
+        except Exception:
+            log.exception("send_file failed for business.html")
+    return Response("""
+<!doctype html>
+<html><head><meta charset="utf-8"/><title>Business</title></head>
+<body>
+<h3>Business Page (Fallback)</h3>
+<p>Put <code>business.html</code> next to <code>app.py</code> to see the full page.</p>
+</body></html>
+""", mimetype='text/html')
+
+@app.route('/cover')
+@app.route('/cover.html')
+def cover_page():
+    local_file = os.path.join(os.getcwd(), 'cover.html')
+    if os.path.exists(local_file):
+        try:
+            return send_file(local_file, conditional=False)
+        except Exception:
+            log.exception("send_file failed for cover.html")
+    return Response("""
+<!doctype html>
+<html><head><meta charset="utf-8"/><title>Cover</title></head>
+<body>
+<h3>Cover Page (Fallback)</h3>
+<p>Put <code>cover.html</code> next to <code>app.py</code> to see the full page.</p>
+</body></html>
+""", mimetype='text/html')
+
+@app.route('/spy')
+@app.route('/spy.html')
+def spy_page():
+    local_file = os.path.join(os.getcwd(), 'spy.html')
+    if os.path.exists(local_file):
+        try:
+            return send_file(local_file, conditional=False)
+        except Exception:
+            log.exception("send_file failed for spy.html")
+    return Response("""
+<!doctype html>
+<html><head><meta charset="utf-8"/><title>Spy</title></head>
+<body>
+<h3>Spy Page (Fallback)</h3>
+<p>Put <code>spy.html</code> next to <code>app.py</code> to see the full page.</p>
+</body></html>
+""", mimetype='text/html')
+
+@app.route('/dashboard')
+@app.route('/dashboard.html')
+def dashboard_page():
+    """
+    Serve dashboard.html. If dashboard.html exists but there's no VoyagerApp/main.js available,
+    inject a tiny VoyagerApp stub into the HTML so the inline dashboard script doesn't show
+    "VoyagerApp not found" and the page loads.
+    """
+    local_file = os.path.join(os.getcwd(), 'dashboard.html')
+    if os.path.exists(local_file):
+        try:
+            # Read file content and, if needed, inject a minimal VoyagerApp stub BEFORE the dashboard inline <script>
+            with open(local_file, 'r', encoding='utf-8') as f:
+                content = f.read()
+
+            # If the file already includes a VoyagerApp definition or a reference to main.js, serve unchanged.
+            lowered = content.lower()
+            if 'window.voyagerapp' in lowered or 'main.js' in lowered or 'voyagerapp' in lowered and 'function' in lowered:
+                return Response(content, mimetype='text/html')
+
+            # Otherwise, inject a minimal stub before the last <script> tag to ensure the inline dashboard code finds VoyagerApp.
+            insert_idx = content.rfind("<script")
+            if insert_idx == -1:
+                # no script tag found — just serve the file
+                return Response(content, mimetype='text/html')
+
+            stub = """
+<script>
+/* AUTO-INJECTED minimal VoyagerApp stub (only used when no main.js present).
+   This is intentionally small and safe: provides the methods the dashboard expects as no-ops or simple data.
+   If you add a real main.js or a real VoyagerApp later, this will not be used.
+*/
+if(!window.VoyagerApp){
+  window.VoyagerApp = (function(){
+    var orders = [];
+    var items = [];
+    var session = null;
+    return {
+      init: function(opts){ /* no-op */ },
+      currentSession: function(){ return session; },
+      listOrders: function(){ return orders.slice(); },
+      listItems: function(){ return items.slice(); },
+      drawLineChart: function(){ /* no-op */ },
+      drawPieChart: function(){ /* no-op */ },
+      getItemById: function(id){ return items.find(function(i){return String(i.id)===String(id)}) || null; },
+      deleteItem: function(id){ items = items.filter(function(i){ return String(i.id)!==String(id); }); },
+      updateItem: function(oldId, obj){ var idx = items.findIndex(function(i){ return String(i.id)===String(oldId); }); if(idx>=0){ items[idx] = obj; } else { throw new Error('not found'); } },
+      addItem: function(obj){ items.push(obj); },
+      exportCSV: function(){ /* no-op */ },
+      downloadSnapshot: function(){ /* no-op */ },
+      importSnapshotFile: function(file, cb){ if(cb) cb(null); },
+      clearSession: function(){ session = null; }
+    };
+  })();
+}
+</script>
+"""
+            new_content = content[:insert_idx] + stub + content[insert_idx:]
+            return Response(new_content, mimetype='text/html')
+        except Exception:
+            log.exception("send_file / injection failed for dashboard.html")
+    # fallback if file missing or any error
+    return Response("""
+<!doctype html>
+<html><head><meta charset="utf-8"/><title>Dashboard</title></head>
+<body>
+<h3>Dashboard (Fallback)</h3>
+<p>Put <code>dashboard.html</code> next to <code>app.py</code> to see the full page.</p>
 </body></html>
 """, mimetype='text/html')
 
