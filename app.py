@@ -277,7 +277,7 @@ def require_login():
         'login', 'register', 'index', 'day_page', 'get_users',
         'check_update', 'download_apk', 'get_apk',
         'admin_login_page', 'simplemind_login', 'admin_dashboard',
-        'mysales_page'  # allow the mysales endpoint
+        'mysales_page', 'goodday_page'  # allow the mysales and goodday endpoints
     }
 
     ep = request.endpoint
@@ -523,18 +523,17 @@ def upload_apk():
 
     return jsonify({"success": True, "url": download_url})
 
-# ---------------- Pages ----------------
 # ---------------- New Page ----------------
 @app.route('/goodday')
 @app.route('/goodday.html')
 def goodday_page():
+    # mirror index/day behavior and rely on current working dir
     local_file = os.path.join(os.getcwd(), 'goodday.html')
     if os.path.exists(local_file):
         try:
             return send_from_directory('.', 'goodday.html')
         except Exception:
             log.exception("send_from_directory failed for goodday.html")
-    # Fallback inline page if file is missing
     return Response("""
 <!doctype html>
 <html><head><meta charset="utf-8"/><title>Good Day</title></head>
@@ -543,6 +542,7 @@ def goodday_page():
 <p>Put <code>goodday.html</code> next to <code>app.py</code> to see the full page.</p>
 </body></html>
 """, mimetype='text/html')
+
 
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
