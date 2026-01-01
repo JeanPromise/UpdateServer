@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>General Business Management Software — Full (Optimized)</title>
+<meta name="description" content="Offline General Business Management Software — full package with charts, edit/delete, and controlled PWA install (admin authorization required)." />
+<link rel="manifest" href="/manifest.json">
+<style>
+:root{--accent:#0f766e;--accent-2:#0b815a;--accent-3:#ff6b6b;--accent-4:#4dd0e1;--muted:#6b7280;--bg:#f8fafc;--text:#0f172a;--card:#fff;--danger:#ef4444}
+[data-theme="dark"]{--bg:#071024;--text:#e6eef8;--card:#0b1220;--muted:#9aa6b2}
+*{box-sizing:border-box;font-family:Inter,system-ui,Arial,sans-serif;margin:0;padding:0}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh;transition:background .18s ease,color .18s ease}
+.page{display:none}.page.active{display:block}
+header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225,0.03));padding:14px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 0 rgba(2,6,23,0.04)}
+.brand{font-weight:800;font-size:20px;background:linear-gradient(90deg,var(--accent),var(--accent-3));-webkit-background-clip:text;color:transparent}
+.header-meta{display:flex;align-items:center;gap:12px}
+.small{font-size:13px;color:var(--muted)}
+.toggle-btn{background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#fff;padding:8px 12px;border-radius:10px;border:0;font-size:15px}
+.wrap{max-width:none;margin:12px 0 12px 12px;padding:12px;flex:1;width:calc(100% - 24px)}
+.app-frame{display:flex;gap:16px;align-items:flex-start}
+.sidebar{width:220px;background:linear-gradient(180deg,var(--accent),#0b846f);color:white;padding:16px;border-radius:12px;display:flex;flex-direction:column;gap:10px}
+.main-content{flex:1;display:flex;flex-direction:column;gap:14px}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.card{background: linear-gradient(180deg,var(--card), rgba(0,0,0,0.01));padding:14px;border-radius:14px;box-shadow:0 8px 28px rgba(15,23,42,0.06);overflow:hidden;border:1px solid rgba(12,18,24,0.03)}
+.table{width:100%;border-collapse:collapse;margin-top:8px}
+.table th,.table td{padding:10px;border-bottom:1px solid rgba(6,22,31,0.04);text-align:left;font-size:15px}
+.small-muted{font-size:12px;color:var(--muted)}
+.product-form{display:flex;flex-direction:column;gap:8px}
+.preview-img{width:80px;height:80px;border-radius:10px;object-fit:cover}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;align-items:flex-start;justify-content:flex-end;padding:20px;z-index:1100}
+.modal-card{width:480px;max-width:calc(100% - 40px);background:var(--card);color:var(--text);border-radius:12px;padding:18px;box-shadow:0 18px 50px rgba(2,6,23,0.4)}
+.modal-overlay.show{display:flex}
+@media(max-width:980px){.app-frame{flex-direction:column}.sidebar{width:100%;flex-direction:row;overflow:auto;padding:8px;gap:6px;border-radius:8px}.grid{grid-template-columns:1fr}}
+@media(max-width:600px){header{flex-direction:column;align-items:flex-start;gap:10px;padding:12px}.grid{grid-template-columns:1fr}}
+</style>
+
+<!-- Inline manifest creation (keeps single-file standalone) -->
+<script>
+(function createManifest(){
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'><rect fill='#0f766e' width='120' height='120' rx='24'/><text x='50%' y='55%' fill='white' font-size='44' font-family='Arial' font-weight='700' text-anchor='middle' alignment-baseline='central'>GB</text></svg>`;
+  const iconData = 'data:image/svg+xml;base64,' + btoa(svg);
+  const manifest = {
+    name: "General Business Management Software — Full",
+    short_name: "GBMS",
+    start_url: "./",
+    scope: "./",
+    display: "standalone",
+    background_color: "#f8fafc",
+    theme_color: "#0f766e",
+    icons: [
+      { src: iconData, sizes: "192x192", type: "image/svg+xml" },
+      { src: iconData, sizes: "512x512", type: "image/svg+xml" }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = url;
+  document.head.appendChild(link);
+  window.__manifestBlobUrl = url;
+})();
+</script>
+</head>
+
+<body data-theme="light">
+  <header>
+    <div class="brand">General Business Management Software — Full</div>
+    <div class="header-meta">
+      <div class="small">Offline — Local data only</div>
+      <button class="toggle-btn" id="themeToggle">Dark Mode</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="app-frame">
+      <aside class="sidebar" role="navigation" aria-label="Main navigation">
+        <h2>Menu</h2>
+        <button data-page="dashboard">Dashboard</button>
+        <button data-page="sales">Sales</button>
+        <button data-page="products">Products</button>
+        <button data-page="stock">Stock</button>
+        <button data-page="expenses">Expenses</button>
+        <button data-page="reports">Reports</button>
+        <button data-page="help">Help / Guide</button>
+        <button data-page="settings">Settings</button>
+        <div style="flex:1"></div>
+        <div class="small-muted">v1.0 — Offline</div>
+      </aside>
+
+      <section class="main-content">
+        <!-- DASHBOARD -->
+        <div id="dashboard" class="page active">
+          <div class="grid">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div>
+                  <h3 style="margin:0 0 6px 0">Dashboard</h3>
+                  <div class="small-muted">Quick summary</div>
+                </div>
+                <div class="small-muted">Local storage</div>
+              </div>
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:12px">
+                <div><div class="small-muted">Sales (today)</div><div id="salesToday" style="font-weight:700;font-size: 19px">KES 0</div></div>
+                <div><div class="small-muted">Profit (today)</div><div id="profitToday" style="font-weight:700;font-size: 19px">KES 0</div></div>
+                <div><div class="small-muted">Expenses (today)</div><div id="expensesToday" style="font-weight:700;font-size: 19px">KES 0</div></div>
+                <div><div class="small-muted">Net</div><div id="netToday" style="font-weight:700;font-size: 19px">KES 0</div></div>
+              </div>
+              <div style="margin-top:12px" class="card"><canvas id="dashMini" height="140" width="600" style="width:100%;height:140px"></canvas></div>
+            </div>
+
+            <div class="card">
+              <h4 style="margin:0 0 8px 0">Sales trend (10 days)</h4>
+              <div class="canvas-wrap"><canvas id="dashChart" height="140" width="600" style="width:100%;height:140px"></canvas></div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px" class="grid">
+            <div>
+              <div class="card">
+                <h3 style="margin:0 0 8px 0">Recent Sales</h3>
+                <div class="list" id="dashSalesList"></div>
+              </div>
+
+              <div class="card" style="margin-top:12px">
+                <h3 style="margin:0 0 8px 0">Product Tracking</h3>
+                <div id="dashWater" class="small-muted"></div>
+              </div>
+            </div>
+
+            <aside>
+              <div class="card">
+                <h3 style="margin:0 0 8px 0">Top products</h3>
+                <div id="dashTop" class="small-muted"></div>
+              </div>
+
+              <div class="card" style="margin-top:12px">
+                <h4 style="margin:0 0 6px 0">Quick Actions</h4>
+                <div style="display:grid;gap:8px">
+                  <button id="quickExport" class="toggle-btn">Export JSON</button>
+                  <button id="quickImport" class="toggle-btn">Import JSON</button>
+                  <input type="file" id="quickFile" accept="application/json" style="display:none"/>
+                  <button id="openReset" class="toggle-btn">Reset Options</button>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <!-- SALES -->
+        <div id="sales" class="page">
+          <div class="card">
+            <h3>Sales</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="saleProduct"></select>
+              <input id="saleQty" type="number" placeholder="Qty" value="1" style="width:88px"/>
+              <input id="salePaid" type="number" placeholder="Paid" style="width:120px"/>
+              <button class="toggle-btn" id="addSaleBtn">Add Sale</button>
+            </div>
+            <div style="margin-top:10px">
+              <table class="table" id="salesTable"><thead><tr><th>Product</th><th>Qty</th><th>Total</th><th>Profit</th><th>Time</th><th></th></tr></thead><tbody></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- PRODUCTS -->
+        <div id="products" class="page">
+          <div class="card">
+            <h3>Products</h3>
+            <div class="product-form">
+              <label>Product name</label><input id="pName" placeholder="Product name (e.g. 6kg Gas)" autocomplete="off"/>
+              <label>Category</label>
+              <select id="pCategory"><option value="small">Small Gas</option><option value="big">Big Gas</option><option value="water">Water</option><option value="other">Other</option></select>
+              <!-- Custom "Other" input (hidden until 'Other' is selected) -->
+              <input id="pCategoryOther" type="text" placeholder="Custom category (when 'Other' selected)" style="display:none;padding:8px;border-radius:8px;border:1px solid #ddd;margin-top:6px;" />
+              <label>Product Image</label>
+              <input id="pImage" type="file" accept="image/*"/>
+              <img id="pPreview" class="preview-img" src="" style="display:none"/>
+              <label>Price</label><input id="pPrice" type="number" placeholder="Price"/>
+              <label>Cost</label><input id="pCost" type="number" placeholder="Cost"/>
+              <button class="toggle-btn" id="addProductBtn">Add Product</button>
+            </div>
+
+            <div style="margin-top:12px">
+              <table class="table" id="productsTable"><thead><tr><th>Thumb</th><th>Name</th><th>Category</th><th>Price</th><th>Cost</th><th>Inventory</th><th></th></tr></thead><tbody></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- STOCK -->
+        <div id="stock" class="page">
+          <div class="card">
+            <h3>Stock</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <select id="stockProduct"></select>
+              <input id="stockQty" type="number" placeholder="Qty" style="width:120px"/>
+              <button class="toggle-btn" id="addStockBtn">Add Stock</button>
+            </div>
+            <div style="margin-top:10px">
+              <table class="table" id="stockTable"><thead><tr><th>Product</th><th>Qty</th><th>Added</th><th>Actions</th></tr></thead><tbody></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- EXPENSES -->
+        <div id="expenses" class="page">
+          <div class="card">
+            <h3>Expenses</h3>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input id="expDesc" placeholder="Description"/>
+              <input id="expAmt" type="number" placeholder="KES" style="width:120px"/>
+              <button class="toggle-btn" id="addExpBtn">Add Expense</button>
+            </div>
+            <div style="margin-top:12px">
+              <table class="table" id="expTable"><thead><tr><th>Desc</th><th>Amount</th><th>Time</th><th></th></tr></thead><tbody></tbody></table>
+            </div>
+          </div>
+        </div>
+
+        <!-- REPORTS -->
+        <div id="reports" class="page">
+          <div class="card">
+            <h3>Reports & Charts</h3>
+            <div style="display:flex;gap:12px;flex-wrap:wrap">
+              <div style="flex:1;min-width:300px">
+                <label class="small-muted">View:</label>
+                <select id="reportRange"><option value="10days">Last 10 days</option><option value="thisMonth">This month (daily)</option><option value="monthly">Last 12 months</option><option value="yearly">Yearly</option></select>
+              </div>
+              <div style="min-width:200px">
+                <label class="small-muted">Compare:</label>
+                <select id="compareSelect"><option value="none">None</option><option value="expenses">Compare Expenses</option></select>
+              </div>
+            </div>
+            <div style="margin-top:12px" class="canvas-wrap"><canvas id="reportCanvas" width="800" height="260" style="width:100%;max-width:100%"></canvas></div>
+            <div style="margin-top:10px"><strong>Best performing months (by sales):</strong><div id="bestMonths" class="small-muted"></div></div>
+          </div>
+        </div>
+
+        <!-- SETTINGS -->
+        <div id="settings" class="page">
+          <div class="card">
+            <h3>Settings & Reset</h3>
+            <div style="display:grid;gap:8px">
+              <button id="resetSales" class="toggle-btn">Reset Sales Only</button>
+              <button id="resetExpenses" class="toggle-btn">Reset Expenses Only</button>
+              <button id="resetStock" class="toggle-btn">Reset Stock Only</button>
+              <button id="resetAll" class="toggle-btn">Reset EVERYTHING</button>
+            </div>
+            <div style="margin-top:12px" class="small-muted">Tip: export JSON before resetting to keep a backup.</div>
+          </div>
+        </div>
+
+        <!-- HELP -->
+        <div id="help" class="page" style="padding:20px;">
+          <div class="card" style="padding:20px; max-width:800px; margin:auto;">
+            <h3>Help & User Guide</h3>
+            <p>This system allows you to record daily sales completely offline. All data stays on your device — safe and private.</p>
+            <p>If you need more help, contact support at <b>Jeangift@example.com</b>.</p>
+          </div>
+        </div>
+
+        <!-- Install controls -->
+        <div style="position:fixed; bottom:20px; right:20px; display:flex; gap:8px; z-index:1200;">
+          <button id="installBtn" class="toggle-btn" style="display:none;">Install App</button>
+          <a id="downloadBtn" class="toggle-btn" href="#" download style="display:none; text-decoration:none; color:#fff;">Download App Package</a>
+        </div>
+
+      </section>
+    </div>
+  </main>
+
+  <!-- modal -->
+  <div id="modal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true">
+      <button id="modalClose" class="toggle-btn" title="Close">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+<!-- ===== Service Worker registration (robust fallback) & Controlled PWA prompt handling ===== -->
+<script>
+/* Robust SW: try root registration, else fallback to blob SW */
+const fallbackSW = `const CACHE_NAME = 'gbms-cache-v1';
+const TO_CACHE = ['./','./eyes.html'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(TO_CACHE)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => e.waitUntil(clients.claim()));
+self.addEventListener('fetch', e => {
+  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
+});`;
+
+async function registerSW(){
+  if(!('serviceWorker' in navigator)) return console.log('No SW support');
+  try{
+    const reg = await navigator.serviceWorker.register('/service-worker.js', { scope: './' });
+    console.log('Registered service-worker.js at root', reg);
+    return reg;
+  }catch(err){
+    console.warn('Root SW reg failed, using blob fallback', err);
+  }
+  try{
+    const blob = new Blob([fallbackSW], { type: 'text/javascript' });
+    const url = URL.createObjectURL(blob);
+    const reg = await navigator.serviceWorker.register(url, { scope: './' });
+    console.log('Registered blob SW', reg);
+    return reg;
+  }catch(e){
+    console.error('Blob SW registration failed', e);
+  }
+}
+
+/* Controlled PWA install logic: only show install prompt when server authorizes */
+/* NOTE: Server endpoints (must implement):
+   - GET  /api/pwa-authorized?user_id=USER_ID    -> { authorized: true|false }
+   - POST /api/claim-install   body { user_id } -> { claimed: true|false }
+   Admin endpoints /api/admin/* for your admin UI (myguy.html).
+*/
+
+let deferredPrompt = null;
+const installBtn = document.getElementById('installBtn');
+const downloadBtn = document.getElementById('downloadBtn');
+
+// Simple persistent identifier prompt (email or unique code)
+// You can replace this with a better auth flow later.
+function ensureUserId(){
+  let id = localStorage.getItem('gbms_user_id');
+  if(!id){
+    id = prompt('Enter your user id / email to identify this device (used for install authorization):') || '';
+    id = id.trim();
+    if(id) localStorage.setItem('gbms_user_id', id);
+  }
+  return id;
+}
+
+async function checkAuthorization(userId){
+  if(!userId) return false;
+  try{
+    const res = await fetch('/api/pwa-authorized?user_id=' + encodeURIComponent(userId));
+    if(!res.ok) return false;
+    const j = await res.json();
+    return j.authorized === true;
+  }catch(e){
+    console.warn('Auth check failed', e);
+    return false;
+  }
+}
+
+async function claimInstall(userId){
+  try{
+    const res = await fetch('/api/claim-install', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ user_id: userId }) });
+    if(!res.ok) return { claimed:false };
+    return await res.json();
+  }catch(e){
+    console.warn('Claim failed', e); return { claimed:false };
+  }
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  // intercept native prompt & wait for server authorization
+  e.preventDefault();
+  deferredPrompt = e;
+  const userId = ensureUserId();
+  // Check with server. Only show install button if authorized.
+  checkAuthorization(userId).then(authorized => {
+    if(authorized && installBtn) installBtn.style.display = 'inline-block';
+    else {
+      console.log('PWA install not authorized for this user');
+      // still show install help once so they know to contact admin
+    }
+  });
+});
+
+installBtn?.addEventListener('click', async () => {
+  if(!deferredPrompt) return;
+  installBtn.disabled = true;
+  deferredPrompt.prompt();
+  const choice = await deferredPrompt.userChoice;
+  if(choice.outcome === 'accepted'){
+    // after user accepts, ask server to claim the install
+    const userId = ensureUserId();
+    const claim = await claimInstall(userId);
+    if(claim && claim.claimed){
+      localStorage.setItem('gbms_pwa_installed_by', userId);
+      localStorage.setItem('gbms_pwa_installed','true');
+      alert('Install accepted and registered with server.');
+      installBtn.style.display = 'none';
+    } else {
+      // server refused claim or could not reach server
+      alert('Install accepted locally, but server did not confirm authorization. Contact admin if you expected access.');
+      installBtn.style.display = 'none';
+    }
+  } else {
+    // cancelled
+    installBtn.style.display = 'none';
+    setTimeout(() => {
+      if (!localStorage.getItem('gbms_pwa_installed')) installBtn.style.display = 'inline-block';
+    }, 30000);
+  }
+  deferredPrompt = null;
+});
+
+window.addEventListener('appinstalled', () => {
+  localStorage.setItem('gbms_pwa_installed','true');
+  if (installBtn) installBtn.style.display = 'none';
+});
+
+/* Helper: show install help once if browser doesn't show prompt */
+function showInstallHelpOnce(){
+  if (localStorage.getItem('install_help_shown') === 'true') return;
+  if (localStorage.getItem('gbms_pwa_installed') === 'true' || localStorage.getItem('app_downloaded') === 'true') return;
+  setTimeout(()=> {
+    const msg = `<h3>Install tip</h3>
+    <p>If "Install" isn't shown automatically, open the browser menu (⋮) and choose <strong>Install app</strong> or on mobile use <strong>Add to Home screen</strong>. If you need PWA install, ask your admin to authorize this device.</p>
+    <div style="display:flex;gap:8px;justify-content:flex-end"><button id="okInstallHelp" class="toggle-btn">OK</button></div>`;
+    const mb = document.getElementById('modal');
+    const mc = document.getElementById('modalContent');
+    if (mb && mc) {
+      mc.innerHTML = msg;
+      mb.classList.add('show');
+      mb.setAttribute('aria-hidden','false');
+      document.getElementById('okInstallHelp')?.addEventListener('click', ()=> { mb.classList.remove('show'); mb.setAttribute('aria-hidden','true'); });
+      localStorage.setItem('install_help_shown','true');
+    }
+  }, 1200);
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  if (localStorage.getItem('gbms_pwa_installed') === 'true' && installBtn) installBtn.style.display = 'none';
+  if (localStorage.getItem('app_downloaded') === 'true' && downloadBtn) downloadBtn.style.display = 'none';
+  // Pre-check authorization to show hint if server already authorizes (some browsers may not fire beforeinstallprompt)
+  const uid = localStorage.getItem('gbms_user_id') || null;
+  if(uid){
+    const auth = await checkAuthorization(uid);
+    if(auth && 'onbeforeinstallprompt' in window && installBtn) {
+      // if browser supports beforeinstallprompt, actual button will show when event fires
+      // otherwise show install button hint (best-effort)
+      installBtn.style.display = 'inline-block';
+    }
+  }
+  showInstallHelpOnce();
+});
+
+registerSW();
+</script>
+
+<!-- ===== IndexedDB helpers & optimized app logic (unchanged core app) ===== -->
+<script>
+/* ---------- IndexedDB helpers ---------- */
+const DB_NAME = 'records-db', DB_VERSION = 1;
+let db = null;
+function openDB(){
+  return new Promise((res,rej)=>{
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = e => {
+      const d = e.target.result;
+      if(!d.objectStoreNames.contains('products')) d.createObjectStore('products',{keyPath:'id',autoIncrement:true});
+      if(!d.objectStoreNames.contains('sales')) d.createObjectStore('sales',{keyPath:'id',autoIncrement:true});
+      if(!d.objectStoreNames.contains('stock')) d.createObjectStore('stock',{keyPath:'id',autoIncrement:true});
+      if(!d.objectStoreNames.contains('expenses')) d.createObjectStore('expenses',{keyPath:'id',autoIncrement:true});
+    };
+    req.onsuccess = e => { db = e.target.result; res(db); };
+    req.onerror = ()=> rej(req.error);
+  });
+}
+function add(store,obj){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readwrite'); const s = tx.objectStore(store); const r = s.add({...obj,t:obj.t||Date.now()}); r.onsuccess = ()=> res(r.result); r.onerror = ()=> rej(r.error); }); }
+function put(store,obj){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readwrite'); const s = tx.objectStore(store); const r = s.put(obj); r.onsuccess = ()=> res(r.result); r.onerror = ()=> rej(r.error); }); }
+function del(store,key){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readwrite'); const s = tx.objectStore(store); const r = s.delete(key); r.onsuccess = ()=> res(); r.onerror = ()=> rej(r.error); }); }
+function getAll(store){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readonly'); const s = tx.objectStore(store); const r = s.getAll(); r.onsuccess = () => res(r.result); r.onerror = ()=> rej(r.error); }); }
+function clearStore(store){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readwrite'); tx.objectStore(store).clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+function clearAll(){ return new Promise((res,rej)=>{ const tx = db.transaction(['products','sales','stock','expenses'],'readwrite'); tx.objectStore('products').clear(); tx.objectStore('sales').clear(); tx.objectStore('stock').clear(); tx.objectStore('expenses').clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+
+/* ---------- App-level cache to avoid repeated DB reads ---------- */
+const CACHE = { products: null, sales: null, stock: null, expenses: null, lastLoaded: 0 };
+async function loadCache(force=false){
+  if(!force && Date.now() - CACHE.lastLoaded < 300 && CACHE.products) return CACHE;
+  if(!db) await openDB();
+  const [products, sales, stock, expenses] = await Promise.all([
+    getAll('products'), getAll('sales'), getAll('stock'), getAll('expenses')
+  ]);
+  CACHE.products = products; CACHE.sales = sales; CACHE.stock = stock; CACHE.expenses = expenses;
+  CACHE.lastLoaded = Date.now();
+  return CACHE;
+}
+
+/* Debounced UI refresh queue to batch rapid changes */
+let refreshTimer = null;
+function queueRefresh(opts={views:true,charts:true,cache:true}) {
+  if(refreshTimer) clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(async ()=>{
+    refreshTimer = null;
+    if(opts.cache) await loadCache(true);
+    if(opts.views) renderAllViewsSafe();
+    if(opts.charts) renderChartsSafe();
+  }, 120);
+}
+
+/* ---------- Utility helpers ---------- */
+const $id = id => document.getElementById(id);
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function isPageActive(id){ return document.getElementById(id)?.classList.contains('active'); }
+function showPage(pageId){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  const el = document.getElementById(pageId);
+  if(el) el.classList.add('active');
+  document.querySelectorAll('.sidebar button').forEach(btn=>{
+    btn.setAttribute('aria-pressed', btn.getAttribute('data-page') === pageId ? 'true' : 'false');
+  });
+  if(pageId === 'reports') queueRefresh({views:false,charts:true,cache:false});
+  if(pageId === 'dashboard') queueRefresh({views:true,charts:true,cache:false});
+}
+
+/* wire sidebar */
+function wireSidebar(){
+  document.querySelectorAll('.sidebar button').forEach(btn=>{
+    btn.removeEventListener('click', btn._gwClickListener);
+    btn._gwClickListener = ()=>{ const page = btn.getAttribute('data-page'); if(page) showPage(page); };
+    btn.addEventListener('click', btn._gwClickListener);
+  });
+}
+wireSidebar();
+
+/* Modal helpers */
+const modal = $id('modal'); const modalContent = $id('modalContent'); const modalClose = $id('modalClose');
+function openModal(html){ if(!modal||!modalContent) return; modalContent.innerHTML = html; modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); }
+function closeModal(){ if(!modal) return; modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
+modalClose?.addEventListener('click', closeModal);
+modal?.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
+
+/* ---------- Renderers (use CACHE to avoid repeated getAll) ---------- */
+
+/* Products */
+async function renderProductsSafe(){
+  const ps = (CACHE.products || await loadCache() && CACHE.products) || [];
+  const saleSel = $id('saleProduct'), stockSel = $id('stockProduct'), prodTable = $id('productsTable')?.querySelector('tbody');
+  if(!saleSel || !stockSel || !prodTable) return;
+  saleSel.innerHTML=''; stockSel.innerHTML='';
+  const frag = document.createDocumentFragment();
+  prodTable.innerHTML = '';
+  ps.forEach(p=>{
+    const o = document.createElement('option'); o.value = p.id; o.text = `${p.name} — ${p.price}`; saleSel.appendChild(o);
+    const o2 = o.cloneNode(true); stockSel.appendChild(o2);
+    const tr = document.createElement('tr');
+    const thumb = p.image ? `<img src="${p.image}" style="width:48px;height:32px;object-fit:cover;border-radius:6px">` : `<div style="width:48px;height:32px;background:#f3f4f6;border-radius:6px"></div>`;
+    tr.innerHTML = `<td>${thumb}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.category||'other')}</td><td>KES ${p.price}</td><td>KES ${p.cost}</td><td>${Number(p.inventory)||0}</td>
+      <td style="text-align:right"><button class="toggle-btn" data-id="${p.id}" data-action="view-prod">View</button>
+      <button class="toggle-btn" data-id="${p.id}" data-action="edit-prod">Edit</button>
+      <button class="toggle-btn" data-id="${p.id}" data-action="del-prod">Delete</button></td>`;
+    frag.appendChild(tr);
+  });
+  prodTable.appendChild(frag);
+
+  prodTable.querySelectorAll('button').forEach(b=>{
+    const id = Number(b.getAttribute('data-id')), action = b.getAttribute('data-action');
+    b.onclick = async ()=>{
+      if(action === 'view-prod'){
+        const prod = (CACHE.products || []).find(x=>x.id===id); if(!prod) return alert('Not found');
+        const html = `<h3>${escapeHtml(prod.name)}</h3>
+          <div style="display:flex;gap:10px;align-items:center">
+            <div>${prod.image?`<img src="${prod.image}" style="width:120px;height:80px;object-fit:cover;border-radius:8px">`:'<div style="width:120px;height:80px;background:#f3f4f6;border-radius:8px"></div>'}</div>
+            <div style="flex:1"><div>Category: ${escapeHtml(prod.category||'other')}</div><div>Price: KES ${prod.price}</div><div>Cost: KES ${prod.cost}</div></div>
+          </div><div style="text-align:right;margin-top:8px"><button id="closeViewProd" class="toggle-btn">Close</button></div>`;
+        openModal(html);
+        document.getElementById('closeViewProd')?.addEventListener('click', closeModal);
+      } else if(action === 'edit-prod'){
+        const prod = (CACHE.products || []).find(x=>x.id===id); if(!prod) return alert('Not found');
+        const html = `<h3>Edit product</h3><div style="display:grid;gap:8px"><input id="editName" value="${escapeHtml(prod.name)}"/><input id="editPrice" type="number" value="${prod.price}"/><input id="editCost" type="number" value="${prod.cost}"/><select id="editCategory"><option value="small">Small</option><option value="big">Big</option><option value="water">Water</option><option value="other">Other</option></select><div style="display:flex;gap:8px"><button id="saveProd" class="toggle-btn">Save</button><button id="cancelProd" class="toggle-btn">Cancel</button></div></div>`;
+        openModal(html);
+        document.getElementById('editCategory').value = prod.category||'other';
+        document.getElementById('cancelProd')?.addEventListener('click', closeModal);
+        document.getElementById('saveProd')?.addEventListener('click', async ()=>{
+          prod.name = document.getElementById('editName').value.trim() || prod.name;
+          prod.price = Number(document.getElementById('editPrice').value) || prod.price;
+          prod.cost = Number(document.getElementById('editCost').value) || prod.cost;
+          prod.category = document.getElementById('editCategory').value || prod.category;
+          await put('products', prod);
+          await loadCache(true);
+          closeModal();
+          queueRefresh({views:true,charts:false,cache:false});
+        }, { once: true });
+      } else if(action === 'del-prod'){
+        if(!confirm('Delete this product? This will not delete past sales.')) return;
+        await del('products', id);
+        await loadCache(true);
+        queueRefresh({views:true,charts:false,cache:false});
+      }
+    };
+  });
+}
+
+/* Stock */
+async function renderStockSafe(){
+  const s = CACHE.stock || [];
+  const ps = CACHE.products || [];
+  const table = $id('stockTable')?.querySelector('tbody'); if(!table) return;
+  table.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  s.slice().reverse().forEach(row=>{
+    const prod = ps.find(p=>p.id===row.productId) || {name:'?'};
+    const qtyDisplay = row.qty < 0 ? `${row.qty} (sale)` : String(row.qty);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(prod.name)}</td><td>${qtyDisplay}</td><td>${new Date(row.t).toLocaleString()}</td>
+      <td style="text-align:right"><button class="toggle-btn" data-id="${row.id}" data-action="del-stock">Delete</button></td>`;
+    frag.appendChild(tr);
+  });
+  table.appendChild(frag);
+  table.querySelectorAll('button').forEach(b=>{
+    b.onclick = async ()=>{
+      const id = Number(b.getAttribute('data-id'));
+      const entry = (CACHE.stock||[]).find(s=>s.id===id);
+      if(!entry) return;
+      if(!confirm('Delete this stock entry? This will adjust product inventory accordingly.')) return;
+      await updateProductInventory(entry.productId, -entry.qty);
+      await del('stock', id);
+      await loadCache(true);
+      queueRefresh({views:true,charts:false,cache:false});
+    };
+  });
+}
+
+/* Sales */
+async function renderSalesSafe(){
+  const s = CACHE.sales || [];
+  const tbody = $id('salesTable')?.querySelector('tbody'); if(!tbody) return;
+  tbody.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  s.slice().reverse().forEach(row=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(row.productName)}</td><td>${row.qty}</td><td>KES ${row.total}</td><td>KES ${row.profit}</td><td class="small-muted">${new Date(row.t).toLocaleString()}</td>
+      <td style="text-align:right"><button class="toggle-btn" data-id="${row.id}" data-action="edit-sale">Edit</button><button class="toggle-btn" data-id="${row.id}" data-action="del-sale">Delete</button></td>`;
+    frag.appendChild(tr);
+  });
+  tbody.appendChild(frag);
+  tbody.querySelectorAll('button').forEach(b=>{
+    b.onclick = async ()=>{
+      const id = Number(b.getAttribute('data-id')), action = b.getAttribute('data-action');
+      if(action==='del-sale'){
+        if(!confirm('Delete this sale? This will also restore the sold quantity back to inventory.')) return;
+        const sale = (CACHE.sales||[]).find(x=>x.id===id);
+        if(sale) await updateProductInventory(sale.productId, sale.qty);
+        const allStock = CACHE.stock || [];
+        for(const st of allStock.filter(s=>s.saleId===id)) { await updateProductInventory(st.productId, -st.qty); await del('stock', st.id); }
+        await del('sales', id);
+        await loadCache(true);
+        queueRefresh({views:true,charts:true,cache:false});
+      } else if(action==='edit-sale'){
+        const sale = (CACHE.sales||[]).find(x=>x.id===id); if(!sale) return alert('Sale not found');
+        const options = (CACHE.products||[]).map(p=>`<option value="${p.id}" ${p.id===sale.productId?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
+        const html = `<h3>Edit Sale</h3><div style="display:grid;gap:8px"><select id="editSaleProd">${options}</select><input id="editSaleQty" type="number" value="${sale.qty}"/><div style="display:flex;gap:8px"><button id="saveSale" class="toggle-btn">Save</button><button id="cancelSale" class="toggle-btn">Cancel</button></div></div>`;
+        openModal(html);
+        $id('cancelSale')?.addEventListener('click', closeModal);
+        $id('saveSale')?.addEventListener('click', async ()=>{
+          const newPid = Number($id('editSaleProd').value);
+          const newQty = Number($id('editSaleQty').value)||1;
+          const products = CACHE.products || [];
+          const pNew = products.find(x=>x.id===newPid);
+          if(!pNew) return alert('Product not found');
+          if(newPid === sale.productId){
+            const delta = sale.qty - newQty;
+            await updateProductInventory(sale.productId, delta);
+          } else {
+            await updateProductInventory(sale.productId, sale.qty);
+            await updateProductInventory(newPid, -newQty);
+          }
+          sale.productId = newPid; sale.productName = pNew.name; sale.qty = newQty; sale.total = newQty * pNew.price; sale.profit = (pNew.price - pNew.cost) * newQty;
+          await put('sales', sale);
+          const allStock = CACHE.stock || [];
+          const linked = allStock.find(s => s.saleId === sale.id);
+          if(linked){ linked.qty = -newQty; linked.productId = newPid; await put('stock', linked); }
+          else await add('stock', { productId: sale.productId, qty:-newQty, saleId: sale.id });
+          await loadCache(true);
+          closeModal();
+          queueRefresh({views:true,charts:true,cache:false});
+        }, { once: true });
+      }
+    };
+  });
+}
+
+/* Expenses */
+async function renderExpensesSafe(){
+  const e = CACHE.expenses || [];
+  const tbody = $id('expTable')?.querySelector('tbody'); if(!tbody) return;
+  tbody.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  e.slice().reverse().forEach(row=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(row.desc)}</td><td>KES ${row.amt}</td><td class="small-muted">${new Date(row.t).toLocaleString()}</td><td style="text-align:right"><button class="toggle-btn" data-id="${row.id}" data-action="del-exp">Del</button></td>`;
+    frag.appendChild(tr);
+  });
+  tbody.appendChild(frag);
+  tbody.querySelectorAll('button').forEach(b=>{
+    b.onclick = async ()=>{ const id = Number(b.getAttribute('data-id')); if(confirm('Delete this expense?')){ await del('expenses', id); await loadCache(true); queueRefresh({views:true,charts:true,cache:false}); } };
+  });
+}
+
+/* Dashboard & small lists */
+async function updateDashboardSafe(){
+  const s = CACHE.sales || []; const e = CACHE.expenses || [];
+  const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+  const salesToday = s.filter(x=>x.t >= todayStart.getTime());
+  const expensesToday = e.filter(x=>x.t >= todayStart.getTime());
+  const totalSales = salesToday.reduce((a,b)=>a+b.total,0);
+  const totalProfit = salesToday.reduce((a,b)=>a+b.profit,0);
+  const totalExp = expensesToday.reduce((a,b)=>a+b.amt,0);
+  if($id('salesToday')) $id('salesToday').textContent = 'KES ' + totalSales;
+  if($id('profitToday')) $id('profitToday').textContent = 'KES ' + totalProfit;
+  if($id('expensesToday')) $id('expensesToday').textContent = 'KES ' + totalExp;
+  if($id('netToday')) $id('netToday').textContent = 'KES ' + (totalProfit - totalExp);
+
+  if($id('dashSalesList')){
+    const dashSales = $id('dashSalesList'); dashSales.innerHTML='';
+    (CACHE.sales||[]).slice().reverse().slice(0,8).forEach(row=>{
+      const div = document.createElement('div'); div.className='item';
+      div.innerHTML = `<div>${escapeHtml(row.productName)} x${row.qty} <div class="small-muted">${new Date(row.t).toLocaleString()}</div></div><div><strong>KES ${row.total}</strong></div>`;
+      dashSales.appendChild(div);
+    });
+  }
+
+  const grouped = {};
+  (CACHE.sales||[]).forEach(x=> grouped[x.productName] = (grouped[x.productName]||0) + x.qty );
+  const topSorted = Object.keys(grouped).sort((a,b)=>grouped[b]-grouped[a]).slice(0,5);
+  if($id('dashTop')) $id('dashTop').textContent = topSorted.length ? topSorted.map(t=>`${t} (${grouped[t]})`).join(' • ') : 'No sales yet';
+
+  if($id('dashWater')){
+    const trackEl = $id('dashWater'); trackEl.innerHTML='';
+    (CACHE.products||[]).forEach(p=>{
+      const stockQty = (typeof p.inventory !== 'undefined') ? Number(p.inventory) : (CACHE.stock||[]).filter(x=>x.productId==p.id).reduce((a,b)=>a+Number(b.qty),0);
+      const soldQty = (CACHE.sales||[]).filter(x=>x.productId==p.id).reduce((a,b)=>a+b.qty,0);
+      const el = document.createElement('div'); el.className='small-muted'; el.textContent = `${p.name}: Sold ${soldQty} • Remaining ${stockQty}`;
+      trackEl.appendChild(el);
+    });
+  }
+}
+
+/* Recalculate inventory from stock (used on import/reset) */
+async function recalcInventoryFromStock(){
+  const products = CACHE.products || await loadCache() && CACHE.products;
+  const stock = CACHE.stock || await loadCache() && CACHE.stock;
+  for(const p of products){
+    const sum = (stock || []).filter(s=>s.productId==p.id).reduce((a,b)=>a+Number(b.qty),0);
+    p.inventory = sum;
+    await put('products', p);
+  }
+  await loadCache(true);
+}
+
+/* ---------- Public small helpers ---------- */
+async function updateProductInventory(productId, delta){
+  const ps = CACHE.products || await loadCache() && CACHE.products;
+  const p = ps.find(x=>x.id===productId);
+  if(!p) return;
+  p.inventory = (Number(p.inventory) || 0) + Number(delta);
+  await put('products', p);
+  await loadCache(true);
+}
+
+/* ---------- Charts (visible-only & debounced) ---------- */
+function clearCanvas(ctx, w, h){ ctx.clearRect(0,0,w,h); }
+function drawLineChartCanvas(ctx,w,h,labels,values){
+  if(!labels.length || !values.length) return;
+  const paddingLeft = 40, paddingRight = 20, top=20, bottom=30;
+  const max = Math.max(...values,1);
+  const usableW = w - paddingLeft - paddingRight;
+  const points = values.map((v,i)=>{ const x = paddingLeft + (i/(values.length-1 || 1))*usableW; const y = top + (1 - (v/max)) * (h - top - bottom); return {x,y}; });
+  ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y); points.forEach(p=> ctx.lineTo(p.x,p.y)); ctx.lineTo(points[points.length-1].x, h-bottom); ctx.lineTo(points[0].x, h-bottom); ctx.closePath();
+  ctx.fillStyle = 'rgba(15,118,110,0.12)'; ctx.fill();
+  ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = '#0f766e'; points.forEach((p,i)=> i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke();
+  ctx.fillStyle = '#0f766e'; points.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); });
+}
+async function getSalesByDay(days=10){
+  const sales = CACHE.sales || [];
+  const labels=[]; const values=[];
+  for(let i=days-1;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
+    const next = d.getTime() + 86400000;
+    const total = sales.filter(s=>s.t>=d.getTime() && s.t<next).reduce((a,b)=>a+b.total,0);
+    labels.push(d.toLocaleDateString()); values.push(total);
+  }
+  return {labels,values};
+}
+async function renderChartsSafe(){
+  if(isPageActive('dashboard') && $id('dashMini')){
+    const mini = $id('dashMini'); const ctx = mini.getContext('2d'); const d = await getSalesByDay(10);
+    clearCanvas(ctx, mini.width, mini.height); drawLineChartCanvas(ctx, mini.width, mini.height, d.labels, d.values);
+  }
+  if(isPageActive('reports') && $id('reportCanvas')){
+    const canvas = $id('reportCanvas'); const ctx = canvas.getContext('2d');
+    clearCanvas(ctx, canvas.width, canvas.height);
+    const range = $id('reportRange')?.value || '10days';
+    if(range === '10days'){
+      const data = await getSalesByDay(10); drawLineChartCanvas(ctx, canvas.width, canvas.height, data.labels, data.values);
+    } else if(range === 'thisMonth'){
+      const sales = CACHE.sales || []; const now = new Date(); const days = new Date(now.getFullYear(), now.getMonth()+1,0).getDate();
+      const labels = []; const values = [];
+      for(let d=1; d<=days; d++){
+        const start = new Date(now.getFullYear(), now.getMonth(), d); start.setHours(0,0,0,0); const end = start.getTime()+86400000;
+        labels.push(String(d)); values.push(sales.filter(s=>s.t>=start.getTime() && s.t<end).reduce((a,b)=>a+b.total,0));
+      }
+      drawLineChartCanvas(ctx, canvas.width, canvas.height, labels, values);
+    } else {
+      const months = []; const vals = []; const sales = CACHE.sales || [];
+      for(let i=11;i>=0;i--){
+        const d = new Date(); d.setMonth(d.getMonth()-i); d.setDate(1); d.setHours(0,0,0,0);
+        const start = d.getTime(); const end = new Date(d.getFullYear(), d.getMonth()+1,1).getTime();
+        months.push(d.toLocaleString('default',{month:'short',year:'numeric'}));
+        vals.push(sales.filter(s=>s.t>=start && s.t<end).reduce((a,b)=>a+b.total,0));
+      }
+      drawLineChartCanvas(ctx, canvas.width, canvas.height, months, vals);
+    }
+  }
+}
+
+/* ---------- Refresh views (single entry using cache) ---------- */
+async function renderAllViewsSafe(){
+  if(!CACHE.products) await loadCache(true);
+  await renderProductsSafe(); await renderStockSafe(); await renderSalesSafe(); await renderExpensesSafe(); await updateDashboardSafe();
+}
+
+/* ---------- Event wiring & CRUD operations ---------- */
+/* Helper to get product category including custom 'Other' */
+async function getProductCategoryFromForm(){
+  const sel = document.getElementById('pCategory');
+  const otherInput = document.getElementById('pCategoryOther');
+  let category = (sel?.value) || 'other';
+  if(category === 'other' && otherInput && otherInput.value.trim()){
+    category = otherInput.value.trim();
+  }
+  return category;
+}
+
+/* show/hide custom other input, and wire preview for image */
+(function wireCustomOtherCategoryAndPreview(){
+  const sel = document.getElementById('pCategory');
+  if(!sel) return;
+  let otherInput = document.getElementById('pCategoryOther');
+  if(!otherInput){
+    otherInput = document.createElement('input');
+    otherInput.id = 'pCategoryOther';
+    otherInput.type = 'text';
+    otherInput.placeholder = "Custom category (when 'Other' selected)";
+    otherInput.style.display = 'none';
+    otherInput.style.padding = '8px';
+    otherInput.style.borderRadius = '8px';
+    otherInput.style.border = '1px solid #ddd';
+    otherInput.style.marginTop = '6px';
+    sel.parentNode.insertBefore(otherInput, sel.nextSibling);
+  }
+  function toggle(){
+    if(sel.value === 'other'){
+      otherInput.style.display = 'block';
+      otherInput.focus();
+    } else {
+      otherInput.style.display = 'none';
+    }
+  }
+  sel.addEventListener('change', toggle);
+  toggle();
+
+  // preview image when selected
+  const fileEl = document.getElementById('pImage');
+  const preview = document.getElementById('pPreview');
+  if(fileEl){
+    fileEl.addEventListener('change', async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if(!f){ preview.style.display = 'none'; preview.src = ''; return; }
+      // show a data URL for preview (no resizing here)
+      const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
+      preview.src = dataUrl; preview.style.display = 'block';
+    });
+  }
+})();
+
+document.getElementById('addProductBtn')?.addEventListener('click', async (e)=>{
+  e.preventDefault();
+  const name = ($id('pName')?.value||'').trim(); if(!name) return alert('Enter product name');
+  const price = Number($id('pPrice')?.value||0); const cost = Number($id('pCost')?.value||0);
+  const category = await getProductCategoryFromForm();
+  const file = $id('pImage')?.files?.[0] || null;
+  let imageData = null;
+  if(file){
+    if(file.size > 500_000 && !confirm('Image > 500KB. This may bloat local DB. Continue?')) return;
+    imageData = await new Promise((res,rej)=>{ const fr = new FileReader(); fr.onload = ()=> res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
+  }
+  await add('products', { name, price, cost, inventory:0, category, image: imageData });
+  await loadCache(true);
+  $id('pName').value=''; $id('pPrice').value=''; $id('pCost').value=''; if($id('pImage')) $id('pImage').value=''; if($id('pPreview')){ $id('pPreview').src=''; $id('pPreview').style.display='none'; }
+  queueRefresh({views:true,charts:false,cache:false});
+});
+
+document.getElementById('addStockBtn')?.addEventListener('click', async ()=>{
+  const pid = Number($id('stockProduct').value); const qty = Number($id('stockQty').value)||0;
+  if(!pid || qty<=0) return alert('Choose product and quantity');
+  await add('stock', { productId: pid, qty, t:Date.now() });
+  await updateProductInventory(pid, qty);
+  await loadCache(true);
+  $id('stockQty').value=''; queueRefresh({views:true,charts:true,cache:false});
+});
+
+document.getElementById('addSaleBtn')?.addEventListener('click', async ()=>{
+  const pid = Number($id('saleProduct').value); const qty = Number($id('saleQty').value)||1; const paid = Number($id('salePaid').value)||0;
+  const p = (CACHE.products || await loadCache() && CACHE.products).find(x=>x.id===pid);
+  if(!p) return alert('Select product');
+  const total = qty * p.price; const profit = (p.price - p.cost) * qty;
+  const currentInv = Number(p.inventory) || 0;
+  if(currentInv - qty < 0){
+    if(!confirm(`Warning: current remaining stock is ${currentInv}. Selling ${qty} will make stock negative. Proceed?`)) return;
+  }
+  const saleId = await add('sales', { productId: pid, productName: p.name, qty, total, profit, paid, t:Date.now() });
+  await add('stock', { productId: pid, qty: -qty, saleId, t:Date.now() });
+  await updateProductInventory(pid, -qty);
+  await loadCache(true);
+  $id('saleQty').value='1'; $id('salePaid').value='';
+  queueRefresh({views:true,charts:true,cache:false});
+});
+
+document.getElementById('addExpBtn')?.addEventListener('click', async ()=>{
+  const desc = ($id('expDesc')?.value || '').trim() || 'expense'; const amt = Number($id('expAmt')?.value) || 0;
+  if(amt <= 0) return alert('Enter amount');
+  await add('expenses', { desc, amt, t:Date.now() });
+  $id('expDesc').value=''; $id('expAmt').value='';
+  await loadCache(true);
+  queueRefresh({views:true,charts:true,cache:false});
+});
+
+/* Export / Import */
+$id('quickExport')?.addEventListener('click', async ()=>{
+  await loadCache(true);
+  const data = { products: CACHE.products, sales: CACHE.sales, stock: CACHE.stock, expenses: CACHE.expenses };
+  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'records-export.json'; a.click(); URL.revokeObjectURL(url);
+});
+$id('quickImport')?.addEventListener('click', ()=> $id('quickFile').click());
+$id('quickFile')?.addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const txt = await f.text(); const data = JSON.parse(txt);
+  if(!confirm('Import will replace current local data. Continue?')) return;
+  await clearAll();
+  for(const p of data.products||[]) await add('products',{name:p.name,price:p.price,cost:p.cost, inventory:0, category:p.category, image:p.image, t:p.t});
+  for(const s of data.stock||[]) await add('stock',{productId:s.productId,qty:s.qty,t:s.t});
+  for(const s of data.sales||[]){ const saleId = await add('sales',{productId:s.productId,productName:s.productName,qty:s.qty,total:s.total,profit:s.profit,paid:s.paid,t:s.t}); if(s.qty && s.qty>0) await add('stock',{productId:s.productId,qty:-s.qty,saleId,t:s.t}); }
+  for(const x of data.expenses||[]) await add('expenses',{desc:x.desc,amt:x.amt,t:x.t});
+  await loadCache(true);
+  await recalcInventoryFromStock();
+  queueRefresh({views:true,charts:true,cache:false});
+});
+
+/* Reset handlers */
+$id('openReset')?.addEventListener('click', ()=> showPage('settings'));
+$id('resetSales')?.addEventListener('click', async ()=>{ if(confirm('Delete ALL sales?')){ await clearStore('sales'); const allStock = await getAll('stock'); for(const st of allStock){ if(st.saleId) await del('stock', st.id); } await recalcInventoryFromStock(); await loadCache(true); queueRefresh({views:true,charts:true,cache:false}); }});
+$id('resetExpenses')?.addEventListener('click', async ()=>{ if(confirm('Delete ALL expenses?')){ await clearStore('expenses'); await loadCache(true); queueRefresh({views:true,charts:true,cache:false}); }});
+$id('resetStock')?.addEventListener('click', async ()=>{ if(confirm('Delete ALL stock entries?')){ await clearStore('stock'); await recalcInventoryFromStock(); await loadCache(true); queueRefresh({views:true,charts:true,cache:false}); }});
+$id('resetAll')?.addEventListener('click', async ()=>{ if(confirm('Delete EVERYTHING (products, sales, stock, expenses)?')){ await clearAll();
+  await add('products',{name:'6kg Gas',price:350,cost:300, inventory:0});
+  await add('products',{name:'13kg Gas',price:1800,cost:1500, inventory:0});
+  await add('products',{name:'20L Water',price:100,cost:60, inventory:0});
+  await loadCache(true); queueRefresh({views:true,charts:true,cache:false}); }});
+
+/* Theme toggle */
+const themeBtn = $id('themeToggle');
+if(themeBtn) themeBtn.addEventListener('click', ()=>{ const current = document.body.getAttribute('data-theme') || 'light'; const next = current === 'light' ? 'dark' : 'light'; document.body.setAttribute('data-theme', next); themeBtn.textContent = next==='light'?'Dark Mode':'Light Mode'; localStorage.setItem('theme', next); });
+const savedTheme = localStorage.getItem('theme'); if(savedTheme) document.body.setAttribute('data-theme', savedTheme);
+
+/* Safe initial load (open DB, seed, cache, initial renders) */
+async function init(){
+  await openDB();
+  const ps = await getAll('products');
+  if(ps.length === 0){
+    await add('products',{name:'6kg Gas',price:350,cost:300, inventory:0});
+    await add('products',{name:'13kg Gas',price:1800,cost:1500, inventory:0});
+    await add('products',{name:'20L Water',price:100,cost:60, inventory:0});
+  }
+  await loadCache(true);
+  renderAllViewsSafe();
+  setTimeout(()=>{ renderChartsSafe(); }, 200);
+
+  // After init, do a quick authorization check to show limited-mode if not authorized when installed
+  const uid = localStorage.getItem('gbms_user_id') || null;
+  if(uid){
+    const auth = await checkAuthorization(uid);
+    if(!auth){
+      // show limited mode modal so installed PWA doesn't behave like fully authorized offline app
+      const mb = document.getElementById('modal');
+      const mc = document.getElementById('modalContent');
+      if(mb && mc){
+        mc.innerHTML = `<h3>Limited mode</h3><p>This device is not authorized for full offline PWA features. You can still use the website. Ask your admin to authorize this device for installation.</p><div style="display:flex;gap:8px;justify-content:flex-end"><a href="/myguy.html" class="toggle-btn">Contact Admin</a></div>`;
+        mb.classList.add('show'); mb.setAttribute('aria-hidden','false');
+      }
+    }
+  }
+}
+window.addEventListener('load', init);
+
+/* lightweight safeguard to avoid costly periodic redraw loops */
+</script>
+
+</body>
+</html>
