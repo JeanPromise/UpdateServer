@@ -524,15 +524,21 @@ def upload_apk():
     return jsonify({"success": True, "url": download_url})
 
 # ---------------- Pages ----------------
-@app.route('/goodday')
 @app.route('/goodday.html')
 def goodday_page():
     local_file = os.path.join(os.getcwd(), 'goodday.html')
     if os.path.exists(local_file):
-        try:
-            return send_from_directory('.', 'goodday.html')
-        except Exception:
-            log.exception("send_from_directory failed for goodday.html")
+        return send_from_directory('.', 'goodday.html')
+
+    # fallback: fetch from GitHub
+    url = f"https://raw.githubusercontent.com/{GITHUB_OWNER}/{GITHUB_REPO}/{BRANCH}/goodday.html"
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            return Response(r.text, mimetype='text/html')
+    except Exception:
+        pass
+
     return Response("<html>Fallback HTML if file is missing...</html>", mimetype='text/html')
 
 @app.route('/delete_apk', methods=['POST'])
