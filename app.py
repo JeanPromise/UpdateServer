@@ -527,23 +527,13 @@ def upload_apk():
 @app.route('/goodday')
 @app.route('/goodday.html')
 def goodday_page():
-    """
-    Serve goodday.html from the same folder as app.py.
-    """
     local_file = os.path.join(os.getcwd(), 'goodday.html')
     if os.path.exists(local_file):
         try:
             return send_from_directory('.', 'goodday.html')
         except Exception:
             log.exception("send_from_directory failed for goodday.html")
-    # Fallback HTML if file is missing
-    return Response("""
-<!doctype html>
-<html><head><meta charset="utf-8"/><title>Good Day</title></head><body>
-<h3>Good Day!</h3>
-<p>If you want the full page, place <code>goodday.html</code> next to <code>app.py</code>.</p>
-</body></html>
-""", mimetype='text/html')
+    return Response("<html>Fallback HTML if file is missing...</html>", mimetype='text/html')
 
 @app.route('/delete_apk', methods=['POST'])
 def delete_apk():
