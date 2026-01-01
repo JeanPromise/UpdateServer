@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Universal Business Marketplace — Epic Cover</title>
+  <meta name="description" content="Universal Business Marketplace — sell online, manage orders and chat. Built by Voyager Go technology company." />
+
+  <style>
+    :root{
+      --bg-dark:#050507;
+      --floor-a:#072b1f;
+      --floor-b:#0f512f;
+      --cadmium:#ffd200;
+      --blue-ui-a:#e8fbff;
+      --blue-ui-b:#cfeeff;
+      --accent-shadow: 0 12px 50px rgba(0,0,0,0.6);
+      --text-contrast:#f7fbff;
+      --max-width:1200px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+
+    body{
+      margin:0;
+      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+      background:var(--bg-dark);
+      color:var(--text-contrast);
+      display:flex;
+      justify-content:center;
+      padding:0 20px;
+    }
+
+    /* FLOATING CTA (ALWAYS ON TOP) */
+    .floating-cta{
+      position:fixed;
+      top:18px;
+      right:18px;
+      z-index:9999;
+      background:linear-gradient(90deg,#ff2d2d,#ff5a5a);
+      color:#fff;
+      padding:14px 22px;
+      border-radius:999px;
+      font-weight:900;
+      font-size:15px;
+      text-decoration:none;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      box-shadow:0 12px 40px rgba(255,45,45,0.45);
+      animation:pulseGlow 1.8s infinite;
+    }
+
+    @keyframes pulseGlow{
+      0%{transform:scale(1);box-shadow:0 0 0 rgba(255,45,45,0.5)}
+      50%{transform:scale(1.06);box-shadow:0 0 30px rgba(255,90,90,0.9)}
+      100%{transform:scale(1);box-shadow:0 0 0 rgba(255,45,45,0.5)}
+    }
+
+    @media(max-width:560px){
+      .floating-cta{
+        top:auto;
+        bottom:18px;
+        right:50%;
+        transform:translateX(50%);
+        font-size:14px;
+      }
+    }
+
+    /* PAGE WRAPPER */
+    .wrap{
+      width:100%;
+      max-width:var(--max-width);
+      margin:36px auto;
+      display:grid;
+      grid-template-columns:1fr 520px;
+      gap:36px;
+      align-items:center;
+    }
+
+    .hero{
+      padding:28px 24px;
+      border-radius:16px;
+      background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));
+      box-shadow:var(--accent-shadow);
+    }
+
+    .eyebrow{
+      display:inline-block;
+      padding:6px 12px;
+      border-radius:999px;
+      background:linear-gradient(90deg,var(--cadmium),#ffc400);
+      color:#08110a;
+      font-weight:800;
+      font-size:13px;
+      margin-bottom:18px;
+    }
+
+    h1{
+      font-size:44px;
+      margin:0;
+      line-height:1.05;
+      font-weight:900;
+    }
+
+    .sub{
+      margin-top:10px;
+      font-size:18px;
+      color:rgba(230,247,255,0.95);
+      max-width:56ch;
+    }
+
+    .features{
+      margin-top:20px;
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+    }
+
+    .feature{
+      display:flex;
+      gap:12px;
+      align-items:flex-start;
+    }
+
+    .dot{
+      width:12px;
+      height:12px;
+      border-radius:4px;
+      background:linear-gradient(180deg,var(--cadmium),#ffc400);
+    }
+
+    .ctas{
+      display:flex;
+      gap:12px;
+      margin-top:24px;
+    }
+
+    .btn-primary{
+      background:linear-gradient(90deg,var(--blue-ui-a),var(--blue-ui-b));
+      color:#00131b;
+      border:none;
+      padding:14px 18px;
+      border-radius:12px;
+      font-weight:800;
+      cursor:pointer;
+    }
+
+    .btn-ghost{
+      background:transparent;
+      border:1px solid rgba(255,255,255,0.08);
+      padding:14px 16px;
+      border-radius:12px;
+      color:#fff;
+      font-weight:700;
+      cursor:pointer;
+    }
+
+    .showcase{
+      position:relative;
+      height:520px;
+      border-radius:20px;
+      background:
+        radial-gradient(800px 400px at 50% 10%, rgba(12,50,40,0.3), transparent 30%),
+        linear-gradient(180deg,var(--floor-a),var(--floor-b));
+      box-shadow:0 30px 80px rgba(2,6,23,0.6);
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      padding-bottom:46px;
+    }
+
+    .device{
+      width:360px;
+      height:640px;
+      border-radius:28px;
+      background:linear-gradient(180deg,rgba(230,247,255,0.96),rgba(210,240,255,0.88));
+      box-shadow:0 30px 80px rgba(14,76,110,0.28);
+      transform:translateY(-36px) rotate(-3deg);
+      overflow:hidden;
+    }
+
+    footer{
+      grid-column:1/-1;
+      margin-top:28px;
+      display:flex;
+      justify-content:space-between;
+      font-size:14px;
+      color:rgba(255,255,255,0.7);
+    }
+
+    @media(max-width:980px){
+      .wrap{grid-template-columns:1fr}
+      .showcase{height:420px}
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- GLOBAL FLOATING CTA -->
+  <a href="business.html" class="floating-cta">
+     Go to our app — Try it
+  </a>
+
+  <div class="wrap">
+    <section class="hero">
+      <div class="eyebrow">New — Voyager Go</div>
+      <h1>
+        Universal Business Marketplace<br>
+        <span style="color:var(--cadmium)">Sell faster</span>, manage easier.
+      </h1>
+
+      <p class="sub">
+        A single-file, offline-first storefront that lets small businesses list items,
+        accept orders, chat with customers and export/import data.
+      </p>
+
+      <div class="features">
+        <div class="feature"><div class="dot"></div>One-click product publishing</div>
+        <div class="feature"><div class="dot"></div>Order management & chat</div>
+        <div class="feature"><div class="dot"></div>Offline-ready & CSV import/export</div>
+      </div>
+
+      <div class="ctas">
+        <button class="btn-primary" onclick="location.href='business.html'">Try it now</button>
+        <button class="btn-ghost" onclick="document.getElementById('about').scrollIntoView({behavior:'smooth'})">
+          About us
+        </button>
+      </div>
+    </section>
+
+    <aside class="showcase" aria-hidden="true">
+      <div class="device"></div>
+    </aside>
+
+    <footer id="about">
+      <div><strong>Voyager Go</strong> — technology company</div>
+      <div>Made with ❤️ — American polish, built for Kenya 🇺🇸</div>
+    </footer>
+  </div>
+
+</body>
+</html>
