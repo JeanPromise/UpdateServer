@@ -3,24 +3,25 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>General Business Management Software — Full (Optimized)</title>
-<meta name="description" content="Offline General Business Management Software — full package with charts, edit/delete, and controlled PWA install (admin authorization required)." />
+<title>General Business Management Software — Full (Optimized, Orange)</title>
+<meta name="description" content="Offline General Business Management Software — full package with charts, edit/delete, controlled PWA install (admin authorization required)." />
 <link rel="manifest" href="/manifest.json">
 <style>
-:root{--accent:#0f766e;--accent-2:#0b815a;--accent-3:#ff6b6b;--accent-4:#4dd0e1;--muted:#6b7280;--bg:#f8fafc;--text:#0f172a;--card:#fff;--danger:#ef4444}
+:root{--accent:#f97316;--accent-2:#fb923c;--accent-3:#ffb86b;--accent-4:#ffd8a8;--muted:#6b7280;--bg:#f8fafc;--text:#0f172a;--card:#fff;--danger:#ef4444}
 [data-theme="dark"]{--bg:#071024;--text:#e6eef8;--card:#0b1220;--muted:#9aa6b2}
 *{box-sizing:border-box;font-family:Inter,system-ui,Arial,sans-serif;margin:0;padding:0}
 html{font-size:16px;-webkit-font-smoothing:antialiased}
 body{background:var(--bg);color:var(--text);display:flex;flex-direction:column;min-height:100vh;transition:background .18s ease,color .18s ease}
 .page{display:none}.page.active{display:block}
-header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225,0.03));padding:14px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 0 rgba(2,6,23,0.04)}
-.brand{font-weight:800;font-size:20px;background:linear-gradient(90deg,var(--accent),var(--accent-3));-webkit-background-clip:text;color:transparent}
+header{background: linear-gradient(90deg, rgba(249,115,22,0.06), rgba(255,184,107,0.03));padding:10px 16px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 0 rgba(2,6,23,0.04)}
+.brand{font-weight:800;font-size:18px;background:linear-gradient(90deg,var(--accent),var(--accent-3));-webkit-background-clip:text;color:transparent}
 .header-meta{display:flex;align-items:center;gap:12px}
 .small{font-size:13px;color:var(--muted)}
-.toggle-btn{background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#fff;padding:8px 12px;border-radius:10px;border:0;font-size:15px}
+.toggle-btn{background:linear-gradient(180deg,var(--accent),var(--accent-2));color:#fff;padding:8px 12px;border-radius:10px;border:0;font-size:15px;cursor:pointer}
+button{cursor:pointer}
 .wrap{max-width:none;margin:12px 0 12px 12px;padding:12px;flex:1;width:calc(100% - 24px)}
 .app-frame{display:flex;gap:16px;align-items:flex-start}
-.sidebar{width:220px;background:linear-gradient(180deg,var(--accent),#0b846f);color:white;padding:16px;border-radius:12px;display:flex;flex-direction:column;gap:10px}
+.sidebar{width:220px;background:linear-gradient(180deg,var(--accent),#fb923c);color:white;padding:16px;border-radius:12px;display:flex;flex-direction:column;gap:10px}
 .main-content{flex:1;display:flex;flex-direction:column;gap:14px}
 .grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
 .card{background: linear-gradient(180deg,var(--card), rgba(0,0,0,0.01));padding:14px;border-radius:14px;box-shadow:0 8px 28px rgba(15,23,42,0.06);overflow:hidden;border:1px solid rgba(12,18,24,0.03)}
@@ -30,44 +31,24 @@ header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225
 .product-form{display:flex;flex-direction:column;gap:8px}
 .preview-img{width:80px;height:80px;border-radius:10px;object-fit:cover}
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.35);display:none;align-items:flex-start;justify-content:flex-end;padding:20px;z-index:1100}
-.modal-card{width:480px;max-width:calc(100% - 40px);background:var(--card);color:var(--text);border-radius:12px;padding:18px;box-shadow:0 18px 50px rgba(2,6,23,0.4)}
+.modal-card{width:640px;max-width:calc(100% - 40px);background:var(--card);color:var(--text);border-radius:12px;padding:18px;box-shadow:0 18px 50px rgba(2,6,23,0.4)}
 .modal-overlay.show{display:flex}
+.header-search{display:flex;gap:8px;align-items:center}
+.input-search{padding:8px;border-radius:8px;border:1px solid #ddd;width:320px}
+.section-search{padding-bottom:8px}
 @media(max-width:980px){.app-frame{flex-direction:column}.sidebar{width:100%;flex-direction:row;overflow:auto;padding:8px;gap:6px;border-radius:8px}.grid{grid-template-columns:1fr}}
 @media(max-width:600px){header{flex-direction:column;align-items:flex-start;gap:10px;padding:12px}.grid{grid-template-columns:1fr}}
 </style>
-
-<!-- Inline manifest creation (keeps single-file standalone) -->
-<script>
-(function createManifest(){
-  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'><rect fill='#0f766e' width='120' height='120' rx='24'/><text x='50%' y='55%' fill='white' font-size='44' font-family='Arial' font-weight='700' text-anchor='middle' alignment-baseline='central'>GB</text></svg>`;
-  const iconData = 'data:image/svg+xml;base64,' + btoa(svg);
-  const manifest = {
-    name: "General Business Management Software — Full",
-    short_name: "GBMS",
-    start_url: "./",
-    scope: "./",
-    display: "standalone",
-    background_color: "#f8fafc",
-    theme_color: "#0f766e",
-    icons: [
-      { src: iconData, sizes: "192x192", type: "image/svg+xml" },
-      { src: iconData, sizes: "512x512", type: "image/svg+xml" }
-    ]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('link');
-  link.rel = 'manifest';
-  link.href = url;
-  document.head.appendChild(link);
-  window.__manifestBlobUrl = url;
-})();
-</script>
 </head>
-
 <body data-theme="light">
   <header>
-    <div class="brand">General Business Management Software — Full</div>
+    <div style="display:flex;gap:12px;align-items:center">
+      <div class="brand">General Business Management Software — Full</div>
+      <div class="header-search">
+        <input id="globalSearch" class="input-search" placeholder="Search everything (products, sales, stock, expenses)..." />
+        <button id="globalSearchBtn" class="toggle-btn">Search</button>
+      </div>
+    </div>
     <div class="header-meta">
       <div class="small">Offline — Local data only</div>
       <button class="toggle-btn" id="themeToggle">Dark Mode</button>
@@ -87,7 +68,7 @@ header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225
         <button data-page="help">Help / Guide</button>
         <button data-page="settings">Settings</button>
         <div style="flex:1"></div>
-        <div class="small-muted">v1.0 — Offline</div>
+        <div class="small-muted">v1.2 — Offline</div>
       </aside>
 
       <section class="main-content">
@@ -139,7 +120,7 @@ header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225
               <div class="card" style="margin-top:12px">
                 <h4 style="margin:0 0 6px 0">Quick Actions</h4>
                 <div style="display:grid;gap:8px">
-                  <button id="quickExport" class="toggle-btn">Export JSON</button>
+                  <button id="quickExport" class="toggle-btn">Export (Excel)</button>
                   <button id="quickImport" class="toggle-btn">Import JSON</button>
                   <input type="file" id="quickFile" accept="application/json" style="display:none"/>
                   <button id="openReset" class="toggle-btn">Reset Options</button>
@@ -153,14 +134,16 @@ header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225
         <div id="sales" class="page">
           <div class="card">
             <h3>Sales</h3>
+            <div class="section-search"><input id="searchSales" class="input-search" placeholder="Search sales (product name, time)" /></div>
             <div style="display:flex;gap:8px;align-items:center">
               <select id="saleProduct"></select>
               <input id="saleQty" type="number" placeholder="Qty" value="1" style="width:88px"/>
-              <input id="salePaid" type="number" placeholder="Paid" style="width:120px"/>
+              <input id="salePrice" type="number" placeholder="Unit price (optional)" style="width:140px"/>
+              <input id="salePaid" type="number" placeholder="Paid (optional)" style="width:120px"/>
               <button class="toggle-btn" id="addSaleBtn">Add Sale</button>
             </div>
             <div style="margin-top:10px">
-              <table class="table" id="salesTable"><thead><tr><th>Product</th><th>Qty</th><th>Total</th><th>Profit</th><th>Time</th><th></th></tr></thead><tbody></tbody></table>
+              <table class="table" id="salesTable"><thead><tr><th>Product</th><th>Qty</th><th>Unit</th><th>Total</th><th>Profit</th><th>Time</th><th></th></tr></thead><tbody></tbody></table>
             </div>
           </div>
         </div>
@@ -169,18 +152,20 @@ header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225
         <div id="products" class="page">
           <div class="card">
             <h3>Products</h3>
+            <div class="section-search"><input id="searchProducts" class="input-search" placeholder="Search products (name, category)" /></div>
             <div class="product-form">
-              <label>Product name</label><input id="pName" placeholder="Product name (e.g. 6kg Gas)" autocomplete="off"/>
-              <label>Category</label>
-              <select id="pCategory"><option value="small">Small Gas</option><option value="big">Big Gas</option><option value="water">Water</option><option value="other">Other</option></select>
-              <!-- Custom "Other" input (hidden until 'Other' is selected) -->
-              <input id="pCategoryOther" type="text" placeholder="Custom category (when 'Other' selected)" style="display:none;padding:8px;border-radius:8px;border:1px solid #ddd;margin-top:6px;" />
+              <label>Product name</label><input id="pName" placeholder="Product name (free text)" autocomplete="off"/>
+              <label>Category (free text)</label>
+              <input id="pCategory" placeholder="Type any category you like" />
               <label>Product Image</label>
               <input id="pImage" type="file" accept="image/*"/>
               <img id="pPreview" class="preview-img" src="" style="display:none"/>
               <label>Price</label><input id="pPrice" type="number" placeholder="Price"/>
               <label>Cost</label><input id="pCost" type="number" placeholder="Cost"/>
-              <button class="toggle-btn" id="addProductBtn">Add Product</button>
+              <div style="display:flex;gap:8px;align-items:center">
+                <button class="toggle-btn" id="addProductBtn">Add Product</button>
+                <button class="toggle-btn" id="mergeDupBtn">Merge duplicate names</button>
+              </div>
             </div>
 
             <div style="margin-top:12px">
@@ -193,13 +178,22 @@ header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225
         <div id="stock" class="page">
           <div class="card">
             <h3>Stock</h3>
-            <div style="display:flex;gap:8px;align-items:center">
+            <div class="section-search"><input id="searchStock" class="input-search" placeholder="Search stock (product, price, time)" /></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               <select id="stockProduct"></select>
               <input id="stockQty" type="number" placeholder="Qty" style="width:120px"/>
+              <label style="font-size:12px">New stock?</label>
+              <input id="stockNewCheck" type="checkbox" />
+              <div id="stockLayers" style="display:none;gap:6px;align-items:center">
+                <input id="stockPrice" type="number" placeholder="Unit price (optional)" style="width:140px"/>
+                <input id="stockCost" type="number" placeholder="Unit cost (optional)" style="width:140px"/>
+                <button id="addLayerBtn" class="toggle-btn">+ Layer</button>
+                <div id="extraLayers" style="display:inline-flex;gap:6px"></div>
+              </div>
               <button class="toggle-btn" id="addStockBtn">Add Stock</button>
             </div>
             <div style="margin-top:10px">
-              <table class="table" id="stockTable"><thead><tr><th>Product</th><th>Qty</th><th>Added</th><th>Actions</th></tr></thead><tbody></tbody></table>
+              <table class="table" id="stockTable"><thead><tr><th>Product</th><th>Qty</th><th>Price/Cost</th><th>Last activity</th><th>Actions</th></tr></thead><tbody></tbody></table>
             </div>
           </div>
         </div>
@@ -208,6 +202,7 @@ header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225
         <div id="expenses" class="page">
           <div class="card">
             <h3>Expenses</h3>
+            <div class="section-search"><input id="searchExpenses" class="input-search" placeholder="Search expenses (desc, amount, time)" /></div>
             <div style="display:flex;gap:8px;align-items:center">
               <input id="expDesc" placeholder="Description"/>
               <input id="expAmt" type="number" placeholder="KES" style="width:120px"/>
@@ -247,19 +242,106 @@ header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225
               <button id="resetExpenses" class="toggle-btn">Reset Expenses Only</button>
               <button id="resetStock" class="toggle-btn">Reset Stock Only</button>
               <button id="resetAll" class="toggle-btn">Reset EVERYTHING</button>
+              <button id="mergeDuplicates" class="toggle-btn">Merge duplicate product names</button>
             </div>
-            <div style="margin-top:12px" class="small-muted">Tip: export JSON before resetting to keep a backup.</div>
+            <div style="margin-top:12px" class="small-muted">Tip: export before resetting to keep a backup.</div>
           </div>
         </div>
+<!-- HELP -->
+<div id="help" class="page" style="padding:20px;">
+  <div class="card" style="padding:20px; max-width:900px; margin:auto;">
+    <h3>Help & User Guide</h3>
 
-        <!-- HELP -->
-        <div id="help" class="page" style="padding:20px;">
-          <div class="card" style="padding:20px; max-width:800px; margin:auto;">
-            <h3>Help & User Guide</h3>
-            <p>This system allows you to record daily sales completely offline. All data stays on your device — safe and private.</p>
-            <p>If you need more help, contact support at <b>Jeangift@example.com</b>.</p>
-          </div>
-        </div>
+    <p>This app is an offline, single-file business management tool for small shops and traders. Everything you enter is stored locally (IndexedDB) on your device — no data leaves your device unless you export it.</p>
+
+    <h4>Quick overview</h4>
+    <ul>
+      <li><strong>Products</strong> — add any product with a free-text name and category, image, retail price and cost. Product names are used to identify items; the app prevents exact-name duplicates by default and offers a merge tool.</li>
+      <li><strong>Stock</strong> — add incoming stock (optionally mark as <em>New stock</em> and supply unit price and unit cost). You can add multiple stock "layers" in a single operation. Stock entries carry price/cost and a timestamp.</li>
+      <li><strong>Sales</strong> — record sales by selecting product, quantity and (optionally) unit price and paid amount. The app consumes stock using FIFO from the oldest positive stock batches and calculates profit using the consumed batch costs.</li>
+      <li><strong>Expenses</strong> — simple expense tracker for overheads and bills.</li>
+      <li><strong>Reports & Export</strong> — simple charts and an Excel (.xlsx) export (SheetJS). If SheetJS is unavailable the app will fall back to a JSON export.</li>
+      <li><strong>Search</strong> — per-page search boxes (Products, Stock, Sales, Expenses) plus a global search in the header that looks across everything and shows grouped results in a modal.</li>
+    </ul>
+
+    <h4>How the important flows work</h4>
+
+    <h5>Adding a product</h5>
+    <ol>
+      <li>Open <em>Products</em> → enter Name (free text), Category (free text), optional image, Price and Cost → click <strong>Add Product</strong>.</li>
+      <li>If a product with the exact same name already exists, the app will prompt you and give you the option to open <em>Stock</em> to add inventory to the existing product. To create a truly separate product, use a unique name.</li>
+      <li>If you later discover duplicates, use <strong>Merge duplicate names</strong> (Settings or Products) — this merges inventories, re-points sales and stock records to the kept product, and removes duplicates.</li>
+    </ol>
+
+    <h5>Adding stock</h5>
+    <ol>
+      <li>Open <em>Stock</em> → choose product and quantity.</li>
+      <li>Check <em>New stock?</em> to attach a unit <em>price</em> and a unit <em>cost</em> to that stock addition. You can also add up to 3 extra layers in the same operation (main + up to 3 extras).</li>
+      <li>Each layer becomes a stock entry stored with its own timestamp, price and cost (if provided). Inventory totals are updated automatically.</li>
+    </ol>
+
+    <h5>Making a sale</h5>
+    <ol>
+      <li>Open <em>Sales</em> → choose product, quantity, optional <em>Unit price</em> and optional <em>Paid</em> amount → click <strong>Add Sale</strong>.</li>
+      <li><strong>Unit price</strong> is the expected retail price. If you leave it empty the product's stored price is used.</li>
+      <li><strong>Paid</strong> is the actual amount the customer gave. If provided and > 0 the app uses the paid amount as the actual sale total (so you can record sales made below/above the expected price).</li>
+      <li>Stock is reduced using FIFO by consuming the oldest positive stock batches first. The sale stores a cost basis (sum of unit costs consumed) so profit = actual total − cost basis.</li>
+      <li>The Sales table shows both expected vs actual information: Unit column displays expected unit price and, when different, the paid-per-unit in parentheses (e.g. <em>KES 1000 (paid KES 900)</em>). The Profit column shows the actual profit and the expected profit (muted) if they differ.</li>
+    </ol>
+
+    <h4>Stock listing & details</h4>
+    <ul>
+      <li>The Stock page shows an aggregated, neat view: one row per product with the format <code>availableQty (-soldQty)</code> (for example <em>97 (-3)</em>). This keeps the main table uncluttered.</li>
+      <li>Click <strong>Details</strong> on a product row to open a modal with the full history of stock entries (incoming batches, sold entries, timestamps, price and cost for each batch).</li>
+      <li>This preserves the full audit trail but avoids listing each sale as a negative line in the main stock table.</li>
+    </ul>
+
+    <h4>Search</h4>
+    <ul>
+      <li>Each section has a search box (Products, Stock, Sales, Expenses) — typing filters the visible list instantly.</li>
+      <li>The header global search scans products, sales, stock and expenses and shows grouped results in a modal (quick way to find an item across the whole app).</li>
+    </ul>
+
+    <h4>Export & Import</h4>
+    <ul>
+      <li>Use <strong>Export (Excel)</strong> to download an .xlsx file containing Products, Sales, Stock and Expenses. The export includes stock price/cost and sales cost basis.</li>
+      <li>If the Excel library (SheetJS) can't be loaded the app will automatically download JSON instead.</li>
+      <li>Import accepts JSON exported by this app — import will replace current local data (you are asked to confirm before the overwrite). After import the app recalculates product inventories from stock entries.</li>
+    </ul>
+
+    <h4>Duplicate handling</h4>
+    <ul>
+      <li>By default the app prevents adding an exact-name duplicate product. If you choose to create separate items, use unique names.</li>
+      <li>If duplicates already exist use the Merge Duplicate Names tool — it combines inventory and updates existing sales & stock to reference the single keeper product.</li>
+    </ul>
+
+    <h4>Performance tips</h4>
+    <ul>
+      <li>The app uses a client-side cache and debounced rendering to avoid re-reading the database on every interaction. That keeps it fast even on modest devices.</li>
+      <li>If you have very large datasets (thousands of rows) consider: exporting and archiving older data, or enabling pagination/virtualized lists (we can add this if needed).</li>
+    </ul>
+
+    <h4>Troubleshooting & FAQs</h4>
+    <ul>
+      <li><strong>Buttons not responding?</strong> Make sure you are running the page in a standard browser tab. Electron/Nativefier wrappers sometimes alter behavior — the app attempts to detect Electron and disable service workers, but UI should still be functional. Try a modern Chromium or Firefox browser if you see oddities.</li>
+      <li><strong>Export didn't download .xlsx?</strong> The app loads SheetJS from a CDN; if offline it will provide a JSON fallback. Reconnect to the internet to get .xlsx export working, or host the app with the SheetJS script locally.</li>
+      <li><strong>Inventory not matching?</strong> Run a manual check: open Settings → Merge duplicates (if you have same-name products) then use <strong>Reset Stock</strong> or re-import after you verify the stock history. The app always recomputes product inventory from stock entries on import/reset.</li>
+      <li><strong>Need audit details?</strong> Use the Stock → Details modal to see per-batch price, cost and timestamp. Sales records include stored <em>unitPrice</em>, actual <em>paid</em> (if supplied), and the computed <em>costBasis</em> used to calculate profit.</li>
+    </ul>
+
+    <h4>Suggested next improvements (optional)</h4>
+    <ul>
+      <li>Toggle between aggregated and expanded stock views.</li>
+      <li>Show a per-sale list of which stock batches were consumed (for auditing).</li>
+      <li>Low-stock alerts and configurable reorder thresholds.</li>
+      <li>Pagination / virtual lists for very large datasets.</li>
+    </ul>
+
+    <p style="margin-top:12px;">If you need more help or want custom changes, contact support at <b>voyagergo11@gmail.com</b>.</p>
+
+    <div style="text-align:right;margin-top:8px"><button class="toggle-btn" onclick="closeModal()">Close</button></div>
+  </div>
+</div>
 
         <!-- Install controls -->
         <div style="position:fixed; bottom:20px; right:20px; display:flex; gap:8px; z-index:1200;">
@@ -279,178 +361,9 @@ header{background: linear-gradient(90deg, rgba(15,118,110,0.06), rgba(77,208,225
     </div>
   </div>
 
-<!-- ===== Service Worker registration (robust fallback) & Controlled PWA prompt handling ===== -->
-<script>
-/* Robust SW: try root registration, else fallback to blob SW */
-const fallbackSW = `const CACHE_NAME = 'gbms-cache-v1';
-const TO_CACHE = ['./','./eyes.html'];
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(TO_CACHE)));
-  self.skipWaiting();
-});
-self.addEventListener('activate', e => e.waitUntil(clients.claim()));
-self.addEventListener('fetch', e => {
-  e.respondWith(caches.match(e.request).then(r => r || fetch(e.request)));
-});`;
-
-async function registerSW(){
-  if(!('serviceWorker' in navigator)) return console.log('No SW support');
-  try{
-    const reg = await navigator.serviceWorker.register('/service-worker.js', { scope: './' });
-    console.log('Registered service-worker.js at root', reg);
-    return reg;
-  }catch(err){
-    console.warn('Root SW reg failed, using blob fallback', err);
-  }
-  try{
-    const blob = new Blob([fallbackSW], { type: 'text/javascript' });
-    const url = URL.createObjectURL(blob);
-    const reg = await navigator.serviceWorker.register(url, { scope: './' });
-    console.log('Registered blob SW', reg);
-    return reg;
-  }catch(e){
-    console.error('Blob SW registration failed', e);
-  }
-}
-
-/* Controlled PWA install logic: only show install prompt when server authorizes */
-/* NOTE: Server endpoints (must implement):
-   - GET  /api/pwa-authorized?user_id=USER_ID    -> { authorized: true|false }
-   - POST /api/claim-install   body { user_id } -> { claimed: true|false }
-   Admin endpoints /api/admin/* for your admin UI (myguy.html).
-*/
-
-let deferredPrompt = null;
-const installBtn = document.getElementById('installBtn');
-const downloadBtn = document.getElementById('downloadBtn');
-
-// Simple persistent identifier prompt (email or unique code)
-// You can replace this with a better auth flow later.
-function ensureUserId(){
-  let id = localStorage.getItem('gbms_user_id');
-  if(!id){
-    id = prompt('Enter your user id / email to identify this device (used for install authorization):') || '';
-    id = id.trim();
-    if(id) localStorage.setItem('gbms_user_id', id);
-  }
-  return id;
-}
-
-async function checkAuthorization(userId){
-  if(!userId) return false;
-  try{
-    const res = await fetch('/api/pwa-authorized?user_id=' + encodeURIComponent(userId));
-    if(!res.ok) return false;
-    const j = await res.json();
-    return j.authorized === true;
-  }catch(e){
-    console.warn('Auth check failed', e);
-    return false;
-  }
-}
-
-async function claimInstall(userId){
-  try{
-    const res = await fetch('/api/claim-install', { method:'POST', headers:{'content-type':'application/json'}, body: JSON.stringify({ user_id: userId }) });
-    if(!res.ok) return { claimed:false };
-    return await res.json();
-  }catch(e){
-    console.warn('Claim failed', e); return { claimed:false };
-  }
-}
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  // intercept native prompt & wait for server authorization
-  e.preventDefault();
-  deferredPrompt = e;
-  const userId = ensureUserId();
-  // Check with server. Only show install button if authorized.
-  checkAuthorization(userId).then(authorized => {
-    if(authorized && installBtn) installBtn.style.display = 'inline-block';
-    else {
-      console.log('PWA install not authorized for this user');
-      // still show install help once so they know to contact admin
-    }
-  });
-});
-
-installBtn?.addEventListener('click', async () => {
-  if(!deferredPrompt) return;
-  installBtn.disabled = true;
-  deferredPrompt.prompt();
-  const choice = await deferredPrompt.userChoice;
-  if(choice.outcome === 'accepted'){
-    // after user accepts, ask server to claim the install
-    const userId = ensureUserId();
-    const claim = await claimInstall(userId);
-    if(claim && claim.claimed){
-      localStorage.setItem('gbms_pwa_installed_by', userId);
-      localStorage.setItem('gbms_pwa_installed','true');
-      alert('Install accepted and registered with server.');
-      installBtn.style.display = 'none';
-    } else {
-      // server refused claim or could not reach server
-      alert('Install accepted locally, but server did not confirm authorization. Contact admin if you expected access.');
-      installBtn.style.display = 'none';
-    }
-  } else {
-    // cancelled
-    installBtn.style.display = 'none';
-    setTimeout(() => {
-      if (!localStorage.getItem('gbms_pwa_installed')) installBtn.style.display = 'inline-block';
-    }, 30000);
-  }
-  deferredPrompt = null;
-});
-
-window.addEventListener('appinstalled', () => {
-  localStorage.setItem('gbms_pwa_installed','true');
-  if (installBtn) installBtn.style.display = 'none';
-});
-
-/* Helper: show install help once if browser doesn't show prompt */
-function showInstallHelpOnce(){
-  if (localStorage.getItem('install_help_shown') === 'true') return;
-  if (localStorage.getItem('gbms_pwa_installed') === 'true' || localStorage.getItem('app_downloaded') === 'true') return;
-  setTimeout(()=> {
-    const msg = `<h3>Install tip</h3>
-    <p>If "Install" isn't shown automatically, open the browser menu (⋮) and choose <strong>Install app</strong> or on mobile use <strong>Add to Home screen</strong>. If you need PWA install, ask your admin to authorize this device.</p>
-    <div style="display:flex;gap:8px;justify-content:flex-end"><button id="okInstallHelp" class="toggle-btn">OK</button></div>`;
-    const mb = document.getElementById('modal');
-    const mc = document.getElementById('modalContent');
-    if (mb && mc) {
-      mc.innerHTML = msg;
-      mb.classList.add('show');
-      mb.setAttribute('aria-hidden','false');
-      document.getElementById('okInstallHelp')?.addEventListener('click', ()=> { mb.classList.remove('show'); mb.setAttribute('aria-hidden','true'); });
-      localStorage.setItem('install_help_shown','true');
-    }
-  }, 1200);
-}
-
-document.addEventListener('DOMContentLoaded', async () => {
-  if (localStorage.getItem('gbms_pwa_installed') === 'true' && installBtn) installBtn.style.display = 'none';
-  if (localStorage.getItem('app_downloaded') === 'true' && downloadBtn) downloadBtn.style.display = 'none';
-  // Pre-check authorization to show hint if server already authorizes (some browsers may not fire beforeinstallprompt)
-  const uid = localStorage.getItem('gbms_user_id') || null;
-  if(uid){
-    const auth = await checkAuthorization(uid);
-    if(auth && 'onbeforeinstallprompt' in window && installBtn) {
-      // if browser supports beforeinstallprompt, actual button will show when event fires
-      // otherwise show install button hint (best-effort)
-      installBtn.style.display = 'inline-block';
-    }
-  }
-  showInstallHelpOnce();
-});
-
-registerSW();
-</script>
-
 <!-- ===== IndexedDB helpers & optimized app logic (unchanged core app) ===== -->
 <script>
-/* ---------- IndexedDB helpers ---------- */
-const DB_NAME = 'records-db', DB_VERSION = 1;
+const DB_NAME = 'records-db', DB_VERSION = 2;
 let db = null;
 function openDB(){
   return new Promise((res,rej)=>{
@@ -473,7 +386,6 @@ function getAll(store){ return new Promise((res,rej)=>{ const tx = db.transactio
 function clearStore(store){ return new Promise((res,rej)=>{ const tx = db.transaction(store,'readwrite'); tx.objectStore(store).clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
 function clearAll(){ return new Promise((res,rej)=>{ const tx = db.transaction(['products','sales','stock','expenses'],'readwrite'); tx.objectStore('products').clear(); tx.objectStore('sales').clear(); tx.objectStore('stock').clear(); tx.objectStore('expenses').clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
 
-/* ---------- App-level cache to avoid repeated DB reads ---------- */
 const CACHE = { products: null, sales: null, stock: null, expenses: null, lastLoaded: 0 };
 async function loadCache(force=false){
   if(!force && Date.now() - CACHE.lastLoaded < 300 && CACHE.products) return CACHE;
@@ -486,7 +398,6 @@ async function loadCache(force=false){
   return CACHE;
 }
 
-/* Debounced UI refresh queue to batch rapid changes */
 let refreshTimer = null;
 function queueRefresh(opts={views:true,charts:true,cache:true}) {
   if(refreshTimer) clearTimeout(refreshTimer);
@@ -498,9 +409,8 @@ function queueRefresh(opts={views:true,charts:true,cache:true}) {
   }, 120);
 }
 
-/* ---------- Utility helpers ---------- */
 const $id = id => document.getElementById(id);
-function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeHtml(s){ return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":"&#39;"}[c])); }
 function isPageActive(id){ return document.getElementById(id)?.classList.contains('active'); }
 function showPage(pageId){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -513,7 +423,6 @@ function showPage(pageId){
   if(pageId === 'dashboard') queueRefresh({views:true,charts:true,cache:false});
 }
 
-/* wire sidebar */
 function wireSidebar(){
   document.querySelectorAll('.sidebar button').forEach(btn=>{
     btn.removeEventListener('click', btn._gwClickListener);
@@ -523,29 +432,46 @@ function wireSidebar(){
 }
 wireSidebar();
 
-/* Modal helpers */
 const modal = $id('modal'); const modalContent = $id('modalContent'); const modalClose = $id('modalClose');
 function openModal(html){ if(!modal||!modalContent) return; modalContent.innerHTML = html; modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); }
 function closeModal(){ if(!modal) return; modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); }
 modalClose?.addEventListener('click', closeModal);
 modal?.addEventListener('click', (e)=>{ if(e.target === modal) closeModal(); });
 
-/* ---------- Renderers (use CACHE to avoid repeated getAll) ---------- */
+window.addEventListener('error', (ev) => {
+  try {
+    const msg = `<h3>Application Error</h3><pre style="white-space:pre-wrap">${escapeHtml(String(ev.error || ev.message || ev))}</pre><div style="text-align:right"><button class="toggle-btn" onclick="closeModal()">Close</button></div>`;
+    openModal(msg);
+    console.error('Captured error', ev);
+  } catch(e) { console.error('Error handler failed', e); }
+});
+window.addEventListener('unhandledrejection', (ev) => {
+  try {
+    const msg = `<h3>Unhandled promise rejection</h3><pre style="white-space:pre-wrap">${escapeHtml(String(ev.reason || ev))}</pre><div style="text-align:right"><button class="toggle-btn" onclick="closeModal()">Close</button></div>`;
+    openModal(msg);
+    console.error('Unhandled rejection', ev);
+  } catch(e) { console.error('Rejection handler failed', e); }
+});
 
-/* Products */
+</script>
+
+<!-- ===== UI & app logic (renderers, CRUD, search) ===== -->
+<script>
+let FILTERS = { products:'', sales:'', stock:'', expenses:'' };
+
 async function renderProductsSafe(){
   const ps = (CACHE.products || await loadCache() && CACHE.products) || [];
+  const q = (FILTERS.products||'').toLowerCase();
   const saleSel = $id('saleProduct'), stockSel = $id('stockProduct'), prodTable = $id('productsTable')?.querySelector('tbody');
   if(!saleSel || !stockSel || !prodTable) return;
-  saleSel.innerHTML=''; stockSel.innerHTML='';
+  saleSel.innerHTML=''; stockSel.innerHTML=''; prodTable.innerHTML = '';
   const frag = document.createDocumentFragment();
-  prodTable.innerHTML = '';
-  ps.forEach(p=>{
+  ps.filter(p => !q || p.name.toLowerCase().includes(q) || (p.category||'').toLowerCase().includes(q)).forEach(p=>{
     const o = document.createElement('option'); o.value = p.id; o.text = `${p.name} — ${p.price}`; saleSel.appendChild(o);
     const o2 = o.cloneNode(true); stockSel.appendChild(o2);
     const tr = document.createElement('tr');
     const thumb = p.image ? `<img src="${p.image}" style="width:48px;height:32px;object-fit:cover;border-radius:6px">` : `<div style="width:48px;height:32px;background:#f3f4f6;border-radius:6px"></div>`;
-    tr.innerHTML = `<td>${thumb}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.category||'other')}</td><td>KES ${p.price}</td><td>KES ${p.cost}</td><td>${Number(p.inventory)||0}</td>
+    tr.innerHTML = `<td>${thumb}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(p.category||'')}</td><td>KES ${p.price}</td><td>KES ${p.cost}</td><td>${Number(p.inventory)||0}</td>
       <td style="text-align:right"><button class="toggle-btn" data-id="${p.id}" data-action="view-prod">View</button>
       <button class="toggle-btn" data-id="${p.id}" data-action="edit-prod">Edit</button>
       <button class="toggle-btn" data-id="${p.id}" data-action="del-prod">Delete</button></td>`;
@@ -560,16 +486,15 @@ async function renderProductsSafe(){
         const prod = (CACHE.products || []).find(x=>x.id===id); if(!prod) return alert('Not found');
         const html = `<h3>${escapeHtml(prod.name)}</h3>
           <div style="display:flex;gap:10px;align-items:center">
-            <div>${prod.image?`<img src="${prod.image}" style="width:120px;height:80px;object-fit:cover;border-radius:8px">`:'<div style="width:120px;height:80px;background:#f3f4f6;border-radius:8px"></div>'}</div>
-            <div style="flex:1"><div>Category: ${escapeHtml(prod.category||'other')}</div><div>Price: KES ${prod.price}</div><div>Cost: KES ${prod.cost}</div></div>
+            <div>${prod.image?`<img src="${prod.image}" style="width:160px;height:120px;object-fit:cover;border-radius:8px">`:'<div style="width:160px;height:120px;background:#f3f4f6;border-radius:8px"></div>'}</div>
+            <div style="flex:1"><div>Category: ${escapeHtml(prod.category||'')}</div><div>Price: KES ${prod.price}</div><div>Cost: KES ${prod.cost}</div><div>Inventory: ${prod.inventory||0}</div></div>
           </div><div style="text-align:right;margin-top:8px"><button id="closeViewProd" class="toggle-btn">Close</button></div>`;
         openModal(html);
         document.getElementById('closeViewProd')?.addEventListener('click', closeModal);
       } else if(action === 'edit-prod'){
         const prod = (CACHE.products || []).find(x=>x.id===id); if(!prod) return alert('Not found');
-        const html = `<h3>Edit product</h3><div style="display:grid;gap:8px"><input id="editName" value="${escapeHtml(prod.name)}"/><input id="editPrice" type="number" value="${prod.price}"/><input id="editCost" type="number" value="${prod.cost}"/><select id="editCategory"><option value="small">Small</option><option value="big">Big</option><option value="water">Water</option><option value="other">Other</option></select><div style="display:flex;gap:8px"><button id="saveProd" class="toggle-btn">Save</button><button id="cancelProd" class="toggle-btn">Cancel</button></div></div>`;
+        const html = `<h3>Edit product</h3><div style="display:grid;gap:8px"><input id="editName" value="${escapeHtml(prod.name)}"/><input id="editCategory" value="${escapeHtml(prod.category||'')}"/><input id="editPrice" type="number" value="${prod.price}"/><input id="editCost" type="number" value="${prod.cost}"/><div style="display:flex;gap:8px"><button id="saveProd" class="toggle-btn">Save</button><button id="cancelProd" class="toggle-btn">Cancel</button></div></div>`;
         openModal(html);
-        document.getElementById('editCategory').value = prod.category||'other';
         document.getElementById('cancelProd')?.addEventListener('click', closeModal);
         document.getElementById('saveProd')?.addEventListener('click', async ()=>{
           prod.name = document.getElementById('editName').value.trim() || prod.name;
@@ -591,49 +516,89 @@ async function renderProductsSafe(){
   });
 }
 
-/* Stock */
 async function renderStockSafe(){
   const s = CACHE.stock || [];
   const ps = CACHE.products || [];
+  const q = (FILTERS.stock||'').toLowerCase();
   const table = $id('stockTable')?.querySelector('tbody'); if(!table) return;
   table.innerHTML = '';
+
+  // Aggregate stock by product: total positive qty and total sold (negative qty)
+  const map = {}; // productId -> {product, pos, neg, lastTime, entries}
+  for(const row of s){
+    const pid = row.productId;
+    if(!map[pid]) map[pid] = { product: (ps.find(p=>p.id===pid) || {name:'?'}), pos:0, neg:0, lastTime:0, entries:[] };
+    map[pid].entries.push(row);
+    if(row.qty > 0) map[pid].pos += Number(row.qty);
+    else map[pid].neg += Math.abs(Number(row.qty));
+    if(row.t && row.t > map[pid].lastTime) map[pid].lastTime = row.t;
+  }
+
   const frag = document.createDocumentFragment();
-  s.slice().reverse().forEach(row=>{
-    const prod = ps.find(p=>p.id===row.productId) || {name:'?'};
-    const qtyDisplay = row.qty < 0 ? `${row.qty} (sale)` : String(row.qty);
+  Object.keys(map).forEach(pid=>{
+    const group = map[pid];
+    const prod = group.product;
+    const pname = prod.name || '?';
+    const combined = `${group.pos}${group.neg?` (-${group.neg})`:''}`;
+    const pc = ''; // could show latest price/cost if needed
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${escapeHtml(prod.name)}</td><td>${qtyDisplay}</td><td>${new Date(row.t).toLocaleString()}</td>
-      <td style="text-align:right"><button class="toggle-btn" data-id="${row.id}" data-action="del-stock">Delete</button></td>`;
+    tr.innerHTML = `<td>${escapeHtml(pname)}</td><td>${combined}</td><td>${pc}</td><td>${group.lastTime?new Date(group.lastTime).toLocaleString():''}</td>
+      <td style="text-align:right"><button class="toggle-btn" data-pid="${pid}" data-action="view-stock">Details</button></td>`;
     frag.appendChild(tr);
   });
   table.appendChild(frag);
+
   table.querySelectorAll('button').forEach(b=>{
+    const pid = Number(b.getAttribute('data-pid'));
+    const action = b.getAttribute('data-action');
     b.onclick = async ()=>{
-      const id = Number(b.getAttribute('data-id'));
-      const entry = (CACHE.stock||[]).find(s=>s.id===id);
-      if(!entry) return;
-      if(!confirm('Delete this stock entry? This will adjust product inventory accordingly.')) return;
-      await updateProductInventory(entry.productId, -entry.qty);
-      await del('stock', id);
-      await loadCache(true);
-      queueRefresh({views:true,charts:false,cache:false});
+      if(action === 'view-stock'){
+        const product = (CACHE.products||[]).find(p=>p.id===pid) || {name:'?'};
+        const entries = (CACHE.stock||[]).filter(s=>s.productId==pid).sort((a,b)=>b.t-a.t);
+        let html = `<h3>Stock details — ${escapeHtml(product.name)}</h3><table style="width:100%;border-collapse:collapse"><thead><tr><th>Qty</th><th>Price</th><th>Cost</th><th>Time</th></tr></thead><tbody>`;
+        entries.forEach(e=> html += `<tr><td>${e.qty}</td><td>${e.price||''}</td><td>${e.cost||''}</td><td>${new Date(e.t).toLocaleString()}</td></tr>`);
+        html += `</tbody></table><div style="text-align:right;margin-top:8px"><button class="toggle-btn" id="closeStockDetails">Close</button></div>`;
+        openModal(html);
+        document.getElementById('closeStockDetails')?.addEventListener('click', closeModal);
+      }
     };
   });
 }
 
-/* Sales */
 async function renderSalesSafe(){
   const s = CACHE.sales || [];
+  const q = (FILTERS.sales||'').toLowerCase();
   const tbody = $id('salesTable')?.querySelector('tbody'); if(!tbody) return;
   tbody.innerHTML = '';
   const frag = document.createDocumentFragment();
-  s.slice().reverse().forEach(row=>{
+  s.slice().reverse().filter(row=>{
+    return !q || (row.productName||'').toLowerCase().includes(q) || String(row.qty).includes(q) || String(row.total).includes(q) || new Date(row.t).toLocaleString().toLowerCase().includes(q);
+  }).forEach(row=>{
+    const unit = row.unitPrice || (row.total/Math.max(1,row.qty));
+    // expected profit (if unitPrice known)
+    const expectedTotal = (row.unitPrice || unit) * row.qty;
+    const expectedProfit = (row.unitPrice ? (row.unitPrice * row.qty) : expectedTotal) - (row.costBasis || 0);
+    const actualProfit = (row.total || 0) - (row.costBasis || 0);
+    let profitDisplay = `KES ${actualProfit}`;
+    if(typeof row.unitPrice !== 'undefined' && row.unitPrice !== null && row.paid && row.paid !== row.unitPrice*row.qty){
+      // sold below/above price — show expected vs actual
+      profitDisplay += ` <span class="small-muted">(expected KES ${expectedProfit})</span>`;
+    }
+
+    // Unit column: show unit price, and paid per unit if different
+    let unitDisplay = `KES ${unit}`;
+    if(row.paid && row.paid !== (unit*row.qty)){
+      const paidPerUnit = (row.paid / Math.max(1,row.qty)).toFixed(2);
+      unitDisplay += ` (paid KES ${paidPerUnit})`;
+    }
+
     const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${escapeHtml(row.productName)}</td><td>${row.qty}</td><td>KES ${row.total}</td><td>KES ${row.profit}</td><td class="small-muted">${new Date(row.t).toLocaleString()}</td>
+    tr.innerHTML = `<td>${escapeHtml(row.productName)}</td><td>${row.qty}${row.qty>1?` <span class="small-muted">(${row.qty})</span>`:''}</td><td>${unitDisplay}</td><td>KES ${row.total}</td><td>${profitDisplay}</td><td class="small-muted">${new Date(row.t).toLocaleString()}</td>
       <td style="text-align:right"><button class="toggle-btn" data-id="${row.id}" data-action="edit-sale">Edit</button><button class="toggle-btn" data-id="${row.id}" data-action="del-sale">Delete</button></td>`;
     frag.appendChild(tr);
   });
   tbody.appendChild(frag);
+
   tbody.querySelectorAll('button').forEach(b=>{
     b.onclick = async ()=>{
       const id = Number(b.getAttribute('data-id')), action = b.getAttribute('data-action');
@@ -649,12 +614,14 @@ async function renderSalesSafe(){
       } else if(action==='edit-sale'){
         const sale = (CACHE.sales||[]).find(x=>x.id===id); if(!sale) return alert('Sale not found');
         const options = (CACHE.products||[]).map(p=>`<option value="${p.id}" ${p.id===sale.productId?'selected':''}>${escapeHtml(p.name)}</option>`).join('');
-        const html = `<h3>Edit Sale</h3><div style="display:grid;gap:8px"><select id="editSaleProd">${options}</select><input id="editSaleQty" type="number" value="${sale.qty}"/><div style="display:flex;gap:8px"><button id="saveSale" class="toggle-btn">Save</button><button id="cancelSale" class="toggle-btn">Cancel</button></div></div>`;
+        const html = `<h3>Edit Sale</h3><div style="display:grid;gap:8px"><select id="editSaleProd">${options}</select><input id="editSaleQty" type="number" value="${sale.qty}"/><input id="editSaleUnit" type="number" value="${sale.unitPrice||''}" placeholder="Unit price (optional)"/><input id="editSalePaid" type="number" value="${sale.paid||''}" placeholder="Paid (optional)"/><div style="display:flex;gap:8px"><button id="saveSale" class="toggle-btn">Save</button><button id="cancelSale" class="toggle-btn">Cancel</button></div></div>`;
         openModal(html);
         $id('cancelSale')?.addEventListener('click', closeModal);
         $id('saveSale')?.addEventListener('click', async ()=>{
           const newPid = Number($id('editSaleProd').value);
           const newQty = Number($id('editSaleQty').value)||1;
+          const newUnit = Number($id('editSaleUnit').value) || null;
+          const newPaid = Number($id('editSalePaid').value) || 0;
           const products = CACHE.products || [];
           const pNew = products.find(x=>x.id===newPid);
           if(!pNew) return alert('Product not found');
@@ -665,12 +632,15 @@ async function renderSalesSafe(){
             await updateProductInventory(sale.productId, sale.qty);
             await updateProductInventory(newPid, -newQty);
           }
-          sale.productId = newPid; sale.productName = pNew.name; sale.qty = newQty; sale.total = newQty * pNew.price; sale.profit = (pNew.price - pNew.cost) * newQty;
+          const linkedStock = (CACHE.stock||[]).filter(s=>s.saleId===sale.id);
+          for(const ls of linkedStock){ await updateProductInventory(ls.productId, -ls.qty); await del('stock', ls.id); }
+          const totalCostUsed = await consumeStockForSale(newPid, newQty);
+          const unitPrice = newUnit || pNew.price;
+          const expectedTotal = unitPrice * newQty;
+          const total = newPaid && newPaid > 0 ? newPaid : expectedTotal;
+          sale.productId = newPid; sale.productName = pNew.name; sale.qty = newQty; sale.unitPrice = unitPrice; sale.total = total; sale.paid = newPaid; sale.costBasis = totalCostUsed; sale.profit = total - totalCostUsed;
           await put('sales', sale);
-          const allStock = CACHE.stock || [];
-          const linked = allStock.find(s => s.saleId === sale.id);
-          if(linked){ linked.qty = -newQty; linked.productId = newPid; await put('stock', linked); }
-          else await add('stock', { productId: sale.productId, qty:-newQty, saleId: sale.id });
+          await add('stock', { productId: newPid, qty: -newQty, saleId: sale.id, t:Date.now() });
           await loadCache(true);
           closeModal();
           queueRefresh({views:true,charts:true,cache:false});
@@ -680,13 +650,15 @@ async function renderSalesSafe(){
   });
 }
 
-/* Expenses */
 async function renderExpensesSafe(){
   const e = CACHE.expenses || [];
+  const q = (FILTERS.expenses||'').toLowerCase();
   const tbody = $id('expTable')?.querySelector('tbody'); if(!tbody) return;
   tbody.innerHTML = '';
   const frag = document.createDocumentFragment();
-  e.slice().reverse().forEach(row=>{
+  e.slice().reverse().filter(row=>{
+    return !q || (row.desc||'').toLowerCase().includes(q) || String(row.amt).includes(q) || new Date(row.t).toLocaleString().toLowerCase().includes(q);
+  }).forEach(row=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${escapeHtml(row.desc)}</td><td>KES ${row.amt}</td><td class="small-muted">${new Date(row.t).toLocaleString()}</td><td style="text-align:right"><button class="toggle-btn" data-id="${row.id}" data-action="del-exp">Del</button></td>`;
     frag.appendChild(tr);
@@ -697,14 +669,13 @@ async function renderExpensesSafe(){
   });
 }
 
-/* Dashboard & small lists */
 async function updateDashboardSafe(){
   const s = CACHE.sales || []; const e = CACHE.expenses || [];
   const todayStart = new Date(); todayStart.setHours(0,0,0,0);
   const salesToday = s.filter(x=>x.t >= todayStart.getTime());
   const expensesToday = e.filter(x=>x.t >= todayStart.getTime());
   const totalSales = salesToday.reduce((a,b)=>a+b.total,0);
-  const totalProfit = salesToday.reduce((a,b)=>a+b.profit,0);
+  const totalProfit = salesToday.reduce((a,b)=>a+a? a+b.profit: b.profit,0);
   const totalExp = expensesToday.reduce((a,b)=>a+b.amt,0);
   if($id('salesToday')) $id('salesToday').textContent = 'KES ' + totalSales;
   if($id('profitToday')) $id('profitToday').textContent = 'KES ' + totalProfit;
@@ -736,7 +707,6 @@ async function updateDashboardSafe(){
   }
 }
 
-/* Recalculate inventory from stock (used on import/reset) */
 async function recalcInventoryFromStock(){
   const products = CACHE.products || await loadCache() && CACHE.products;
   const stock = CACHE.stock || await loadCache() && CACHE.stock;
@@ -748,7 +718,6 @@ async function recalcInventoryFromStock(){
   await loadCache(true);
 }
 
-/* ---------- Public small helpers ---------- */
 async function updateProductInventory(productId, delta){
   const ps = CACHE.products || await loadCache() && CACHE.products;
   const p = ps.find(x=>x.id===productId);
@@ -758,116 +727,51 @@ async function updateProductInventory(productId, delta){
   await loadCache(true);
 }
 
-/* ---------- Charts (visible-only & debounced) ---------- */
-function clearCanvas(ctx, w, h){ ctx.clearRect(0,0,w,h); }
-function drawLineChartCanvas(ctx,w,h,labels,values){
-  if(!labels.length || !values.length) return;
-  const paddingLeft = 40, paddingRight = 20, top=20, bottom=30;
-  const max = Math.max(...values,1);
-  const usableW = w - paddingLeft - paddingRight;
-  const points = values.map((v,i)=>{ const x = paddingLeft + (i/(values.length-1 || 1))*usableW; const y = top + (1 - (v/max)) * (h - top - bottom); return {x,y}; });
-  ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y); points.forEach(p=> ctx.lineTo(p.x,p.y)); ctx.lineTo(points[points.length-1].x, h-bottom); ctx.lineTo(points[0].x, h-bottom); ctx.closePath();
-  ctx.fillStyle = 'rgba(15,118,110,0.12)'; ctx.fill();
-  ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = '#0f766e'; points.forEach((p,i)=> i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke();
-  ctx.fillStyle = '#0f766e'; points.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); });
-}
-async function getSalesByDay(days=10){
-  const sales = CACHE.sales || [];
-  const labels=[]; const values=[];
-  for(let i=days-1;i>=0;i--){
-    const d=new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0);
-    const next = d.getTime() + 86400000;
-    const total = sales.filter(s=>s.t>=d.getTime() && s.t<next).reduce((a,b)=>a+b.total,0);
-    labels.push(d.toLocaleDateString()); values.push(total);
+async function consumeStockForSale(productId, qtyNeeded){
+  if(qtyNeeded <= 0) return 0;
+  const stockEntries = (CACHE.stock||[]).filter(s=>s.productId==productId && s.qty>0).sort((a,b)=>a.t - b.t);
+  let remaining = qtyNeeded;
+  let totalCost = 0;
+  for(const se of stockEntries){
+    if(remaining <= 0) break;
+    const take = Math.min(remaining, se.qty);
+    remaining -= take;
+    se.qty = Number(se.qty) - take;
+    await put('stock', se);
+    const unitCost = typeof se.cost !== 'undefined' && se.cost !== null ? Number(se.cost) : ( (CACHE.products||[]).find(p=>p.id==productId)?.cost || 0 );
+    totalCost += take * unitCost;
+    await updateProductInventory(productId, -take);
   }
-  return {labels,values};
-}
-async function renderChartsSafe(){
-  if(isPageActive('dashboard') && $id('dashMini')){
-    const mini = $id('dashMini'); const ctx = mini.getContext('2d'); const d = await getSalesByDay(10);
-    clearCanvas(ctx, mini.width, mini.height); drawLineChartCanvas(ctx, mini.width, mini.height, d.labels, d.values);
+  if(remaining > 0){
+    const fallbackCost = (CACHE.products||[]).find(p=>p.id==productId)?.cost || 0;
+    totalCost += remaining * fallbackCost;
   }
-  if(isPageActive('reports') && $id('reportCanvas')){
-    const canvas = $id('reportCanvas'); const ctx = canvas.getContext('2d');
-    clearCanvas(ctx, canvas.width, canvas.height);
-    const range = $id('reportRange')?.value || '10days';
-    if(range === '10days'){
-      const data = await getSalesByDay(10); drawLineChartCanvas(ctx, canvas.width, canvas.height, data.labels, data.values);
-    } else if(range === 'thisMonth'){
-      const sales = CACHE.sales || []; const now = new Date(); const days = new Date(now.getFullYear(), now.getMonth()+1,0).getDate();
-      const labels = []; const values = [];
-      for(let d=1; d<=days; d++){
-        const start = new Date(now.getFullYear(), now.getMonth(), d); start.setHours(0,0,0,0); const end = start.getTime()+86400000;
-        labels.push(String(d)); values.push(sales.filter(s=>s.t>=start.getTime() && s.t<end).reduce((a,b)=>a+b.total,0));
-      }
-      drawLineChartCanvas(ctx, canvas.width, canvas.height, labels, values);
-    } else {
-      const months = []; const vals = []; const sales = CACHE.sales || [];
-      for(let i=11;i>=0;i--){
-        const d = new Date(); d.setMonth(d.getMonth()-i); d.setDate(1); d.setHours(0,0,0,0);
-        const start = d.getTime(); const end = new Date(d.getFullYear(), d.getMonth()+1,1).getTime();
-        months.push(d.toLocaleString('default',{month:'short',year:'numeric'}));
-        vals.push(sales.filter(s=>s.t>=start && s.t<end).reduce((a,b)=>a+b.total,0));
-      }
-      drawLineChartCanvas(ctx, canvas.width, canvas.height, months, vals);
-    }
-  }
+  await loadCache(true);
+  return totalCost;
 }
 
-/* ---------- Refresh views (single entry using cache) ---------- */
+function clearCanvas(ctx, w, h){ ctx.clearRect(0,0,w,h); }
+function drawLineChartCanvas(ctx,w,h,labels,values){ if(!labels.length || !values.length) return; const paddingLeft = 40, paddingRight = 20, top=20, bottom=30; const max = Math.max(...values,1); const usableW = w - paddingLeft - paddingRight; const points = values.map((v,i)=>{ const x = paddingLeft + (i/(values.length-1 || 1))*usableW; const y = top + (1 - (v/max)) * (h - top - bottom); return {x,y}; }); ctx.beginPath(); ctx.moveTo(points[0].x, points[0].y); points.forEach(p=> ctx.lineTo(p.x,p.y)); ctx.lineTo(points[points.length-1].x, h-bottom); ctx.lineTo(points[0].x, h-bottom); ctx.closePath(); ctx.fillStyle = 'rgba(249,115,22,0.12)'; ctx.fill(); ctx.beginPath(); ctx.lineWidth = 2; ctx.strokeStyle = '#f97316'; points.forEach((p,i)=> i===0?ctx.moveTo(p.x,p.y):ctx.lineTo(p.x,p.y)); ctx.stroke(); ctx.fillStyle = '#f97316'; points.forEach(p=>{ ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); }); }
+async function getSalesByDay(days=10){ const sales = CACHE.sales || []; const labels=[]; const values=[]; for(let i=days-1;i>=0;i--){ const d=new Date(); d.setDate(d.getDate()-i); d.setHours(0,0,0,0); const next = d.getTime() + 86400000; const total = sales.filter(s=>s.t>=d.getTime() && s.t<next).reduce((a,b)=>a+b.total,0); labels.push(d.toLocaleDateString()); values.push(total); } return {labels,values}; }
+async function renderChartsSafe(){ if(isPageActive('dashboard') && $id('dashMini')){ const mini = $id('dashMini'); const ctx = mini.getContext('2d'); const d = await getSalesByDay(10); clearCanvas(ctx, mini.width, mini.height); drawLineChartCanvas(ctx, mini.width, mini.height, d.labels, d.values); } if(isPageActive('reports') && $id('reportCanvas')){ const canvas = $id('reportCanvas'); const ctx = canvas.getContext('2d'); clearCanvas(ctx, canvas.width, canvas.height); const range = $id('reportRange')?.value || '10days'; if(range === '10days'){ const data = await getSalesByDay(10); drawLineChartCanvas(ctx, canvas.width, canvas.height, data.labels, data.values); } else if(range === 'thisMonth'){ const sales = CACHE.sales || []; const now = new Date(); const days = new Date(now.getFullYear(), now.getMonth()+1,0).getDate(); const labels = []; const values = []; for(let d=1; d<=days; d++){ const start = new Date(now.getFullYear(), now.getMonth(), d); start.setHours(0,0,0,0); const end = start.getTime()+86400000; labels.push(String(d)); values.push(sales.filter(s=>s.t>=start.getTime() && s.t<end).reduce((a,b)=>a+b.total,0)); } drawLineChartCanvas(ctx, canvas.width, canvas.height, labels, values); } else { const months = []; const vals = []; const sales = CACHE.sales || []; for(let i=11;i>=0;i--){ const d = new Date(); d.setMonth(d.getMonth()-i); d.setDate(1); d.setHours(0,0,0,0); const start = d.getTime(); const end = new Date(d.getFullYear(), d.getMonth()+1,1).getTime(); months.push(d.toLocaleString('default',{month:'short',year:'numeric'})); vals.push(sales.filter(s=>s.t>=start && s.t<end).reduce((a,b)=>a+b.total,0)); } drawLineChartCanvas(ctx, canvas.width, canvas.height, months, vals); } } }
+
 async function renderAllViewsSafe(){
   if(!CACHE.products) await loadCache(true);
   await renderProductsSafe(); await renderStockSafe(); await renderSalesSafe(); await renderExpensesSafe(); await updateDashboardSafe();
 }
 
-/* ---------- Event wiring & CRUD operations ---------- */
-/* Helper to get product category including custom 'Other' */
 async function getProductCategoryFromForm(){
-  const sel = document.getElementById('pCategory');
-  const otherInput = document.getElementById('pCategoryOther');
-  let category = (sel?.value) || 'other';
-  if(category === 'other' && otherInput && otherInput.value.trim()){
-    category = otherInput.value.trim();
-  }
-  return category;
+  const val = document.getElementById('pCategory');
+  return val ? val.value.trim() : '';
 }
 
-/* show/hide custom other input, and wire preview for image */
-(function wireCustomOtherCategoryAndPreview(){
-  const sel = document.getElementById('pCategory');
-  if(!sel) return;
-  let otherInput = document.getElementById('pCategoryOther');
-  if(!otherInput){
-    otherInput = document.createElement('input');
-    otherInput.id = 'pCategoryOther';
-    otherInput.type = 'text';
-    otherInput.placeholder = "Custom category (when 'Other' selected)";
-    otherInput.style.display = 'none';
-    otherInput.style.padding = '8px';
-    otherInput.style.borderRadius = '8px';
-    otherInput.style.border = '1px solid #ddd';
-    otherInput.style.marginTop = '6px';
-    sel.parentNode.insertBefore(otherInput, sel.nextSibling);
-  }
-  function toggle(){
-    if(sel.value === 'other'){
-      otherInput.style.display = 'block';
-      otherInput.focus();
-    } else {
-      otherInput.style.display = 'none';
-    }
-  }
-  sel.addEventListener('change', toggle);
-  toggle();
-
-  // preview image when selected
+(function wirePreview(){
   const fileEl = document.getElementById('pImage');
   const preview = document.getElementById('pPreview');
   if(fileEl){
     fileEl.addEventListener('change', async (e) => {
       const f = e.target.files && e.target.files[0];
       if(!f){ preview.style.display = 'none'; preview.src = ''; return; }
-      // show a data URL for preview (no resizing here)
       const dataUrl = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); });
       preview.src = dataUrl; preview.style.display = 'block';
     });
@@ -885,35 +789,119 @@ document.getElementById('addProductBtn')?.addEventListener('click', async (e)=>{
     if(file.size > 500_000 && !confirm('Image > 500KB. This may bloat local DB. Continue?')) return;
     imageData = await new Promise((res,rej)=>{ const fr = new FileReader(); fr.onload = ()=> res(fr.result); fr.onerror = rej; fr.readAsDataURL(file); });
   }
+  await loadCache(true);
+  const exists = (CACHE.products||[]).find(p=>p.name.toLowerCase() === name.toLowerCase());
+  if(exists){
+    if(confirm('A product with that name already exists. Do you want to add inventory to the existing product instead? (Yes = open Stock page)')){
+      showPage('stock');
+      $id('stockProduct').value = exists.id;
+      return;
+    } else {
+      return alert('Product not added. Choose a unique product name to create a separate product.');
+    }
+  }
   await add('products', { name, price, cost, inventory:0, category, image: imageData });
   await loadCache(true);
   $id('pName').value=''; $id('pPrice').value=''; $id('pCost').value=''; if($id('pImage')) $id('pImage').value=''; if($id('pPreview')){ $id('pPreview').src=''; $id('pPreview').style.display='none'; }
   queueRefresh({views:true,charts:false,cache:false});
 });
 
+async function mergeDuplicateProducts(){
+  await loadCache(true);
+  const groups = {};
+  for(const p of CACHE.products||[]){
+    const key = p.name.trim().toLowerCase();
+    groups[key] = groups[key] || [];
+    groups[key].push(p);
+  }
+  let mergedCount = 0;
+  for(const key in groups){
+    const arr = groups[key];
+    if(arr.length <= 1) continue;
+    const keeper = arr.reduce((a,b)=> a.id < b.id ? a : b);
+    const toMerge = arr.filter(x=>x.id !== keeper.id);
+    let sumInventory = Number(keeper.inventory || 0);
+    for(const m of toMerge){ sumInventory += Number(m.inventory || 0); }
+    keeper.inventory = sumInventory;
+    for(const m of toMerge){
+      const salesToUpdate = (CACHE.sales||[]).filter(s=>s.productId === m.id);
+      for(const s of salesToUpdate){ s.productId = keeper.id; s.productName = keeper.name; await put('sales', s); }
+      const stockToUpdate = (CACHE.stock||[]).filter(s=>s.productId === m.id);
+      for(const st of stockToUpdate){ st.productId = keeper.id; await put('stock', st); }
+      await del('products', m.id);
+      mergedCount++;
+    }
+    await put('products', keeper);
+  }
+  await loadCache(true);
+  queueRefresh({views:true,charts:true,cache:false});
+  alert(`Merge complete. ${mergedCount} duplicate product entries merged.`);
+}
+
+document.getElementById('mergeDupBtn')?.addEventListener('click', ()=>{ if(confirm('Merge duplicate product names now? This will combine inventories and re-point sales/stock to a single product.')) mergeDuplicateProducts(); });
+document.getElementById('mergeDuplicates')?.addEventListener('click', ()=>{ if(confirm('Merge duplicate product names now? This will combine inventories and re-point sales/stock to a single product.')) mergeDuplicateProducts(); });
+
+let extraLayerCount = 0;
+document.getElementById('stockNewCheck')?.addEventListener('change', (e)=>{
+  const el = $id('stockLayers'); if(e.target.checked) el.style.display='flex'; else el.style.display='none';
+});
+
+document.getElementById('addLayerBtn')?.addEventListener('click', (e)=>{
+  e.preventDefault();
+  if(extraLayerCount >= 3) return alert('Maximum 4 layers allowed (main + 3 extra).');
+  extraLayerCount++;
+  const div = document.createElement('div'); div.style.display='flex'; div.style.gap='6px'; div.id = 'layer'+extraLayerCount;
+  div.innerHTML = `<input class="layerQty" placeholder="Qty" style="width:80px"/><input class="layerPrice" placeholder="Unit price" style="width:120px"/><input class="layerCost" placeholder="Unit cost" style="width:120px"/><button class="toggle-btn removeLayer">-</button>`;
+  $id('extraLayers').appendChild(div);
+  div.querySelector('.removeLayer').addEventListener('click', ()=>{ div.remove(); extraLayerCount--; });
+});
+
 document.getElementById('addStockBtn')?.addEventListener('click', async ()=>{
   const pid = Number($id('stockProduct').value); const qty = Number($id('stockQty').value)||0;
   if(!pid || qty<=0) return alert('Choose product and quantity');
-  await add('stock', { productId: pid, qty, t:Date.now() });
-  await updateProductInventory(pid, qty);
+  const isNew = $id('stockNewCheck').checked;
+  const basePrice = Number($id('stockPrice')?.value) || null; const baseCost = Number($id('stockCost')?.value) || null;
+  const entries = [];
+  if(isNew){
+    entries.push({ productId: pid, qty, price: basePrice, cost: baseCost, t: Date.now() });
+    const extraDiv = $id('extraLayers');
+    if(extraDiv){
+      extraDiv.querySelectorAll('div').forEach(d=>{
+        const q = Number(d.querySelector('.layerQty')?.value) || 0;
+        const p = Number(d.querySelector('.layerPrice')?.value) || null;
+        const c = Number(d.querySelector('.layerCost')?.value) || null;
+        if(q>0) entries.push({ productId: pid, qty: q, price: p, cost: c, t: Date.now() });
+      });
+    }
+  } else {
+    entries.push({ productId: pid, qty, t: Date.now() });
+  }
+  for(const ent of entries){ await add('stock', ent); await updateProductInventory(pid, ent.qty); }
   await loadCache(true);
-  $id('stockQty').value=''; queueRefresh({views:true,charts:true,cache:false});
+  $id('stockQty').value=''; $id('stockPrice').value=''; $id('stockCost').value=''; $id('stockNewCheck').checked=false; $id('stockLayers').style.display='none'; $id('extraLayers').innerHTML=''; extraLayerCount=0;
+  queueRefresh({views:true,charts:true,cache:false});
 });
 
+/* Add Sale enhanced: use paid amount if provided to calculate actual total and profit */
 document.getElementById('addSaleBtn')?.addEventListener('click', async ()=>{
   const pid = Number($id('saleProduct').value); const qty = Number($id('saleQty').value)||1; const paid = Number($id('salePaid').value)||0;
+  const overrideUnit = Number($id('salePrice')?.value) || null;
   const p = (CACHE.products || await loadCache() && CACHE.products).find(x=>x.id===pid);
   if(!p) return alert('Select product');
-  const total = qty * p.price; const profit = (p.price - p.cost) * qty;
   const currentInv = Number(p.inventory) || 0;
   if(currentInv - qty < 0){
     if(!confirm(`Warning: current remaining stock is ${currentInv}. Selling ${qty} will make stock negative. Proceed?`)) return;
   }
-  const saleId = await add('sales', { productId: pid, productName: p.name, qty, total, profit, paid, t:Date.now() });
+  const totalCostUsed = await consumeStockForSale(pid, qty);
+  const unitPrice = overrideUnit || p.price;
+  const expectedTotal = qty * unitPrice;
+  const actualTotal = (paid && paid > 0) ? paid : expectedTotal;
+  const total = actualTotal;
+  const profit = total - totalCostUsed;
+  const saleId = await add('sales', { productId: pid, productName: p.name, qty, total, profit, paid, t:Date.now(), unitPrice, costBasis: totalCostUsed });
   await add('stock', { productId: pid, qty: -qty, saleId, t:Date.now() });
-  await updateProductInventory(pid, -qty);
   await loadCache(true);
-  $id('saleQty').value='1'; $id('salePaid').value='';
+  $id('saleQty').value='1'; $id('salePaid').value=''; $id('salePrice').value='';
   queueRefresh({views:true,charts:true,cache:false});
 });
 
@@ -926,75 +914,53 @@ document.getElementById('addExpBtn')?.addEventListener('click', async ()=>{
   queueRefresh({views:true,charts:true,cache:false});
 });
 
-/* Export / Import */
-$id('quickExport')?.addEventListener('click', async ()=>{
-  await loadCache(true);
-  const data = { products: CACHE.products, sales: CACHE.sales, stock: CACHE.stock, expenses: CACHE.expenses };
-  const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'}); const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'records-export.json'; a.click(); URL.revokeObjectURL(url);
-});
-$id('quickImport')?.addEventListener('click', ()=> $id('quickFile').click());
-$id('quickFile')?.addEventListener('change', async (e)=>{
-  const f = e.target.files[0]; if(!f) return;
-  const txt = await f.text(); const data = JSON.parse(txt);
-  if(!confirm('Import will replace current local data. Continue?')) return;
-  await clearAll();
-  for(const p of data.products||[]) await add('products',{name:p.name,price:p.price,cost:p.cost, inventory:0, category:p.category, image:p.image, t:p.t});
-  for(const s of data.stock||[]) await add('stock',{productId:s.productId,qty:s.qty,t:s.t});
-  for(const s of data.sales||[]){ const saleId = await add('sales',{productId:s.productId,productName:s.productName,qty:s.qty,total:s.total,profit:s.profit,paid:s.paid,t:s.t}); if(s.qty && s.qty>0) await add('stock',{productId:s.productId,qty:-s.qty,saleId,t:s.t}); }
-  for(const x of data.expenses||[]) await add('expenses',{desc:x.desc,amt:x.amt,t:x.t});
-  await loadCache(true);
-  await recalcInventoryFromStock();
-  queueRefresh({views:true,charts:true,cache:false});
-});
+/* Export / Import (SheetJS included) */
+</script>
 
-/* Reset handlers */
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script>
+function normalizeForSheet(arr, mapFn){ return (arr||[]).map(item => { if(mapFn) return mapFn(item); const out = {}; Object.keys(item).forEach(k=>{ if(k === 't') out['time'] = new Date(item[k]).toLocaleString(); else out[k] = item[k]; }); return out; }); }
+async function exportAllToExcel(filename='records-export.xlsx'){ await loadCache(true); const products = normalizeForSheet(CACHE.products, p => ({ id: p.id, name: p.name, category: p.category || '', price: p.price, cost: p.cost, inventory: p.inventory || 0, created: p.t ? new Date(p.t).toLocaleString() : '' })); const sales = normalizeForSheet(CACHE.sales, s => ({ id: s.id, productId: s.productId, productName: s.productName, qty: s.qty, unitPrice: s.unitPrice || '', total: s.total, profit: s.profit, paid: s.paid || 0, costBasis: s.costBasis || '', time: s.t ? new Date(s.t).toLocaleString() : '' })); const stock = normalizeForSheet(CACHE.stock, s => ({ id: s.id, productId: s.productId, qty: s.qty, price: s.price || '', cost: s.cost || '', saleId: s.saleId || '', time: s.t ? new Date(s.t).toLocaleString() : '' })); const expenses = normalizeForSheet(CACHE.expenses, x => ({ id: x.id, desc: x.desc, amt: x.amt, time: x.t ? new Date(x.t).toLocaleString() : '' })); if(typeof XLSX === 'undefined'){ const blob = new Blob([JSON.stringify({products, sales, stock, expenses}, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename.replace(/\.xlsx?$/i,'.json'); a.click(); URL.revokeObjectURL(url); alert('SheetJS not available — downloaded JSON instead.'); return; } try { const wb = XLSX.utils.book_new(); const wsProducts = XLSX.utils.json_to_sheet(products); const wsSales = XLSX.utils.json_to_sheet(sales); const wsStock = XLSX.utils.json_to_sheet(stock); const wsExpenses = XLSX.utils.json_to_sheet(expenses); XLSX.utils.book_append_sheet(wb, wsProducts, 'Products'); XLSX.utils.book_append_sheet(wb, wsSales, 'Sales'); XLSX.utils.book_append_sheet(wb, wsStock, 'Stock'); XLSX.utils.book_append_sheet(wb, wsExpenses, 'Expenses'); const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'}); const blob = new Blob([wbout], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; a.click(); URL.revokeObjectURL(url); localStorage.setItem('last_export', new Date().toISOString()); return; } catch (err) { console.error('Excel export failed', err); const blob = new Blob([JSON.stringify({products, sales, stock, expenses}, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename.replace(/\.xlsx?$/i,'.json'); a.click(); URL.revokeObjectURL(url); alert('Excel export failed. JSON exported instead.'); } }
+document.getElementById('quickExport')?.addEventListener('click', async (e)=>{ e.preventDefault(); await exportAllToExcel(); });
+
+document.getElementById('quickImport')?.addEventListener('click', ()=> $id('quickFile').click());
+document.getElementById('quickFile')?.addEventListener('change', async (e)=>{ const f = e.target.files[0]; if(!f) return; try{ const txt = await f.text(); const data = JSON.parse(txt); if(!confirm('Import will replace current local data. Continue?')) return; await clearAll(); for(const p of data.products||[]) await add('products',{name:p.name,price:p.price,cost:p.cost, inventory:0, category:p.category, image:p.image, t:p.t}); for(const s of data.stock||[]) await add('stock',{productId:s.productId,qty:s.qty,price:s.price,cost:s.cost,t:s.t}); for(const s of data.sales||[]){ const saleId = await add('sales',{productId:s.productId,productName:s.productName,qty:s.qty,total:s.total,profit:s.profit,paid:s.paid,t:s.t,unitPrice:s.unitPrice,costBasis:s.costBasis}); if(s.qty && s.qty>0) await add('stock',{productId:s.productId,qty:-s.qty,saleId,t:s.t}); } for(const x of data.expenses||[]) await add('expenses',{desc:x.desc,amt:x.amt,t:x.t}); await loadCache(true); await recalcInventoryFromStock(); queueRefresh({views:true,charts:true,cache:false}); alert('Import complete.'); }catch(err){ console.error('Import failed', err); alert('Failed to import JSON file.'); } });
+
 $id('openReset')?.addEventListener('click', ()=> showPage('settings'));
 $id('resetSales')?.addEventListener('click', async ()=>{ if(confirm('Delete ALL sales?')){ await clearStore('sales'); const allStock = await getAll('stock'); for(const st of allStock){ if(st.saleId) await del('stock', st.id); } await recalcInventoryFromStock(); await loadCache(true); queueRefresh({views:true,charts:true,cache:false}); }});
 $id('resetExpenses')?.addEventListener('click', async ()=>{ if(confirm('Delete ALL expenses?')){ await clearStore('expenses'); await loadCache(true); queueRefresh({views:true,charts:true,cache:false}); }});
 $id('resetStock')?.addEventListener('click', async ()=>{ if(confirm('Delete ALL stock entries?')){ await clearStore('stock'); await recalcInventoryFromStock(); await loadCache(true); queueRefresh({views:true,charts:true,cache:false}); }});
-$id('resetAll')?.addEventListener('click', async ()=>{ if(confirm('Delete EVERYTHING (products, sales, stock, expenses)?')){ await clearAll();
-  await add('products',{name:'6kg Gas',price:350,cost:300, inventory:0});
-  await add('products',{name:'13kg Gas',price:1800,cost:1500, inventory:0});
-  await add('products',{name:'20L Water',price:100,cost:60, inventory:0});
-  await loadCache(true); queueRefresh({views:true,charts:true,cache:false}); }});
+$id('resetAll')?.addEventListener('click', async ()=>{ if(confirm('Delete EVERYTHING (products, sales, stock, expenses)?')){ await clearAll(); await loadCache(true); queueRefresh({views:true,charts:true,cache:false}); }});
 
-/* Theme toggle */
 const themeBtn = $id('themeToggle');
 if(themeBtn) themeBtn.addEventListener('click', ()=>{ const current = document.body.getAttribute('data-theme') || 'light'; const next = current === 'light' ? 'dark' : 'light'; document.body.setAttribute('data-theme', next); themeBtn.textContent = next==='light'?'Dark Mode':'Light Mode'; localStorage.setItem('theme', next); });
 const savedTheme = localStorage.getItem('theme'); if(savedTheme) document.body.setAttribute('data-theme', savedTheme);
 
-/* Safe initial load (open DB, seed, cache, initial renders) */
+/* Search wiring */
+$id('searchProducts')?.addEventListener('input', (e)=>{ FILTERS.products = e.target.value || ''; queueRefresh({views:true,charts:false,cache:false}); });
+$id('searchStock')?.addEventListener('input', (e)=>{ FILTERS.stock = e.target.value || ''; queueRefresh({views:true,charts:false,cache:false}); });
+$id('searchSales')?.addEventListener('input', (e)=>{ FILTERS.sales = e.target.value || ''; queueRefresh({views:true,charts:false,cache:false}); });
+$id('searchExpenses')?.addEventListener('input', (e)=>{ FILTERS.expenses = e.target.value || ''; queueRefresh({views:true,charts:false,cache:false}); });
+
+/* Global search */
+async function globalSearch(query){ if(!query) return openModal('<p>Enter a search term.</p>'); await loadCache(true); const q = query.toLowerCase(); const prodMatches = (CACHE.products||[]).filter(p=> p.name.toLowerCase().includes(q) || (p.category||'').toLowerCase().includes(q)); const salesMatches = (CACHE.sales||[]).filter(s=> (s.productName||'').toLowerCase().includes(q) || String(s.total).includes(q)); const stockMatches = (CACHE.stock||[]).filter(s=> { const p = (CACHE.products||[]).find(x=>x.id==s.productId); return (p && p.name.toLowerCase().includes(q)) || (s.price && String(s.price).includes(q)) || (s.cost && String(s.cost).includes(q)); }); const expMatches = (CACHE.expenses||[]).filter(x=> (x.desc||'').toLowerCase().includes(q) || String(x.amt).includes(q)); let html = `<h3>Search results for "${escapeHtml(query)}"</h3>`; function renderList(title, items, mapFn){ html += `<h4>${title} (${items.length})</h4><ul>`; items.slice(0,20).forEach(it=> html += `<li>${escapeHtml(mapFn(it))}</li>`); html += '</ul>'; }
+  renderList('Products', prodMatches, p=>`${p.name} — ${p.category||''} (Inv: ${p.inventory||0})`);
+  renderList('Sales', salesMatches, s=>`${s.productName} x${s.qty} — KES ${s.total} — ${new Date(s.t).toLocaleString()}`);
+  renderList('Stock', stockMatches, s=>{ const p = (CACHE.products||[]).find(x=>x.id==s.productId); return `${p?p.name:'?'} ${s.qty} — P:${s.price||''} C:${s.cost||''} — ${new Date(s.t).toLocaleString()}`; });
+  renderList('Expenses', expMatches, x=>`${x.desc} — KES ${x.amt} — ${new Date(x.t).toLocaleString()}`);
+  openModal(html);
+}
+$id('globalSearchBtn')?.addEventListener('click', ()=> globalSearch($id('globalSearch').value || ''));
+$id('globalSearch')?.addEventListener('keydown', (e)=>{ if(e.key==='Enter') globalSearch(e.target.value); });
+
+/* Safe initial load */
 async function init(){
   await openDB();
-  const ps = await getAll('products');
-  if(ps.length === 0){
-    await add('products',{name:'6kg Gas',price:350,cost:300, inventory:0});
-    await add('products',{name:'13kg Gas',price:1800,cost:1500, inventory:0});
-    await add('products',{name:'20L Water',price:100,cost:60, inventory:0});
-  }
   await loadCache(true);
   renderAllViewsSafe();
   setTimeout(()=>{ renderChartsSafe(); }, 200);
-
-  // After init, do a quick authorization check to show limited-mode if not authorized when installed
-  const uid = localStorage.getItem('gbms_user_id') || null;
-  if(uid){
-    const auth = await checkAuthorization(uid);
-    if(!auth){
-      // show limited mode modal so installed PWA doesn't behave like fully authorized offline app
-      const mb = document.getElementById('modal');
-      const mc = document.getElementById('modalContent');
-      if(mb && mc){
-        mc.innerHTML = `<h3>Limited mode</h3><p>This device is not authorized for full offline PWA features. You can still use the website. Ask your admin to authorize this device for installation.</p><div style="display:flex;gap:8px;justify-content:flex-end"><a href="/myguy.html" class="toggle-btn">Contact Admin</a></div>`;
-        mb.classList.add('show'); mb.setAttribute('aria-hidden','false');
-      }
-    }
-  }
 }
 window.addEventListener('load', init);
-
-/* lightweight safeguard to avoid costly periodic redraw loops */
 </script>
 
 </body>
