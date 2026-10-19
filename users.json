@@ -2008,5 +2008,12 @@
         "user_agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Mobile Safari/537.36"
       }
     ]
+  },
+  {
+    "name": "Htc",
+    "email": "hhge@gmail.com",
+    "password": "scrypt:32768:8:1$YVp32rMVPwqjdK7L$d00d860937ef9ac3dbe9bb94846ab971c8b6c8ec17bd5f76d7b8841f0692a74c1e5a4774a6e8ae30cad305099683dd0d770c4e26bcd511bb77b2a3cb8604413c",
+    "enabled": true,
+    "login_history": []
   }
 ]
