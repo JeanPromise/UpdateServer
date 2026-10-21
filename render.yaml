@@ -1,7 +1,17 @@
 services:
   - type: web
-    name: apk-update-site
-    env: python
+    name: kenya-barcode-hub
+    runtime: python
+    plan: starter
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
-    plan: free
+    startCommand: gunicorn app:app --workers 2 --threads 4 --timeout 120
+    healthCheckPath: /health
+    disk:
+      name: barcode-hub-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

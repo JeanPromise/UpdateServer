@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="{{ site_settings.primary_color or '#2677e8' }}">
+  <meta name="description" content="{{ meta_description|default(site_settings.description) }}">
+  <meta name="robots" content="{{ 'noindex,nofollow' if request.path.startswith('/promise212324') or request.path.startswith('/account') or request.path.startswith('/checkout') or request.path.startswith('/login') or request.path.startswith('/register') else 'index,follow' }}">
+  <link rel="canonical" href="{{ request.url_root.rstrip('/') }}{{ request.path }}">
+  <link rel="manifest" href="{{ url_for('manifest') }}">
+  <link rel="icon" href="{{ url_for('favicon') }}" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ page_title|default(site_settings.site_name) }}">
+  <meta property="og:description" content="{{ meta_description|default(site_settings.description) }}">
+  <title>{{ page_title|default(site_settings.site_name) }}{% if page_title is defined %} · {{ site_settings.site_name }}{% endif %}</title>
+  <script>document.documentElement.style.setProperty('--brand', {{ (site_settings.primary_color or '#2677e8')|tojson }});</script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="nav-wrap">
+      <a class="brand-lockup" href="{{ url_for('index') }}" aria-label="{{ site_settings.site_name }} home">
+        {% if site_settings.logo_url %}<img class="brand-image" src="{{ site_settings.logo_url }}" alt="" loading="lazy">{% else %}<span class="brand-mark">B<span>.</span></span>{% endif %}
+        <span class="brand-copy"><strong>{{ site_settings.site_name }}</strong><small>Kenya · Product data</small></span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Open navigation" aria-expanded="false" data-nav-toggle><span></span><span></span><span></span></button>
+      <nav class="main-nav" data-nav>
+        <a href="{{ url_for('catalogue') }}">Catalogue</a>
+        <a href="{{ url_for('pricing') }}">API plans</a>
+        <a href="{{ url_for('docs') }}">Developers</a>
+        <button class="button button-small install-button" type="button" data-install-pwa hidden>Install app</button>
+        {% if signed_in_user %}
+          <a href="{{ url_for('account') }}" class="nav-account">My account</a>
+          <form method="post" action="{{ url_for('logout') }}" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="nav-text-button" type="submit">Sign out</button></form>
+        {% else %}
+          <a href="{{ url_for('login') }}">Sign in</a>
+          <a class="button button-small" href="{{ url_for('register') }}">Get started</a>
+        {% endif %}
+      </nav>
+    </div>
+  </header>
+  <main id="main" class="main-shell">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}<div class="flash-stack" aria-live="polite">{% for category, message in messages %}<div class="flash flash-{{ category }}"><span>{{ message }}</span><button type="button" aria-label="Dismiss message" data-dismiss>&times;</button></div>{% endfor %}</div>{% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <div class="footer-main">
+      <div><a class="brand-lockup footer-brand" href="{{ url_for('index') }}">{% if site_settings.logo_url %}<img class="brand-image" src="{{ site_settings.logo_url }}" alt="" loading="lazy">{% else %}<span class="brand-mark">B<span>.</span></span>{% endif %}<span class="brand-copy"><strong>{{ site_settings.site_name }}</strong><small>{{ site_settings.tagline }}</small></span></a><p class="footer-note">Product records for everyday retail and software.</p></div>
+      <div class="footer-links"><a href="{{ url_for('catalogue') }}">Catalogue</a><a href="{{ url_for('pricing') }}">Pricing</a><a href="{{ url_for('docs') }}">API docs</a><a href="{{ url_for('privacy') }}">Privacy</a></div>
+      <div class="footer-links"><a href="{{ url_for('sample_download') }}">CSV template</a>{% if site_settings.support_email %}<a href="mailto:{{ site_settings.support_email }}">Contact support</a>{% endif %}{% if site_settings.support_phone %}<span>{{ site_settings.support_phone }}</span>{% endif %}</div>
+    </div>
+    <div class="footer-bottom"><span>© {{ current_year }} {{ site_settings.site_name }}</span><span>Designed for Kenya, built for developers.</span></div>
+  </footer>
+  <div class="offline-pill" hidden data-offline-pill><span class="status-dot"></span>You are offline · Some features may not work</div>
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+</body>
+</html>

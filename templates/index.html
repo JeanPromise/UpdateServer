@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% set page_title = 'Kenyan product barcodes and API' %}
+{% block content %}
+<section class="hero-grid">
+  <div class="hero-copy">
+    <div class="eyebrow"><span class="eyebrow-dot"></span> PRODUCT DATA FOR KENYA</div>
+    <h1>{{ site_settings.hero_title }}<br><span>{{ site_settings.hero_highlight }}</span></h1>
+    <p class="hero-intro">{{ site_settings.hero_subtitle }}</p>
+    <form class="search-box hero-search" action="{{ url_for('index') }}" method="get" role="search">
+      <span class="search-icon" aria-hidden="true">⌕</span><input type="search" name="q" value="{{ q }}" placeholder="Scan or enter a barcode, product or brand" aria-label="Search product catalogue">
+      <button class="button" type="submit">Search</button>
+    </form>
+    <div class="hero-links"><a href="{{ url_for('catalogue') }}">Browse catalogue <span>↗</span></a><a href="{{ url_for('docs') }}">Explore the API <span>↗</span></a></div>
+  </div>
+  <div class="hero-visual" aria-label="Barcode data illustration">
+    <div class="visual-top"><span class="live-mark"><i></i> PRODUCT DIRECTORY</span><span class="visual-menu">•••</span></div>
+    <div class="scan-card"><div class="scan-card-top"><span class="scan-mini-icon">B</span><span><strong>Product lookup</strong><small>One lookup. Structured data.</small></span><span class="check-seal">✓</span></div>
+      <div class="barcode-art" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="barcode-digits">6 1 6 0 0 0 0 0 0 0 0 0 0</div>
+      <div class="data-row"><span>Product details</span><span class="data-pill">JSON · CSV</span></div><div class="data-line"><span></span><span></span></div><div class="data-line short"><span></span><span></span></div>
+    </div>
+    <div class="visual-note"><span class="note-check">✓</span><span><strong>Built for practical retail</strong><small>Search, download or connect</small></span></div>
+    <div class="visual-glow"></div>
+  </div>
+</section>
+<section class="stat-strip" aria-label="Catalogue stats"><div><strong>{{ product_count }}</strong><span>Products listed</span></div><div><strong>{{ verified_count }}</strong><span>Marked verified</span></div><div><strong>REST</strong><span>Developer API</span></div><div><strong>CSV</strong><span>Bulk catalogue</span></div></section>
+{% if site_settings.homepage_notice %}<div class="notice-line"><span class="notice-icon">i</span>{{ site_settings.homepage_notice }}</div>{% endif %}
+{% if q %}
+<section class="section-block search-results" id="results"><div class="section-heading"><div><span class="section-kicker">CATALOGUE SEARCH</span><h2>Results for “{{ q }}”</h2></div><span class="muted">Up to {{ search_limit }} results</span></div>
+  {% if results %}<div class="table-wrap"><table><thead><tr><th>Barcode</th><th>Product</th><th>Brand</th><th>Pack size</th><th>Category</th><th>Price (KSh)</th><th>Barcode status</th></tr></thead><tbody>{% for p in results %}<tr><td><code>{{ p.barcode }}</code></td><td><strong>{{ p.name }}</strong></td><td>{{ p.brand or '—' }}</td><td>{{ p.pack_size or '—' }}</td><td>{{ p.category or '—' }}</td><td>{{ '{:,.2f}'.format(p.price_kes) if p.price_kes is not none else '—' }}</td><td>{% if p.verified %}<span class="status status-good">Verified</span>{% else %}<span class="status status-muted">Unverified</span>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="empty-state"><span class="empty-icon">⌕</span><h3>No matching product yet</h3><p>Try a different name or barcode. The catalogue grows as verified data is added.</p></div>{% endif %}
+  <p class="small-note">Public searches are limited. Prices are indicative and should be confirmed with the retailer. Paid plans include full catalogue downloads and API access.</p>
+</section>
+{% endif %}
+<section class="section-block feature-section"><div class="section-heading"><div><span class="section-kicker">MADE TO BE SIMPLE</span><h2>Data for the way you work.</h2></div><p class="section-intro">Whether you're running a shop or building software, get product records into your workflow without the busywork.</p></div>
+  <div class="feature-grid">
+    <article class="feature-card"><div class="feature-icon icon-blue">▦</div><h3>Find products</h3><p>Search by barcode, product name, brand or category.</p><a href="{{ url_for('catalogue') }}" class="text-link">Search catalogue <span>→</span></a></article>
+    <article class="feature-card"><div class="feature-icon icon-violet">⇩</div><h3>Download in bulk</h3><p>Use familiar CSV files in Excel, a POS or your own database.</p><a href="{{ url_for('sample_download') }}" class="text-link">Get the CSV template <span>→</span></a></article>
+    <article class="feature-card"><div class="feature-icon icon-cyan">{ }</div><h3>Connect by API</h3><p>Send a barcode and receive structured product data as JSON.</p><a href="{{ url_for('docs') }}" class="text-link">Read developer docs <span>→</span></a></article>
+  </div>
+</section>
+<section class="cta-band"><div><span class="section-kicker">FOR POS BUILDERS</span><h2>Spend less time typing products.</h2><p>Start with a sample, then choose a plan that fits your application.</p></div><div class="cta-actions"><a href="{{ url_for('register') }}" class="button">Create free account</a><a href="{{ url_for('pricing') }}" class="button button-light">See API plans</a></div></section>
+<section class="section-block"><div class="section-heading"><div><span class="section-kicker">LATEST RESOURCES</span><h2>Helpful links and updates</h2></div></div>
+  {% if posts %}<div class="resource-grid">{% for p in posts %}<article class="resource-card"><div class="resource-card-meta"><span class="resource-type">{{ p.kind|upper }}</span>{% if p.premium %}<span class="lock-label">MEMBERS</span>{% endif %}</div><h3>{{ p.title }}</h3><p>{{ p.summary or 'A resource shared by the site administrator.' }}</p>{% if p.premium and not user_has_access %}<a href="{{ url_for('pricing') }}" class="text-link">Unlock with a plan <span>→</span></a>{% else %}<a href="{{ url_for('resource_detail',post_id=p.id) }}" class="text-link">Open resource <span>→</span></a>{% endif %}</article>{% endfor %}</div>{% else %}<div class="resource-grid"><article class="resource-card"><span class="resource-type">GETTING STARTED</span><h3>Set up your first lookup</h3><p>Create an account, activate a plan and generate your API key.</p><a href="{{ url_for('docs') }}" class="text-link">View API guide <span>→</span></a></article><article class="resource-card"><span class="resource-type">DATA DOWNLOAD</span><h3>Prepare your product file</h3><p>Use our CSV template to match your catalogue columns.</p><a href="{{ url_for('sample_download') }}" class="text-link">Download template <span>→</span></a></article></div>{% endif %}
+</section>
+{% endblock %}

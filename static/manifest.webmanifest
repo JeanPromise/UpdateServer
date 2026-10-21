@@ -1,0 +1,18 @@
+{
+  "id": "/",
+  "name": "Kenya Barcode Hub",
+  "short_name": "Barcode Hub",
+  "description": "Product barcode directory and developer API for Kenya.",
+  "lang": "en-KE",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2677e8",
+  "orientation": "portrait-primary",
+  "icons": [
+    {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ],
+  "categories": ["business", "productivity", "utilities"]
+}
