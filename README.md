@@ -38,7 +38,7 @@ No `SECRET_KEY`, M-Pesa API credential, database URL or other secret environment
 
 ## Add the barcode catalogue
 
-The first launch includes 938 distinct records supplied in the existing POS/catalogue batches. On the owner's instruction, these are marked verified in the site catalogue. This indicates the owner's accepted POS data status, not independent GS1 certification; original source notes are retained. Nine source rows include prices, and prices are not universally current: source observations should be checked against the relevant retailer/date. The seed runs only once on a fresh database. In Admin → Product catalogue:
+The first launch includes the POS/catalogue records supplied for this project. On the owner's instruction, these are marked verified in the site catalogue. This indicates the owner's accepted POS data status, not independent GS1 certification; original source notes are retained. Some source rows include price observations, and prices are not universally current: source observations should be checked against the relevant retailer/date. The seed runs only once on a fresh database. In Admin → Product catalogue:
 
 - Import `data-seed/verified-pos-products.json` for the recommended upload, or use `data-seed/verified-pos-products.csv`.
 - The import upserts the product list only; it does not replace users, orders, payment history or settings.
