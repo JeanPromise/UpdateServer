@@ -51,7 +51,7 @@
     <div class="footer-main">
       <div><a class="brand-lockup footer-brand" href="{{ url_for('index') }}">{% if site_settings.logo_url %}<img class="brand-image" src="{{ site_settings.logo_url }}" alt="" loading="lazy">{% else %}<span class="brand-mark">B<span>.</span></span>{% endif %}<span class="brand-copy"><strong>{{ site_settings.site_name }}</strong><small>{{ site_settings.tagline }}</small></span></a><p class="footer-note">Product records for everyday retail and software.</p></div>
       <div class="footer-links"><a href="{{ url_for('catalogue') }}">Catalogue</a><a href="{{ url_for('pricing') }}">Pricing</a><a href="{{ url_for('docs') }}">API docs</a><a href="{{ url_for('privacy') }}">Privacy</a></div>
-      <div class="footer-links"><a href="{{ url_for('sample_download') }}">CSV template</a>{% if site_settings.support_email %}<a href="mailto:{{ site_settings.support_email }}">Contact support</a>{% endif %}{% if site_settings.support_phone %}<span>{{ site_settings.support_phone }}</span>{% endif %}</div>
+      <div class="footer-links"><a href="{{ url_for('docs') }}">Developer API</a>{% if site_settings.support_email %}<a href="mailto:{{ site_settings.support_email }}">Contact support</a>{% endif %}{% if site_settings.support_phone %}<span>{{ site_settings.support_phone }}</span>{% endif %}</div>
     </div>
     <div class="footer-bottom"><span>© {{ current_year }} {{ site_settings.site_name }}</span><span>Designed for Kenya, built for developers.</span></div>
   </footer>

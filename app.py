@@ -100,7 +100,7 @@ DEFAULT_SETTINGS = {
     "description": "A practical barcode and product catalogue for Kenyan shops, POS builders, and developers.",
     "hero_title": "Product barcodes.",
     "hero_highlight": "Ready for your system.",
-    "hero_subtitle": "Search, download and connect to product records made for Kenyan retail.",
+    "hero_subtitle": "Search product records or connect to Kenyan retail data through a developer API.",
     "logo_url": "",
     "primary_color": "#2677e8",
     "support_email": "",
@@ -286,11 +286,20 @@ def init_db() -> None:
             ip_masked TEXT DEFAULT '',
             referrer TEXT DEFAULT '',
             user_agent TEXT DEFAULT '',
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
         );
         CREATE INDEX IF NOT EXISTS idx_visitors_date ON visitor_events(created_at);
         CREATE INDEX IF NOT EXISTS idx_visitors_visitor ON visitor_events(visitor_id);
         """)
+        # Safely upgrade databases created before visitor-to-account identity linking.
+        visitor_columns = {row["name"] for row in db.execute("PRAGMA table_info(visitor_events)")}
+        if "user_id" not in visitor_columns:
+            db.execute("ALTER TABLE visitor_events ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_visitors_user ON visitor_events(user_id)")
+        # Update only untouched legacy defaults; keep any owner-customized headline intact.
+        db.execute("UPDATE settings SET value=? WHERE key='hero_subtitle' AND value=?",
+                   (DEFAULT_SETTINGS["hero_subtitle"], "Search, download and connect to product records made for Kenyan retail."))
         for key, value in DEFAULT_SETTINGS.items():
             db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)", (key, value))
         for slug, name, price, limit, days, description, active in DEFAULT_PLANS:
@@ -424,6 +433,10 @@ def is_safe_external_url(value: str) -> bool:
 
 
 def log_page_view() -> None:
+    # Admin sessions are control-room activity, not public visitors—even when
+    # the administrator opens public pages in the same browser.
+    if is_admin():
+        return
     if request.endpoint in ("static", "health", "service_worker", "manifest", "favicon"):
         return
     if request.path.startswith("/promise212324"):
@@ -444,11 +457,21 @@ def log_page_view() -> None:
         parsed = urlparse(referrer)
         referrer = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"[:400]
     try:
+        user_id = session.get("user_id")
         with connect_db() as db:
-            db.execute("""INSERT INTO visitor_events(visitor_id,path,method,ip_masked,referrer,user_agent,created_at)
-                          VALUES(?,?,?,?,?,?,?)""",
+            # A restored database can leave an old signed-in session pointing at
+            # a user ID that no longer exists. Never attach events to a stale ID.
+            if user_id and not db.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone():
+                user_id = None
+            if user_id:
+                # Also connect pre-upgrade anonymous history when a signed-in
+                # account revisits the site with its existing browser session.
+                db.execute("UPDATE visitor_events SET user_id=? WHERE visitor_id=? AND user_id IS NULL",
+                           (user_id, visitor_id))
+            db.execute("""INSERT INTO visitor_events(visitor_id,path,method,ip_masked,referrer,user_agent,created_at,user_id)
+                          VALUES(?,?,?,?,?,?,?,?)""",
                        (visitor_id, request.path[:300], request.method, mask_ip(request.remote_addr or ""),
-                        referrer, request.user_agent.string[:300], now_iso()))
+                        referrer, request.user_agent.string[:300], now_iso(), user_id))
     except sqlite3.Error:
         app.logger.exception("Could not record visitor event")
 
@@ -600,6 +623,7 @@ def privacy():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
+        visitor_id = session.get("visitor_id") or secrets.token_urlsafe(14)
         name = request.form.get("name", "").strip()[:100]
         email = request.form.get("email", "").strip().lower()[:254]
         password = request.form.get("password", "")
@@ -611,10 +635,13 @@ def register():
                 cursor = db.execute("INSERT INTO users(name,email,password_hash,created_at) VALUES(?,?,?,?)",
                                     (name, email, generate_password_hash(password), now_iso()))
                 user_id = cursor.lastrowid
+                db.execute("UPDATE visitor_events SET user_id=? WHERE visitor_id=? AND user_id IS NULL",
+                           (user_id, visitor_id))
         except sqlite3.IntegrityError:
             flash("An account with that email already exists.", "error")
             return render_template("register.html")
         session.clear()
+        session["visitor_id"] = visitor_id
         session["user_id"] = user_id
         csrf_token()
         flash("Your account is ready.", "success")
@@ -628,6 +655,7 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        visitor_id = session.get("visitor_id") or secrets.token_urlsafe(14)
         email = request.form.get("email", "").strip().lower()[:254]
         password = request.form.get("password", "")
         with connect_db() as db:
@@ -636,9 +664,12 @@ def login():
             time.sleep(0.25)
             flash("Email or password is incorrect.", "error")
             return render_template("login.html")
+        with connect_db() as db:
+            db.execute("UPDATE visitor_events SET user_id=? WHERE visitor_id=? AND (user_id IS NULL OR user_id=?)",
+                       (user["id"], visitor_id, user["id"]))
         session.clear()
         session["user_id"] = user["id"]
-        session["visitor_id"] = secrets.token_urlsafe(14)
+        session["visitor_id"] = visitor_id
         csrf_token()
         target = request.args.get("next", "")
         if not target.startswith("/") or target.startswith("//") or target.startswith("/promise212324"):
@@ -743,34 +774,14 @@ def checkout(slug):
 
 @app.route("/downloads/sample.csv")
 def sample_download():
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["barcode", "name", "brand", "pack_size", "category", "price_kes", "verified", "source"])
-    # A header-only file avoids presenting made-up barcode data as real products.
-    data = io.BytesIO(output.getvalue().encode("utf-8-sig"))
-    return send_file(data, mimetype="text/csv", as_attachment=True, download_name="kenya-barcode-hub-sample-template.csv")
+    flash("CSV downloads are currently unavailable. Use the developer API for structured product data.", "info")
+    return redirect(url_for("docs"))
 
 
 @app.route("/downloads/catalogue.csv")
-@login_required
 def catalogue_download():
-    user = current_user()
-    sub = active_subscription(user["id"])
-    if not sub:
-        flash("An active plan is needed to download the full catalogue.", "info")
-        return redirect(url_for("pricing"))
-    with connect_db() as db:
-        rows = db.execute("SELECT barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at FROM products ORDER BY name COLLATE NOCASE").fetchall()
-    output = io.StringIO(newline="")
-    writer = csv.writer(output)
-    writer.writerow(["barcode", "name", "brand", "pack_size", "category", "price_kes", "verified", "source", "updated_at"])
-    for row in rows:
-        writer.writerow(list(row))
-    response = make_response("\ufeff" + output.getvalue())
-    response.headers["Content-Type"] = "text/csv; charset=utf-8"
-    response.headers["Content-Disposition"] = 'attachment; filename="kenya-barcode-hub-catalogue.csv"'
-    response.headers["Cache-Control"] = "no-store"
-    return response
+    flash("Bulk CSV downloads are currently unavailable. Connect through the Barcode Hub API instead.", "info")
+    return redirect(url_for("docs"))
 
 
 @app.route("/api/v1/barcode/<barcode>", methods=["GET"])
@@ -950,6 +961,47 @@ def snapshot_database(source_path: Path, destination_path: Path):
     finally:
         target.close()
         source.close()
+
+
+def upgrade_compatible_sqlite_backup(path: Path):
+    """Migrate the previous visitor schema in an otherwise complete site backup."""
+    expected = live_database_schema()
+    if "user_id" not in expected["visitor_events"]:
+        return
+    db = sqlite3.connect(path, timeout=20)
+    try:
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
+        if tables != set(BACKUP_TABLES):
+            return
+        columns = database_columns(db, "visitor_events")
+        prior_columns = [column for column in expected["visitor_events"] if column != "user_id"]
+        if columns == prior_columns:
+            db.execute("ALTER TABLE visitor_events ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
+            db.execute("CREATE INDEX IF NOT EXISTS idx_visitors_user ON visitor_events(user_id)")
+            db.commit()
+    finally:
+        db.close()
+
+
+def upgrade_compatible_json_backup(payload):
+    """Add the new nullable visitor identity field to a valid prior JSON backup."""
+    if not isinstance(payload, dict) or not isinstance(payload.get("tables"), dict):
+        return
+    if set(payload["tables"]) != set(BACKUP_TABLES):
+        return
+    expected = live_database_schema()
+    visitor_group = payload["tables"].get("visitor_events")
+    if not isinstance(visitor_group, dict):
+        return
+    columns = visitor_group.get("columns")
+    rows = visitor_group.get("rows")
+    prior_columns = [column for column in expected["visitor_events"] if column != "user_id"]
+    if columns != prior_columns or not isinstance(rows, list):
+        return
+    if any(not isinstance(row, list) or len(row) != len(prior_columns) for row in rows):
+        return
+    visitor_group["columns"] = list(columns) + ["user_id"]
+    visitor_group["rows"] = [list(row) + [None] for row in rows]
 
 
 def validate_sqlite_backup(path: Path):
@@ -1140,6 +1192,7 @@ def admin_backups():
                 raise ValueError("The selected backup file is empty.")
             if suffix == ".json":
                 parsed_json = json.loads(raw.decode("utf-8-sig"), parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Non-finite JSON numbers are not allowed.")))
+                upgrade_compatible_json_backup(parsed_json)
                 with database_file_lock(exclusive=False):
                     payload = validate_json_backup(parsed_json)
             else:
@@ -1147,6 +1200,7 @@ def admin_backups():
                 candidate_path = Path(filename)
                 with os.fdopen(fd, "wb") as handle:
                     handle.write(raw)
+                upgrade_compatible_sqlite_backup(candidate_path)
                 with database_file_lock(exclusive=False):
                     validate_sqlite_backup(candidate_path)
 
@@ -1199,12 +1253,14 @@ def admin_dashboard():
             "verified": db.execute("SELECT COUNT(*) FROM products WHERE verified=1").fetchone()[0],
             "users": db.execute("SELECT COUNT(*) FROM users").fetchone()[0],
             "pending": db.execute("SELECT COUNT(*) FROM orders WHERE status='pending'").fetchone()[0],
-            "visits_today": db.execute("SELECT COUNT(*) FROM visitor_events WHERE created_at >= ?", (datetime.now(timezone.utc).date().isoformat(),)).fetchone()[0],
-            "unique_today": db.execute("SELECT COUNT(DISTINCT visitor_id) FROM visitor_events WHERE created_at >= ?", (datetime.now(timezone.utc).date().isoformat(),)).fetchone()[0],
+            "visits_today": db.execute("SELECT COUNT(*) FROM visitor_events WHERE created_at >= ? AND path NOT LIKE '/promise212324%'", (datetime.now(timezone.utc).date().isoformat(),)).fetchone()[0],
+            "unique_today": db.execute("SELECT COUNT(DISTINCT visitor_id) FROM visitor_events WHERE created_at >= ? AND path NOT LIKE '/promise212324%'", (datetime.now(timezone.utc).date().isoformat(),)).fetchone()[0],
         }
         recent_orders = [dict(r) for r in db.execute("""SELECT o.*,u.name AS user_name,u.email,p.name AS plan_name FROM orders o
                     JOIN users u ON u.id=o.user_id JOIN plans p ON p.id=o.plan_id ORDER BY o.id DESC LIMIT 8""")]
-        recent_visitors = [dict(r) for r in db.execute("SELECT * FROM visitor_events ORDER BY id DESC LIMIT 10")]
+        recent_visitors = [dict(r) for r in db.execute("""SELECT ve.*,u.name AS visitor_name,u.email AS visitor_email
+                    FROM visitor_events ve LEFT JOIN users u ON u.id=ve.user_id
+                    WHERE ve.path NOT LIKE '/promise212324%' ORDER BY ve.id DESC LIMIT 10""")]
     return render_template("admin_dashboard.html", stats=stats, orders=recent_orders, visitors=recent_visitors,
                            persistent_storage=str(DB_PATH).startswith("/var/data/"), database_path=str(DB_PATH))
 
@@ -1456,18 +1512,24 @@ def admin_visitors():
     page = max(1, request.args.get("page", 1, type=int))
     per_page = 100
     like = f"%{q}%"
+    public_filter = "ve.path NOT LIKE '/promise212324%'"
     with connect_db() as db:
-        total = db.execute("SELECT COUNT(*) FROM visitor_events").fetchone()[0]
-        unique = db.execute("SELECT COUNT(DISTINCT visitor_id) FROM visitor_events").fetchone()[0]
+        total = db.execute(f"SELECT COUNT(*) FROM visitor_events ve WHERE {public_filter}").fetchone()[0]
+        unique = db.execute(f"SELECT COUNT(DISTINCT ve.visitor_id) FROM visitor_events ve WHERE {public_filter}").fetchone()[0]
         if q:
-            matched = db.execute("SELECT COUNT(*) FROM visitor_events WHERE path LIKE ? OR referrer LIKE ? OR visitor_id LIKE ?",
-                                 (like, like, like)).fetchone()[0]
-            rows = db.execute("SELECT * FROM visitor_events WHERE path LIKE ? OR referrer LIKE ? OR visitor_id LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
-                              (like, like, like, per_page, (page - 1) * per_page)).fetchall()
+            filter_sql = f"{public_filter} AND (ve.path LIKE ? OR ve.referrer LIKE ? OR ve.visitor_id LIKE ? OR u.name LIKE ? OR u.email LIKE ?)"
+            params = (like, like, like, like, like)
+            matched = db.execute(f"SELECT COUNT(*) FROM visitor_events ve LEFT JOIN users u ON u.id=ve.user_id WHERE {filter_sql}", params).fetchone()[0]
+            rows = db.execute(f"""SELECT ve.*,u.name AS visitor_name,u.email AS visitor_email
+                FROM visitor_events ve LEFT JOIN users u ON u.id=ve.user_id WHERE {filter_sql}
+                ORDER BY ve.id DESC LIMIT ? OFFSET ?""", params + (per_page, (page - 1) * per_page)).fetchall()
         else:
             matched = total
-            rows = db.execute("SELECT * FROM visitor_events ORDER BY id DESC LIMIT ? OFFSET ?", (per_page, (page - 1) * per_page)).fetchall()
-        top_pages = [dict(r) for r in db.execute("SELECT path,COUNT(*) AS views,COUNT(DISTINCT visitor_id) AS visitors FROM visitor_events GROUP BY path ORDER BY views DESC LIMIT 10")]
+            rows = db.execute(f"""SELECT ve.*,u.name AS visitor_name,u.email AS visitor_email
+                FROM visitor_events ve LEFT JOIN users u ON u.id=ve.user_id WHERE {public_filter}
+                ORDER BY ve.id DESC LIMIT ? OFFSET ?""", (per_page, (page - 1) * per_page)).fetchall()
+        top_pages = [dict(r) for r in db.execute(f"""SELECT ve.path,COUNT(*) AS views,COUNT(DISTINCT ve.visitor_id) AS visitors
+            FROM visitor_events ve WHERE {public_filter} GROUP BY ve.path ORDER BY views DESC LIMIT 10""")]
     pages = max(1, (matched + per_page - 1) // per_page)
     return render_template("admin_visitors.html", events=[dict(r) for r in rows], total=total, unique=unique,
                            matched=matched, top_pages=top_pages, q=q, page=page, pages=pages)
@@ -1477,10 +1539,13 @@ def admin_visitors():
 @admin_required
 def admin_visitors_csv():
     with connect_db() as db:
-        rows = db.execute("SELECT created_at,visitor_id,path,method,ip_masked,referrer,user_agent FROM visitor_events ORDER BY id DESC").fetchall()
+        rows = db.execute("""SELECT ve.created_at,ve.visitor_id,COALESCE(u.name,''),COALESCE(u.email,''),
+            ve.path,ve.method,ve.ip_masked,ve.referrer,ve.user_agent
+            FROM visitor_events ve LEFT JOIN users u ON u.id=ve.user_id
+            WHERE ve.path NOT LIKE '/promise212324%' ORDER BY ve.id DESC""").fetchall()
     output = io.StringIO(newline="")
     writer = csv.writer(output)
-    writer.writerow(["visited_at_utc", "visitor_session_id", "path", "method", "masked_network", "referrer", "browser_user_agent"])
+    writer.writerow(["visited_at_utc", "visitor_session_id", "visitor_name", "visitor_email", "path", "method", "masked_network", "referrer", "browser_user_agent"])
     writer.writerows([[safe_csv_value(v) for v in row] for row in rows])
     response = make_response("\ufeff" + output.getvalue())
     response.headers["Content-Type"] = "text/csv; charset=utf-8"
