@@ -8,8 +8,8 @@ IMPORTANT WHEN UPDATING RENDER
 
 ADMIN ADDITIONS
 - Dashboard barcode and image-coverage totals.
-- Product image library: browse linked images, locate missing images, paste trusted image URLs, upload product photos, export image links and back up locally uploaded image files.
-- Public image discovery checks up to five missing barcodes per click and enforces a short cooldown. It will not invent an image when no match is found.
+- Product image library: browse linked images, locate missing images, paste trusted image URLs, upload product photos, export image links and download a protected archive containing both image links and uploaded files.
+- Public image discovery checks up to three missing barcodes per batch with a 22-second cooldown. Each match is saved to the protected image registry.
 - Image-inclusive API plans are separate from standard plans. They are hidden/unpriced by default; set the actual KSh prices and publish them in Admin > Plans & pricing before selling them.
 - Customer support: inspect plans, payments, API outcomes and login events; correct profile details; issue a temporary password; issue/revoke API keys.
 - API health and diagnostics, including HTTP 401, 402, 404, 429 and 5xx outcomes.
@@ -22,10 +22,18 @@ CATALOGUE
 IMAGE COVERAGE AND BACKUPS
 - Image discovery is incremental and relies on matches in a public product catalogue; this cannot guarantee a picture for every barcode, especially local products.
 - Manually attach a verified image URL, upload an image, or import a CSV with barcode/name/image_url for products that aren't found.
-- Database backups keep image links and metadata. Locally uploaded image binaries are stored in product-images/ and must be downloaded separately using Admin > Product images > Download image files ZIP. Keep both backups.
+- The protected image backup includes all registry image links and local image files. Download it outside Render regularly and keep it alongside the full-site database backup.
 - Review each image source's reuse/licensing terms before reselling externally sourced image data.
 
 VALIDATION
 - Python syntax compilation and Jinja template parsing pass.
 - SQLite schema migration checks pass for both older backup layouts (with or without visitor_events.user_id), with product records and existing visitor-user links preserved.
 - The build environment used to prepare this ZIP did not have Flask installed and had no package-network access, so a live HTTP integration test could not be run here. Render installs Flask/Gunicorn from requirements.txt during deployment.
+
+IMAGE RETENTION PATCH
+- Added a separate SQLite image registry at barcodehub-image-registry.sqlite3, beside the main database on the same persistent disk.
+- Existing image links seed the registry on startup. Any successful automatic lookup, manual image URL/upload, or CSV-supplied image URL writes to the registry.
+- Full-site database restore first merges image links by barcode from the registry into the candidate database before it can replace live records. Re-importing a CSV with blank image_url reattaches registered links.
+- The protected image ZIP now carries its barcode-to-image manifest and local upload files. Restoring it merges mappings and restores files.
+- Deleting a product retains its protected image mapping for a later re-import. Only the explicit admin Remove image action removes a registry mapping.
+- Keep the Render persistent disk attached at /var/data. This prevents ordinary redeploys from wiping the registry and local upload files. An off-site protected image ZIP is still necessary for disaster recovery.

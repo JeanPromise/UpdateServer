@@ -37,6 +37,24 @@ INSTANCE_DIR.mkdir(exist_ok=True)
 # Render persistent disks can be mounted at /var/data. If no disk is mounted,
 # fall back to the app's local instance folder. See README for persistence notes.
 PERSISTENT_DIR = Path("/var/data")
+
+
+def persistent_disk_is_mounted(path: Path) -> bool:
+    """Detect a dedicated mount rather than mistaking an ordinary folder for a Render disk."""
+    try:
+        expected = str(path.resolve())
+        with open("/proc/self/mountinfo", "r", encoding="utf-8") as mounts:
+            for line in mounts:
+                fields = line.split()
+                if len(fields) > 4:
+                    mountpoint = fields[4].replace("\\040", " ")
+                    if mountpoint == expected:
+                        return True
+    except (OSError, ValueError):
+        pass
+    return False
+
+
 if PERSISTENT_DIR.exists() and os.access(PERSISTENT_DIR, os.W_OK):
     DB_PATH = Path(os.environ.get("DATABASE_PATH", str(PERSISTENT_DIR / "barcodehub.sqlite3")))
 else:
@@ -45,6 +63,11 @@ DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 DB_LOCK_PATH = Path(str(DB_PATH) + ".lock")
 PRODUCT_IMAGE_DIR = DB_PATH.parent / "product-images"
 PRODUCT_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+# Image metadata is kept in a separate SQLite ledger so restoring an older
+# main-database backup cannot erase previously matched barcode/image links.
+IMAGE_REGISTRY_PATH = DB_PATH.parent / "barcodehub-image-registry.sqlite3"
+IMAGE_REGISTRY_LOCK_PATH = Path(str(IMAGE_REGISTRY_PATH) + ".lock")
+IMAGE_REGISTRY_IS_DURABLE = (str(IMAGE_REGISTRY_PATH).startswith("/var/data/") and persistent_disk_is_mounted(PERSISTENT_DIR))
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 MAX_PRODUCT_IMAGE_BYTES = 8 * 1024 * 1024
 
@@ -449,6 +472,192 @@ def init_db() -> None:
 
 
 init_db()
+
+
+@contextmanager
+def image_registry_connection():
+    """Open the image ledger independently of the replaceable main database."""
+    IMAGE_REGISTRY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    lock_handle = open(IMAGE_REGISTRY_LOCK_PATH, "a+b")
+    try:
+        if fcntl is not None:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        db = sqlite3.connect(IMAGE_REGISTRY_PATH, timeout=30)
+        db.row_factory = sqlite3.Row
+        db.execute("PRAGMA busy_timeout = 30000")
+        try:
+            yield db
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+    finally:
+        try:
+            if fcntl is not None:
+                fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
+        finally:
+            lock_handle.close()
+
+
+def init_image_registry() -> None:
+    with image_registry_connection() as registry:
+        registry.execute("PRAGMA journal_mode = WAL")
+        registry.execute("""CREATE TABLE IF NOT EXISTS image_registry (
+            barcode TEXT PRIMARY KEY,
+            image_url TEXT NOT NULL,
+            image_source TEXT NOT NULL DEFAULT '',
+            image_checked_at TEXT NOT NULL DEFAULT '',
+            saved_at TEXT NOT NULL
+        )""")
+        registry.execute("CREATE INDEX IF NOT EXISTS idx_image_registry_saved_at ON image_registry(saved_at)")
+
+
+def remember_product_image(barcode: str, image_url: str, image_source: str = "", checked_at: str = "") -> bool:
+    """Persist a nonempty image link in the ledger; blank data can never erase it."""
+    code = re.sub(r"[\s-]+", "", str(barcode or "").strip())[:50]
+    image_url = str(image_url or "").strip()[:2000]
+    if not code or not image_url or not valid_image_url(image_url):
+        return False
+    checked_at = str(checked_at or now_iso())[:80]
+    with image_registry_connection() as registry:
+        registry.execute("""INSERT INTO image_registry(barcode,image_url,image_source,image_checked_at,saved_at)
+            VALUES(?,?,?,?,?) ON CONFLICT(barcode) DO UPDATE SET
+            image_url=excluded.image_url,
+            image_source=excluded.image_source,
+            image_checked_at=excluded.image_checked_at,
+            saved_at=excluded.saved_at
+            WHERE excluded.image_url<>''""",
+            (code, image_url, str(image_source or "")[:600], checked_at, now_iso()))
+    return True
+
+
+def forget_product_image(barcode: str) -> None:
+    """Only an explicit admin remove action should delete the protected mapping."""
+    code = re.sub(r"[\s-]+", "", str(barcode or "").strip())[:50]
+    if not code:
+        return
+    with image_registry_connection() as registry:
+        registry.execute("DELETE FROM image_registry WHERE barcode=?", (code,))
+
+
+def _image_rows_from_database(database_path: Path):
+    def read_rows(db):
+        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if "products" not in tables:
+            return []
+        columns = {row[1] for row in db.execute('PRAGMA table_info("products")')}
+        if not {"barcode", "image_url"}.issubset(columns):
+            return []
+        source_expr = "image_source" if "image_source" in columns else "'' AS image_source"
+        checked_expr = "image_checked_at" if "image_checked_at" in columns else "'' AS image_checked_at"
+        rows = db.execute(f"SELECT barcode,image_url,{source_expr},{checked_expr} FROM products WHERE COALESCE(TRIM(image_url),'')<>''").fetchall()
+        return [dict(r) for r in rows]
+
+    try:
+        is_live_database = Path(database_path).resolve() == DB_PATH.resolve()
+    except OSError:
+        is_live_database = False
+    if is_live_database:
+        with connect_db() as db:
+            return read_rows(db)
+    db = sqlite3.connect(database_path, timeout=30)
+    db.row_factory = sqlite3.Row
+    try:
+        return read_rows(db)
+    finally:
+        db.close()
+
+def seed_image_registry_from_database(database_path: Path) -> int:
+    """Add image links not yet in the ledger without overwriting protected links."""
+    rows = _image_rows_from_database(database_path)
+    saved = 0
+    with image_registry_connection() as registry:
+        for row in rows:
+            code = re.sub(r"[\s-]+", "", str(row.get("barcode") or "").strip())[:50]
+            image_url = str(row.get("image_url") or "").strip()[:2000]
+            if not code or not image_url or not valid_image_url(image_url):
+                continue
+            cursor = registry.execute("""INSERT OR IGNORE INTO image_registry
+                (barcode,image_url,image_source,image_checked_at,saved_at) VALUES(?,?,?,?,?)""",
+                (code, image_url, str(row.get("image_source") or "")[:600],
+                 str(row.get("image_checked_at") or now_iso())[:80], now_iso()))
+            saved += max(0, cursor.rowcount)
+    return saved
+
+
+def apply_image_registry_to_database(database_path: Path, force: bool = True) -> int:
+    """Restore ledger mappings to matching products in any current/candidate DB."""
+    with image_registry_connection() as registry:
+        mappings = [dict(row) for row in registry.execute("SELECT barcode,image_url,image_source,image_checked_at FROM image_registry")]
+    if not mappings:
+        return 0
+
+    def apply_to(db):
+        columns = {row[1] for row in db.execute('PRAGMA table_info("products")')}
+        if not {"barcode", "image_url", "image_source", "image_checked_at"}.issubset(columns):
+            return 0
+        restored = 0
+        for row in mappings:
+            if not row.get("image_url") or not valid_image_url(row["image_url"]):
+                continue
+            if force:
+                cursor = db.execute("""UPDATE products SET image_url=?,image_source=?,image_checked_at=?
+                    WHERE barcode=?""", (row["image_url"], row.get("image_source") or "",
+                                           row.get("image_checked_at") or "", row["barcode"]))
+            else:
+                cursor = db.execute("""UPDATE products SET image_url=?,image_source=?,image_checked_at=?
+                    WHERE barcode=? AND COALESCE(TRIM(image_url),'')=''""",
+                    (row["image_url"], row.get("image_source") or "", row.get("image_checked_at") or "", row["barcode"]))
+            restored += max(0, cursor.rowcount)
+        return restored
+
+    try:
+        is_live_database = Path(database_path).resolve() == DB_PATH.resolve()
+    except OSError:
+        is_live_database = False
+    if is_live_database:
+        with connect_db() as db:
+            return apply_to(db)
+    db = sqlite3.connect(database_path, timeout=30)
+    try:
+        restored = apply_to(db)
+        db.commit()
+        return restored
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+def restore_product_image_mapping_if_missing(barcode: str, image_url: str, image_source: str = "", checked_at: str = "") -> bool:
+    """Merge an older off-site image archive without replacing newer live mappings."""
+    code = re.sub(r"[\s-]+", "", str(barcode or "").strip())[:50]
+    image_url = str(image_url or "").strip()[:2000]
+    if not code or not image_url or not valid_image_url(image_url):
+        return False
+    with image_registry_connection() as registry:
+        cursor = registry.execute("""INSERT OR IGNORE INTO image_registry
+            (barcode,image_url,image_source,image_checked_at,saved_at) VALUES(?,?,?,?,?)""",
+            (code, image_url, str(image_source or "")[:600], str(checked_at or now_iso())[:80], now_iso()))
+        return cursor.rowcount > 0
+
+def protect_database_images(database_path: Path) -> tuple[int, int]:
+    """Capture any new links, then repopulate all matching rows from the ledger."""
+    seeded = seed_image_registry_from_database(database_path)
+    restored = apply_image_registry_to_database(database_path, force=True)
+    return seeded, restored
+
+
+# On process startup, preserve links already present in the live database and
+# rehydrate any rows whose image columns were emptied by an older catalogue restore.
+init_image_registry()
+try:
+    protect_database_images(DB_PATH)
+except (sqlite3.Error, OSError, ValueError):
+    app.logger.exception("Image registry startup reconciliation failed; review persistent storage health")
 
 
 def get_settings(db=None) -> dict[str, str]:
@@ -1514,6 +1723,10 @@ def admin_backups():
                     candidate_path = Path(filename)
                     restore_json_to_database(payload, candidate_path)
                     validate_sqlite_backup(candidate_path)
+                # Crucial: old full-site backups often contain blank image columns.
+                # Reconcile by barcode against a separate ledger before replacing live data.
+                protect_database_images(candidate_path)
+                validate_sqlite_backup(candidate_path)
                 safety_path = make_safety_backup()
                 for suffix_sidecar in ("-wal", "-shm"):
                     try:
@@ -1639,10 +1852,14 @@ def admin_products():
                                       image_checked_at=CASE WHEN excluded.image_url<>'' THEN excluded.image_checked_at ELSE products.image_checked_at END""",
                                    (barcode, name[:200], brand[:120], pack_size[:100], category[:100], price, verified, source[:600], now_iso(),
                                     image_url, "catalogue import" if image_url else "", now_iso() if image_url else ""))
+                        if image_url:
+                            remember_product_image(barcode, image_url, "catalogue import", now_iso())
                         if exists:
                             updated += 1
                         else:
                             imported += 1
+                # Re-attach protected images for rows imported from an older CSV with no image_url.
+                apply_image_registry_to_database(DB_PATH, force=True)
                 msg = f"Import complete: {imported} new, {updated} updated, {skipped} skipped."
                 if invalid_images:
                     msg += f" {invalid_images} invalid image links were ignored."
@@ -1695,6 +1912,10 @@ def admin_products():
                                   image_source=CASE WHEN excluded.image_url<>'' THEN excluded.image_source ELSE products.image_source END,
                                   image_checked_at=CASE WHEN excluded.image_url<>'' THEN excluded.image_checked_at ELSE products.image_checked_at END""",
                                (barcode, name, brand, pack_size, category, price, verified, source, now_iso(), image_url, image_source, image_checked_at))
+                if image_url:
+                    remember_product_image(barcode, image_url, image_source, image_checked_at or now_iso())
+                # A product re-created after deletion can regain its protected image automatically.
+                apply_image_registry_to_database(DB_PATH, force=True)
                 flash("Product saved.", "success")
             except ValueError as exc:
                 flash(str(exc), "error")
@@ -1744,16 +1965,9 @@ def admin_delete_product(product_id):
         if not row:
             flash("Product was not found.", "error")
             return redirect(url_for("admin_products"))
-        image_url = row["image_url"] or ""
+        # Keep the registry and local image bytes if a barcode is deleted. If the
+        # product is re-imported later, its existing image mapping can be restored.
         db.execute("DELETE FROM products WHERE id=?", (product_id,))
-        if image_url.startswith("/media/products/"):
-            filename = image_url.rsplit("/", 1)[-1]
-            still_used = db.execute("SELECT 1 FROM products WHERE image_url=? LIMIT 1", (image_url,)).fetchone()
-            if not still_used and re.fullmatch(r"[a-f0-9]{20}\.(?:jpg|png|webp|gif)", filename):
-                try:
-                    (PRODUCT_IMAGE_DIR / filename).unlink(missing_ok=True)
-                except OSError:
-                    app.logger.warning("Could not remove unreferenced product image %s", filename)
     flash("Product deleted.", "success")
     return redirect(url_for("admin_products"))
 
@@ -1882,11 +2096,17 @@ def admin_images():
                 checked_at = now_iso()
                 if image_url and valid_image_url(image_url):
                     with connect_db() as db:
-                        db.execute("""UPDATE products SET image_url=?,image_source=?,image_checked_at=?,updated_at=?
+                        cursor = db.execute("""UPDATE products SET image_url=?,image_source=?,image_checked_at=?,updated_at=?
                                       WHERE id=? AND COALESCE(TRIM(image_url),'')=''""",
                                    (image_url, provider, checked_at, checked_at, item["id"]))
-                    found += 1
-                    outcomes.append(f"{item['barcode']}: linked from {provider}")
+                        saved_this_batch = cursor.rowcount > 0
+                    if saved_this_batch:
+                        # Save the durable mapping only after the product row accepted it.
+                        remember_product_image(item["barcode"], image_url, provider, checked_at)
+                        found += 1
+                        outcomes.append(f"{item['barcode']}: linked from {provider}")
+                    else:
+                        outcomes.append(f"{item['barcode']}: already linked by another request; kept existing image")
                 else:
                     # Keep unresolved records visible as missing. The check time means
                     # this record was attempted, never that an image exists.
@@ -1931,8 +2151,29 @@ def admin_images():
                 if not raw or len(raw) > 128 * 1024 * 1024:
                     raise ValueError("The image archive is empty or exceeds the 128 MB upload limit.")
                 restored_files = []
+                image_links = []
                 total_bytes = 0
                 with zipfile.ZipFile(io.BytesIO(raw), "r") as archive:
+                    manifest_info = next((info for info in archive.infolist() if info.filename == "manifest.json" and not info.is_dir()), None)
+                    if manifest_info:
+                        manifest_raw = archive.read(manifest_info)
+                        if len(manifest_raw) > 64 * 1024 * 1024:
+                            raise ValueError("The image manifest is unexpectedly large.")
+                        manifest = json.loads(manifest_raw.decode("utf-8"))
+                        if not isinstance(manifest, dict) or manifest.get("format") != "kenya-barcode-hub-product-images":
+                            raise ValueError("The ZIP manifest is not a supported Barcode Hub image backup.")
+                        links = manifest.get("image_links", [])
+                        if not isinstance(links, list) or len(links) > 200000:
+                            raise ValueError("The image-link manifest contains an invalid number of records.")
+                        for item in links:
+                            if not isinstance(item, dict):
+                                raise ValueError("An image-link manifest row is invalid.")
+                            code = re.sub(r"[\s-]+", "", str(item.get("barcode") or "").strip())[:50]
+                            image_url = str(item.get("image_url") or "").strip()[:2000]
+                            if not code or not image_url or not valid_image_url(image_url):
+                                raise ValueError("The image-link manifest contains a missing barcode or invalid URL.")
+                            image_links.append((code, image_url, str(item.get("image_source") or "")[:600],
+                                                str(item.get("image_checked_at") or now_iso())[:80]))
                     members = [info for info in archive.infolist() if not info.is_dir() and info.filename != "manifest.json"]
                     if len(members) > 20000:
                         raise ValueError("The archive contains too many image files.")
@@ -1955,10 +2196,17 @@ def admin_images():
                         restored_files.append((filename, content))
                 PRODUCT_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
                 for filename, content in restored_files:
-                    (PRODUCT_IMAGE_DIR / filename).write_bytes(content)
-                log_system_event("images", "image_assets_restored", f"Restored {len(restored_files)} product image files",
+                    destination = PRODUCT_IMAGE_DIR / filename
+                    temporary = destination.with_suffix(destination.suffix + ".restore-tmp")
+                    temporary.write_bytes(content)
+                    os.replace(temporary, destination)
+                for code, image_url, image_source, checked_at in image_links:
+                    restore_product_image_mapping_if_missing(code, image_url, image_source, checked_at)
+                # Rehydrate current products and keep links for barcodes that may be re-imported later.
+                apply_image_registry_to_database(DB_PATH, force=True)
+                log_system_event("images", "image_assets_restored", f"Restored {len(restored_files)} image files and {len(image_links)} barcode image links",
                                  200, None, request.path, "info")
-                flash(f"Image asset restore complete: {len(restored_files)} files restored. Existing linked URLs were preserved.", "success")
+                flash(f"Protected image restore complete: {len(restored_files)} image files and {len(image_links)} barcode image links. Existing links were merged, not cleared.", "success")
             except (ValueError, zipfile.BadZipFile, OSError) as exc:
                 log_system_event("images", "image_assets_restore_failed", "Image asset archive was rejected", 400, None, request.path, "warning")
                 flash("Image restore stopped safely: " + str(exc)[:220], "error")
@@ -1995,10 +2243,17 @@ def admin_images():
                 with connect_db() as db:
                     db.execute("UPDATE products SET image_url=?,image_source=?,image_checked_at=?,updated_at=? WHERE id=?",
                                (image_url, image_source, checked_at, checked_at, product_id))
+                    if image_url:
+                        remember_product_image(row["barcode"], image_url, image_source, checked_at)
+                    else:
+                        # Deleting a link requires the admin's explicit Remove image action.
+                        forget_product_image(row["barcode"])
                     if old_url.startswith("/media/products/") and old_url != image_url:
                         old_filename = old_url.rsplit("/", 1)[-1]
                         used = db.execute("SELECT 1 FROM products WHERE image_url=? LIMIT 1", (old_url,)).fetchone()
-                        if not used and re.fullmatch(r"[a-f0-9]{20}\.(?:jpg|png|webp|gif)", old_filename):
+                        with image_registry_connection() as registry:
+                            registered_elsewhere = registry.execute("SELECT 1 FROM image_registry WHERE image_url=? LIMIT 1", (old_url,)).fetchone()
+                        if not used and not registered_elsewhere and re.fullmatch(r"[a-f0-9]{20}\.(?:jpg|png|webp|gif)", old_filename):
                             try:
                                 (PRODUCT_IMAGE_DIR / old_filename).unlink(missing_ok=True)
                             except OSError:
@@ -2044,27 +2299,46 @@ def admin_images():
         page = min(page, total_pages)
         results = [dict(r) for r in db.execute("SELECT * FROM products" + clause + " ORDER BY CASE WHEN COALESCE(TRIM(image_url),'')='' THEN 0 ELSE 1 END, name COLLATE NOCASE LIMIT ? OFFSET ?",
                                                params + [per_page, (page - 1) * per_page])]
+    with image_registry_connection() as registry:
+        protected_image_count = int(registry.execute("SELECT COUNT(*) FROM image_registry").fetchone()[0])
     return render_template("admin_images.html", results=results, totals=totals, q=q, status=status,
-                           page=page, total_pages=total_pages, result_count=count)
+                           page=page, total_pages=total_pages, result_count=count,
+                           protected_image_count=protected_image_count,
+                           image_registry_path=str(IMAGE_REGISTRY_PATH), image_storage_durable=IMAGE_REGISTRY_IS_DURABLE)
 
 
 @app.get(ADMIN_PREFIX + "/images/backup.zip")
 @admin_required
 def admin_images_backup():
+    # Capture any links written by an older app version before exporting the ledger.
+    seed_image_registry_from_database(DB_PATH)
     fd, filename = tempfile.mkstemp(prefix="barcode-hub-images-", suffix=".zip")
     os.close(fd)
     archive_path = Path(filename)
     try:
+        with image_registry_connection() as registry:
+            image_links = [dict(row) for row in registry.execute(
+                "SELECT barcode,image_url,image_source,image_checked_at FROM image_registry ORDER BY barcode")]
+        image_files = []
         with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            manifest = {"format": "kenya-barcode-hub-product-images", "created_at": now_iso(), "files": []}
             for image_file in PRODUCT_IMAGE_DIR.iterdir() if PRODUCT_IMAGE_DIR.exists() else []:
                 if image_file.is_file() and re.fullmatch(r"[a-f0-9]{20}\.(?:jpg|png|webp|gif)", image_file.name):
                     archive.write(image_file, arcname="product-images/" + image_file.name)
-                    manifest["files"].append(image_file.name)
-            archive.writestr("manifest.json", json.dumps(manifest, separators=(",", ":")))
+                    image_files.append(image_file.name)
+            manifest = {
+                "format": "kenya-barcode-hub-product-images",
+                "version": 2,
+                "created_at": now_iso(),
+                "files": image_files,
+                "image_links": image_links,
+                "image_registry_count": len(image_links),
+                "note": "Contains protected barcode-to-image mappings and locally uploaded image files. Restore this ZIP from Admin > Product images.",
+            }
+            archive.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, separators=(",", ":")))
         response = send_file(archive_path, mimetype="application/zip", as_attachment=True,
-                             download_name=f"barcode-hub-product-images-{datetime.now(timezone.utc).date().isoformat()}.zip", max_age=0)
+                             download_name=f"barcode-hub-protected-images-{datetime.now(timezone.utc).date().isoformat()}.zip", max_age=0)
         response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
         response.call_on_close(lambda: archive_path.unlink(missing_ok=True))
         return response
     except Exception:
