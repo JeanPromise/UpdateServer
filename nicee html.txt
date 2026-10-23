@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MovieStream</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #0d0d0d;
+      color: #fff;
+      overflow-x: hidden;
+    }
+    header {
+      background: #111;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #e50914;
+    }
+    .logo {
+      font-size: 1.4rem;
+      font-weight: bold;
+      color: #e50914;
+    }
+    .nav-icons i {
+      margin-left: 1rem;
+      cursor: pointer;
+      font-size: 1.3rem;
+      color: white;
+    }
+    .sidebar {
+      position: fixed;
+      left: -240px;
+      top: 0;
+      width: 220px;
+      height: 100%;
+      background: #111;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      transition: left 0.3s ease;
+      z-index: 2000;
+    }
+    .sidebar.open { left: 0; }
+    .sidebar-item {
+      padding: 0.8rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .section {
+      padding: 1.5rem;
+    }
+    .movie-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+    .movie-card {
+      background: #1c1c1c;
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.3s;
+    }
+    .movie-card:hover {
+      transform: scale(1.05);
+    }
+    .movie-card img {
+      width: 100%;
+      height: 240px;
+      object-fit: cover;
+    }
+    .movie-card .title {
+      text-align: center;
+      padding: 0.5rem;
+      background: #111;
+      font-size: 0.95rem;
+    }
+    .player-container {
+      margin-top: 2rem;
+      position: relative;
+    }
+    video {
+      width: 100%;
+      border-radius: 10px;
+    }
+    .controls {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.5);
+      border-radius: 50%;
+      padding: 1rem;
+      cursor: pointer;
+      display: none;
+      z-index: 10;
+    }
+    .controls i {
+      font-size: 2rem;
+      color: #fff;
+    }
+    .show {
+      display: block !important;
+    }
+    .download-button {
+      display: inline-block;
+      margin-top: 1rem;
+      padding: 0.6rem 1.2rem;
+      background: #e50914;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 5px;
+    }
+    .downloads-section, .games-section {
+      margin-top: 3rem;
+    }
+    .downloads-section h2, .games-section h2 {
+      color: #e50914;
+      margin-bottom: 1rem;
+    }
+    @media(max-width: 768px) {
+      .movie-card img { height: 200px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">MovieStream</div>
+    <div class="nav-icons">
+      <i class="fas fa-search"></i>
+      <i class="fas fa-bars" onclick="toggleSidebar()"></i>
+    </div>
+  </header>
+
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-item" onclick="scrollToSection('home')">Home</div>
+    <div class="sidebar-item" onclick="scrollToSection('trending')">Trending</div>
+    <div class="sidebar-item" onclick="scrollToSection('games')">Games</div>
+    <div class="sidebar-item" onclick="scrollToSection('downloads')">Downloads</div>
+  </div>
+
+  <div class="section" id="home">
+    <h2>Now Playing</h2>
+    <div class="movie-grid">
+      <div class="movie-card" onclick="playMovie('prison break')">
+        <img src="/static/media/thumbs/prison break.png" alt="Prison Break">
+        <div class="title">Prison Break</div>
+      </div>
+    </div>
+    <div class="player-container" id="player-section" style="display:none;">
+      <video id="movie-player" controls autoplay>
+        <source id="video-source" src="" type="video/mp4">
+        Your browser does not support HTML5 video.
+      </video>
+      <div class="controls" id="play-toggle" onclick="togglePlay()">
+        <i class="fas fa-play" id="play-icon"></i>
+      </div>
+      <a id="download-link" class="download-button" download>Download</a>
+    </div>
+  </div>
+
+  <div class="section downloads-section" id="downloads">
+    <h2>My Downloads</h2>
+    <div class="movie-grid" id="downloads-list"></div>
+  </div>
+
+  <div class="section games-section" id="games">
+    <h2>Games</h2>
+    <div class="movie-grid">
+      <div class="movie-card"><img src="/static/media/thumbs/football.jpg"><div class="title">Football</div></div>
+      <div class="movie-card"><img src="/static/media/thumbs/basketball.jpg"><div class="title">Basketball</div></div>
+      <div class="movie-card"><img src="/static/media/thumbs/wwe.jpg"><div class="title">WWE</div></div>
+      <div class="movie-card"><img src="/static/media/thumbs/fashion.jpg"><div class="title">Fashion</div></div>
+    </div>
+  </div>
+
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const player = document.getElementById('movie-player');
+    const source = document.getElementById('video-source');
+    const playerSection = document.getElementById('player-section');
+    const toggleControl = document.getElementById('play-toggle');
+    const playIcon = document.getElementById('play-icon');
+    const downloadLink = document.getElementById('download-link');
+    const downloadsList = document.getElementById('downloads-list');
+
+    function toggleSidebar() {
+      sidebar.classList.toggle('open');
+    }
+
+    function scrollToSection(id) {
+      document.getElementById(id).scrollIntoView({ behavior: "smooth" });
+      sidebar.classList.remove('open');
+    }
+
+    function playMovie(title) {
+      const filename = title.toLowerCase() + ".mp4";
+      const videoPath = /static/media/uploads/${filename};
+      const thumbPath = /static/media/thumbs/${title.toLowerCase()}.png;
+      source.src = videoPath;
+      player.load();
+      player.play();
+      playerSection.style.display = 'block';
+      toggleControl.classList.remove('show');
+      const existing = document.getElementById('dl-' + title);
+      if (!existing) {
+        const card = document.createElement('div');
+        card.className = 'movie-card';
+        card.id = 'dl-' + title;
+        card.innerHTML = <img src="${thumbPath}" /><div class="title">${title}</div>;
+        card.onclick = () => playMovie(title);
+        downloadsList.appendChild(card);
+      }
+      downloadLink.href = videoPath;
+      downloadLink.download = filename;
+    }
+
+    function togglePlay() {
+      if (player.paused) {
+        player.play();
+        playIcon.className = 'fas fa-pause';
+      } else {
+        player.pause();
+        playIcon.className = 'fas fa-play';
+      }
+    }
+
+    player.addEventListener('click', () => {
+      toggleControl.classList.add('show');
+      setTimeout(() => toggleControl.classList.remove('show'), 800);
+    });
+  </script>
+</body>
+</html>

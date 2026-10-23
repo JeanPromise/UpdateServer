@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>About & Settings</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #0d0d0d;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #111;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #e50914;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #e50914;
+    }
+    .nav-icons i {
+      margin-left: 1rem;
+      cursor: pointer;
+      font-size: 1.3rem;
+      color: white;
+    }
+    .sidebar {
+      position: fixed;
+      left: -240px;
+      top: 0;
+      width: 220px;
+      height: 100%;
+      background: #111;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      transition: left 0.3s ease;
+      z-index: 2000;
+    }
+    .sidebar.open { left: 0; }
+    .sidebar-item {
+      padding: 0.8rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .section {
+      padding: 2rem;
+    }
+    h2 {
+      color: #e50914;
+      margin-bottom: 1rem;
+    }
+    form {
+      margin-bottom: 2rem;
+    }
+    textarea, input[type="text"] {
+      width: 100%;
+      padding: 1rem;
+      margin: 0.5rem 0;
+      border-radius: 5px;
+      border: none;
+      resize: vertical;
+    }
+    button {
+      background: #e50914;
+      color: white;
+      border: none;
+      padding: 0.6rem 1.2rem;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .info-box {
+      background: #1a1a1a;
+      padding: 1rem;
+      border-radius: 10px;
+      margin-bottom: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">Settings</div>
+    <div class="nav-icons">
+      <i class="fas fa-bars" onclick="toggleSidebar()"></i>
+    </div>
+  </header>
+
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-item" onclick="location.href='{{ url_for('home') }}'">Home</div>
+    <div class="sidebar-item" onclick="location.href='{{ url_for('movies') }}'">Movies</div>
+    <div class="sidebar-item" onclick="location.href='{{ url_for('games') }}'">Games</div>
+    <div class="sidebar-item" onclick="location.href='{{ url_for('watch') }}'">TV/Trending</div>
+    <div class="sidebar-item" onclick="location.href='{{ url_for('side') }}'">About & Settings</div>
+  </div>
+
+  <div class="section">
+    <div class="info-box">
+      <h2>About MovieStream</h2>
+      <p>
+        This app is your gateway to stream movies, series, and trending shows across genres.
+        All content is managed privately inside the platform — nothing leaves unless you want it to.
+      </p>
+    </div>
+
+    <form id="complaint-form">
+      <h2>Send a Complaint</h2>
+      <textarea id="complaint" rows="4" placeholder="Your complaint..."></textarea>
+      <button type="button" onclick="submitComplaint()">Send</button>
+    </form>
+
+    <form id="suggestion-form">
+      <h2>Suggest a Feature</h2>
+      <textarea id="suggestion" rows="4" placeholder="Suggest something..."></textarea>
+      <button type="button" onclick="submitSuggestion()">Send</button>
+    </form>
+
+    <form id="request-form">
+      <h2>Request a Movie</h2>
+      <input type="text" id="request" placeholder="Enter movie/series name...">
+      <button type="button" onclick="submitRequest()">Request</button>
+    </form>
+  </div>
+
+  <script>
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+    }
+
+    function submitComplaint() {
+      const message = document.getElementById('complaint').value;
+      if (message.trim()) {
+        fetch('{{ url_for("complain") }}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: `message=${encodeURIComponent(message)}`
+        }).then(() => alert('Complaint sent.'));
+      }
+    }
+
+    function submitSuggestion() {
+      const message = document.getElementById('suggestion').value;
+      if (message.trim()) {
+        fetch('{{ url_for("complain") }}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: `message=${encodeURIComponent("Suggestion: " + message)}`
+        }).then(() => alert('Suggestion sent.'));
+      }
+    }
+
+    function submitRequest() {
+      const content = document.getElementById('request').value;
+      if (content.trim()) {
+        fetch('{{ url_for("request") }}', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+          body: `content=${encodeURIComponent(content)}`
+        }).then(() => alert('Request sent.'));
+      }
+    }
+  </script>
+</body>
+</html>

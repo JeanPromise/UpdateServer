@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MovieStream - Home</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0d0d0d; color: #fff; }
+    header {
+      background: #111;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+    .logo { font-size: 1.6rem; font-weight: bold; color: #e50914; }
+    .nav-icons { display: flex; align-items: center; }
+    .nav-icons i { margin-left: 1rem; cursor: pointer; font-size: 1.3rem; }
+    .search-bar input {
+      padding: 8px 12px;
+      border-radius: 20px;
+      border: none;
+      outline: none;
+      width: 200px;
+    }
+    .search-bar input:focus { box-shadow: 0 0 10px #e50914; }
+    .sidebar { position: fixed; top: 0; left: -250px; width: 220px; height: 100%; background: #111; padding: 1rem; display: flex; flex-direction: column; transition: left 0.3s ease; z-index: 2000; }
+    .sidebar.open { left: 0; }
+    .sidebar-item { padding: 0.8rem; font-size: 1rem; cursor: pointer; color: #fff; }
+    .sidebar-item:hover { background: #e50914; border-radius: 4px; }
+    .featured { width: 100%; height: 60vh; background-size: cover; background-position: center; display: flex; flex-direction: column; justify-content: flex-end; padding: 20px; color: #fff; background-image: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent); }
+    .featured h1 { font-size: 2.5rem; margin-bottom: 10px; }
+    .featured button { padding: 10px 20px; margin-top: 10px; background: #e50914; border: none; color: #fff; font-size: 1rem; cursor: pointer; border-radius: 5px; }
+    .section { padding: 1.5rem 0; }
+    .section h2 { margin-left: 1.5rem; margin-bottom: 0.8rem; font-size: 1.3rem; color: #fff; }
+    .row-container { position: relative; overflow: hidden; }
+    .row { display: flex; gap: 0.5rem; overflow-x: auto; scroll-behavior: smooth; padding: 0 1.5rem; }
+    .row::-webkit-scrollbar { display: none; }
+    .movie-card { min-width: 150px; flex-shrink: 0; background: #1c1c1c; border-radius: 8px; overflow: hidden; cursor: pointer; transition: transform 0.3s, box-shadow 0.3s; position: relative; }
+    .movie-card:hover { transform: scale(1.1); box-shadow: 0 0 15px rgba(0, 0, 0, 0.7); }
+    .movie-card img { width: 100%; height: 200px; object-fit: cover; }
+    .movie-card .title { padding: 0.5rem; font-size: 0.9rem; text-align: center; }
+    .movie-card:hover .hover-overlay { opacity: 1; }
+    .hover-overlay { position: absolute; bottom: 0; width: 100%; padding: 10px; background: rgba(0, 0, 0, 0.6); text-align: center; color: #fff; font-size: 0.85rem; opacity: 0; transition: 0.3s; }
+    .scroll-btn { position: absolute; top: 40%; background: rgba(0, 0, 0, 0.6); border: none; color: #fff; font-size: 2rem; width: 40px; height: 60px; cursor: pointer; z-index: 1000; }
+    .scroll-btn.left { left: 0; }
+    .scroll-btn.right { right: 0; }
+    .player-container { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.95); z-index: 3000; justify-content: center; align-items: center; flex-direction: column; }
+    .player-container video { width: 90%; max-height: 70vh; border-radius: 8px; }
+    .close-btn { position: absolute; top: 15px; right: 15px; background: #e50914; border: none; color: #fff; font-size: 1.2rem; padding: 10px; border-radius: 50%; cursor: pointer; }
+    footer { text-align: center; padding: 15px; color: #888; font-size: 0.9rem; background: #111; margin-top: 30px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">MovieStream</div>
+  <div class="nav-icons">
+    <div class="search-bar">
+      <input type="text" id="global-search" placeholder="Search for movies, series...">
+    </div>
+    <i class="fas fa-moon" onclick="toggleDarkMode()" title="Toggle Dark Mode"></i>
+    <i class="fas fa-bars" onclick="toggleSidebar()"></i>
+  </div>
+</header>
+
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-item" onclick="location.href='{{ url_for('home') }}'">Home</div>
+  <div class="sidebar-item" onclick="alert('Go to movies')">Movies</div>
+  <div class="sidebar-item" onclick="location.href='{{ url_for('games') }}'">Games</div>
+  <div class="sidebar-item" onclick="alert('Billing coming soon')">Billing</div>
+  <div class="sidebar-item" onclick="alert('Extras coming soon')">Extras</div>
+  <div class="sidebar-item" onclick="location.href='{{ url_for('logout') }}'">Logout</div>
+</div>
+
+<!-- Featured -->
+<div class="featured" id="featured">
+  <h1 id="featured-title">Loading...</h1>
+  <button onclick="playFeatured()">Play</button>
+</div>
+
+<!-- Sections -->
+{% set sections = [
+  {"title": "Continue Watching", "id": "continue-row"},
+  {"title": "Movies", "id": "movie-row"},
+  {"title": "K-Drama / Asian", "id": "asian-row"},
+  {"title": "Animation", "id": "animation-row"},
+  {"title": "Wrestling", "id": "wrestling-row"}
+] %}
+
+{% for sec in sections %}
+<div class="section">
+  <h2>{{ sec.title }}</h2>
+  <div class="row-container">
+    <button class="scroll-btn left" onclick="scrollRow(this,-300)">&#10094;</button>
+    <div class="row" id="{{ sec.id }}"></div>
+    <button class="scroll-btn right" onclick="scrollRow(this,300)">&#10095;</button>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Player -->
+<div class="player-container" id="player-section">
+  <button class="close-btn" onclick="closePlayer()">X</button>
+  <video id="movie-player" controls autoplay>
+    <source id="video-source" src="" type="video/mp4">
+  </video>
+</div>
+
+<footer>
+  ✅ Build v1.0 – Complete | MovieStream © 2025
+</footer>
+
+<script>
+const player = document.getElementById('movie-player');
+const source = document.getElementById('video-source');
+const playerSection = document.getElementById('player-section');
+const featured = document.getElementById('featured');
+const searchInput = document.getElementById('global-search');
+let featuredPath = '', allData = [];
+
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+function toggleDarkMode() { document.body.classList.toggle('light'); }
+function scrollRow(btn, amount) { btn.parentElement.querySelector('.row').scrollBy({ left: amount, behavior: 'smooth' }); }
+function playMovie(path, title) { source.src = '/' + path; player.load(); player.play(); playerSection.style.display = 'flex'; saveContinueWatching(path, title); }
+function closePlayer() { player.pause(); playerSection.style.display = 'none'; }
+function playFeatured() { if (featuredPath) playMovie(featuredPath, document.getElementById('featured-title').innerText); }
+function renderCategory(items, container) {
+  container.innerHTML = '';
+  items.forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'movie-card';
+    card.innerHTML = `<img src="${m.thumbnail || ''}" alt="${m.title}"><div class="hover-overlay">${m.title}</div>`;
+    card.onclick = () => playMovie(m.path, m.title);
+    container.appendChild(card);
+  });
+}
+function saveContinueWatching(path, title) {
+  let cw = JSON.parse(localStorage.getItem('continue')) || [];
+  cw = cw.filter(i => i.path !== path);
+  cw.unshift({ path, title });
+  if (cw.length > 10) cw.pop();
+  localStorage.setItem('continue', JSON.stringify(cw));
+  renderContinue();
+}
+function renderContinue() {
+  let cw = JSON.parse(localStorage.getItem('continue')) || [];
+  const container = document.getElementById('continue-row');
+  container.innerHTML = '';
+  cw.forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'movie-card';
+    card.innerHTML = `<div class="title">${m.title}</div>`;
+    card.onclick = () => playMovie(m.path, m.title);
+    container.appendChild(card);
+  });
+}
+renderContinue();
+
+Promise.all([
+  fetch('{{ url_for("api_movies") }}').then(r => r.json()),
+  fetch('{{ url_for("api_asian") }}').then(r => r.json()),
+  fetch('{{ url_for("api_animation") }}').then(r => r.json()),
+  fetch('{{ url_for("api_wrestling") }}').then(r => r.json())
+]).then(([movies, asian, anim, wrest]) => {
+  allData = [...movies.items, ...asian.items, ...anim.items, ...wrest.items];
+  const latest = movies.items.reverse();
+  if (latest.length) {
+    featured.style.backgroundImage = `url(${latest[0].thumbnail || ''})`;
+    document.getElementById('featured-title').innerText = latest[0].title;
+    featuredPath = latest[0].path;
+  }
+  renderCategory(latest, document.getElementById('movie-row'));
+  renderCategory(asian.items.reverse(), document.getElementById('asian-row'));
+  renderCategory(anim.items.reverse(), document.getElementById('animation-row'));
+  renderCategory(wrest.items.reverse(), document.getElementById('wrestling-row'));
+});
+
+// Search functionality
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.toLowerCase();
+  if (!q) return document.querySelectorAll('.row').forEach(r => r.style.display = 'flex');
+  const results = allData.filter(m => m.title.toLowerCase().includes(q));
+  document.querySelectorAll('.row').forEach(r => r.style.display = 'none');
+  const movieRow = document.getElementById('movie-row');
+  movieRow.style.display = 'flex';
+  renderCategory(results, movieRow);
+});
+</script>
+
+</body>
+</html>

@@ -11,6 +11,9 @@ import secrets
 import sqlite3
 import time
 import tempfile
+import urllib.error
+import urllib.request
+import zipfile
 from contextlib import contextmanager
 try:
     import fcntl
@@ -19,11 +22,11 @@ except ImportError:  # Windows development fallback; Render runs on Linux.
 from datetime import datetime, timedelta, timezone
 from functools import wraps
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import quote, urlparse
 
 from flask import (
     Flask, abort, flash, g, jsonify, make_response, redirect, render_template,
-    request, send_file, session, url_for,
+    request, send_file, send_from_directory, session, url_for,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -40,6 +43,10 @@ else:
     DB_PATH = Path(os.environ.get("DATABASE_PATH", str(INSTANCE_DIR / "barcodehub.sqlite3")))
 DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 DB_LOCK_PATH = Path(str(DB_PATH) + ".lock")
+PRODUCT_IMAGE_DIR = DB_PATH.parent / "product-images"
+PRODUCT_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+MAX_PRODUCT_IMAGE_BYTES = 8 * 1024 * 1024
 
 app = Flask(__name__, instance_path=str(INSTANCE_DIR))
 if os.environ.get("RENDER_EXTERNAL_URL"):
@@ -100,7 +107,7 @@ DEFAULT_SETTINGS = {
     "description": "A practical barcode and product catalogue for Kenyan shops, POS builders, and developers.",
     "hero_title": "Product barcodes.",
     "hero_highlight": "Ready for your system.",
-    "hero_subtitle": "Search product records or connect to Kenyan retail data through a developer API.",
+    "hero_subtitle": "Search, download and connect to product records made for Kenyan retail.",
     "logo_url": "",
     "primary_color": "#2677e8",
     "support_email": "",
@@ -122,9 +129,88 @@ DEFAULT_PLANS = [
     ("business", "Business API", 1000, 100000, 30, "For higher-volume applications", 1),
 ]
 
+# These image-inclusive plans are intentionally unpublished and unpriced on a
+# fresh install. The owner sets the actual image-data prices in Admin → Plans.
+DEFAULT_IMAGE_PLANS = [
+    ("starter-images", "Starter API + Images", 0, 1000, 30,
+     "Starter API access including product image URLs. Set a price before publishing.", 0, 1),
+    ("developer-images", "Developer API + Images", 0, 10000, 30,
+     "Developer API access including product image URLs. Set a price before publishing.", 0, 1),
+    ("business-images", "Business API + Images", 0, 100000, 30,
+     "Higher-volume API access including product image URLs. Set a price before publishing.", 0, 1),
+]
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def log_system_event(source: str, event_type: str, message: str,
+                     status_code: int | None = None, user_id: int | None = None,
+                     path: str = "", severity: str | None = None) -> None:
+    """Store a short, safe diagnostic event without secrets or stack traces."""
+    if severity is None:
+        severity = "error" if status_code and status_code >= 500 else (
+            "warning" if status_code and status_code >= 400 else "info")
+    try:
+        with connect_db() as db:
+            db.execute("""INSERT INTO system_events
+                          (event_type,severity,source,message,status_code,user_id,path,created_at)
+                          VALUES(?,?,?,?,?,?,?,?)""",
+                       (str(event_type)[:80], str(severity)[:20], str(source)[:50],
+                        str(message)[:500], status_code, user_id, str(path)[:300], now_iso()))
+    except Exception:
+        # Diagnostics must never prevent the original request from completing.
+        app.logger.exception("Could not save a system diagnostic event")
+
+
+def mask_email(value: str) -> str:
+    value = (value or "").strip()
+    if "@" not in value:
+        return "unmatched email"
+    local, domain = value.split("@", 1)
+    return f"{local[:1]}***@{domain[:120]}"
+
+
+def valid_image_url(value: str) -> bool:
+    value = (value or "").strip()
+    if not value:
+        return True
+    if value.startswith("/media/products/"):
+        tail = value.removeprefix("/media/products/")
+        return bool(tail) and "/" not in tail and ".." not in tail and Path(tail).suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
+    parsed = urlparse(value)
+    return parsed.scheme in ("http", "https") and bool(parsed.netloc) and len(value) <= 2000
+
+
+def save_product_image(upload, barcode: str) -> str:
+    """Validate and save a single user-provided product image to persistent media."""
+    if not upload or not upload.filename:
+        return ""
+    suffix = Path(upload.filename).suffix.lower()
+    if suffix not in ALLOWED_IMAGE_EXTENSIONS:
+        raise ValueError("Use a JPG, PNG, WEBP or GIF image.")
+    content = upload.stream.read(MAX_PRODUCT_IMAGE_BYTES + 1)
+    if not content:
+        raise ValueError("The selected image is empty.")
+    if len(content) > MAX_PRODUCT_IMAGE_BYTES:
+        raise ValueError("Each product image must be 8 MB or smaller.")
+    actual_ext = None
+    if content.startswith(b"\xff\xd8\xff"):
+        actual_ext = ".jpg"
+    elif content.startswith(b"\x89PNG\r\n\x1a\n"):
+        actual_ext = ".png"
+    elif content.startswith((b"GIF87a", b"GIF89a")):
+        actual_ext = ".gif"
+    elif len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        actual_ext = ".webp"
+    if actual_ext is None:
+        raise ValueError("The uploaded file does not look like a supported image.")
+    token = hashlib.sha256((barcode + secrets.token_hex(16)).encode()).hexdigest()[:20]
+    filename = token + actual_ext
+    PRODUCT_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+    (PRODUCT_IMAGE_DIR / filename).write_bytes(content)
+    return "/media/products/" + filename
 
 
 class ClosingConnection(sqlite3.Connection):
@@ -196,7 +282,8 @@ def init_db() -> None:
             name TEXT NOT NULL,
             email TEXT NOT NULL UNIQUE COLLATE NOCASE,
             password_hash TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            password_changed_at TEXT DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS products (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -291,20 +378,49 @@ def init_db() -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_visitors_date ON visitor_events(created_at);
         CREATE INDEX IF NOT EXISTS idx_visitors_visitor ON visitor_events(visitor_id);
+        CREATE TABLE IF NOT EXISTS system_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type TEXT NOT NULL,
+            severity TEXT NOT NULL DEFAULT 'info',
+            source TEXT NOT NULL,
+            message TEXT NOT NULL,
+            status_code INTEGER,
+            user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+            path TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_system_events_date ON system_events(created_at);
+        CREATE INDEX IF NOT EXISTS idx_system_events_source_status ON system_events(source,status_code);
         """)
-        # Safely upgrade databases created before visitor-to-account identity linking.
-        visitor_columns = {row["name"] for row in db.execute("PRAGMA table_info(visitor_events)")}
+        # Forward-only schema migrations keep existing Render SQLite data intact.
+        product_columns = {row[1] for row in db.execute("PRAGMA table_info(products)")}
+        if "image_url" not in product_columns:
+            db.execute("ALTER TABLE products ADD COLUMN image_url TEXT DEFAULT ''")
+        if "image_source" not in product_columns:
+            db.execute("ALTER TABLE products ADD COLUMN image_source TEXT DEFAULT ''")
+        if "image_checked_at" not in product_columns:
+            db.execute("ALTER TABLE products ADD COLUMN image_checked_at TEXT DEFAULT ''")
+        plan_columns = {row[1] for row in db.execute("PRAGMA table_info(plans)")}
+        if "image_access" not in plan_columns:
+            db.execute("ALTER TABLE plans ADD COLUMN image_access INTEGER NOT NULL DEFAULT 0")
+        user_columns = {row[1] for row in db.execute("PRAGMA table_info(users)")}
+        if "password_changed_at" not in user_columns:
+            db.execute("ALTER TABLE users ADD COLUMN password_changed_at TEXT DEFAULT ''")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_products_image_url ON products(image_url)")
+        visitor_columns = {row[1] for row in db.execute("PRAGMA table_info(visitor_events)")}
         if "user_id" not in visitor_columns:
             db.execute("ALTER TABLE visitor_events ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
         db.execute("CREATE INDEX IF NOT EXISTS idx_visitors_user ON visitor_events(user_id)")
-        # Update only untouched legacy defaults; keep any owner-customized headline intact.
-        db.execute("UPDATE settings SET value=? WHERE key='hero_subtitle' AND value=?",
-                   (DEFAULT_SETTINGS["hero_subtitle"], "Search, download and connect to product records made for Kenyan retail."))
         for key, value in DEFAULT_SETTINGS.items():
             db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)", (key, value))
         for slug, name, price, limit, days, description, active in DEFAULT_PLANS:
             db.execute("""INSERT OR IGNORE INTO plans(slug,name,price_kes,lookup_limit,duration_days,description,active)
                           VALUES (?,?,?,?,?,?,?)""", (slug, name, price, limit, days, description, active))
+        for slug, name, price, limit, days, description, active, image_access in DEFAULT_IMAGE_PLANS:
+            db.execute("""INSERT OR IGNORE INTO plans
+                          (slug,name,price_kes,lookup_limit,duration_days,description,active,image_access)
+                          VALUES (?,?,?,?,?,?,?,?)""",
+                       (slug, name, price, limit, days, description, active, image_access))
         seed_marker = db.execute("SELECT value FROM settings WHERE key='seed_catalogue_loaded'").fetchone()
         if not seed_marker:
             product_count = db.execute("SELECT COUNT(*) FROM products").fetchone()[0]
@@ -371,15 +487,30 @@ def current_user():
     if not user_id:
         return None
     with connect_db() as db:
-        row = db.execute("SELECT id,name,email,created_at FROM users WHERE id=?", (user_id,)).fetchone()
-        return dict(row) if row else None
+        row = db.execute("SELECT id,name,email,created_at,password_changed_at FROM users WHERE id=?", (user_id,)).fetchone()
+        if not row:
+            session.pop("user_id", None)
+            session.pop("user_password_version", None)
+            return None
+        version = row["password_changed_at"] or row["created_at"]
+        session_version = session.get("user_password_version")
+        if session_version and not hmac.compare_digest(str(session_version), str(version)):
+            session.pop("user_id", None)
+            session.pop("user_password_version", None)
+            return None
+        if not session_version:
+            session["user_password_version"] = version
+        result = dict(row)
+        result.pop("password_changed_at", None)
+        return result
 
 
 def active_subscription(user_id: int, db=None):
     own = db is None
     db = db or connect_db()
     now = now_iso()
-    row = db.execute("""SELECT s.*, p.name AS plan_name, p.lookup_limit, p.price_kes
+    row = db.execute("""SELECT s.*, p.name AS plan_name, p.lookup_limit, p.price_kes,
+                              COALESCE(p.image_access,0) AS image_access
                        FROM subscriptions s JOIN plans p ON p.id=s.plan_id
                        WHERE s.user_id=? AND s.starts_at<=? AND s.expires_at>?
                        ORDER BY s.expires_at DESC LIMIT 1""", (user_id, now, now)).fetchone()
@@ -433,21 +564,32 @@ def is_safe_external_url(value: str) -> bool:
 
 
 def log_page_view() -> None:
-    # Admin sessions are control-room activity, not public visitors—even when
-    # the administrator opens public pages in the same browser.
-    if is_admin():
+    """Record eligible browser page requests, excluding infrastructure and obvious bots.
+
+    A web server cannot prove that a request came from a unique physical device:
+    browser/device fingerprinting is unreliable and privacy-invasive. visitor_id is
+    a first-party session identifier, so analytics below report browser sessions,
+    not guaranteed unique people or physical devices.
+    """
+    if request.endpoint in ("static", "health", "service_worker", "manifest", "favicon") or request.path.startswith("/media/"):
         return
-    if request.endpoint in ("static", "health", "service_worker", "manifest", "favicon"):
-        return
-    if request.path.startswith("/promise212324"):
-        return
-    if request.path.startswith("/api/"):
-        return
-    if request.path.startswith("/downloads/"):
+    if request.path.startswith(("/promise212324", "/api/", "/downloads/", "/admin", "/login", "/logout")):
         return
     if request.method != "GET":
         return
-    # Avoid analytics noise from polling and health endpoints.
+    # Exclude common crawlers, health checks, command-line clients and monitoring agents.
+    ua = (request.user_agent.string or "").lower()
+    bot_markers = (
+        "bot", "crawler", "spider", "slurp", "headless", "lighthouse",
+        "pagespeed", "uptime", "monitor", "probe", "curl/", "wget/",
+        "python-requests", "python-urllib", "httpx/", "aiohttp", "scrapy",
+        "facebookexternalhit", "preview"
+    )
+    if not ua or any(marker in ua for marker in bot_markers):
+        return
+    # Do not count requests that do not look like a normal browser navigation.
+    if not any(marker in ua for marker in ("mozilla/", "chrome/", "safari/", "firefox/", "edg/")):
+        return
     visitor_id = session.get("visitor_id")
     if not visitor_id:
         visitor_id = secrets.token_urlsafe(14)
@@ -457,21 +599,11 @@ def log_page_view() -> None:
         parsed = urlparse(referrer)
         referrer = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"[:400]
     try:
-        user_id = session.get("user_id")
         with connect_db() as db:
-            # A restored database can leave an old signed-in session pointing at
-            # a user ID that no longer exists. Never attach events to a stale ID.
-            if user_id and not db.execute("SELECT 1 FROM users WHERE id=?", (user_id,)).fetchone():
-                user_id = None
-            if user_id:
-                # Also connect pre-upgrade anonymous history when a signed-in
-                # account revisits the site with its existing browser session.
-                db.execute("UPDATE visitor_events SET user_id=? WHERE visitor_id=? AND user_id IS NULL",
-                           (user_id, visitor_id))
-            db.execute("""INSERT INTO visitor_events(visitor_id,path,method,ip_masked,referrer,user_agent,created_at,user_id)
-                          VALUES(?,?,?,?,?,?,?,?)""",
+            db.execute("""INSERT INTO visitor_events(visitor_id,path,method,ip_masked,referrer,user_agent,created_at)
+                          VALUES(?,?,?,?,?,?,?)""",
                        (visitor_id, request.path[:300], request.method, mask_ip(request.remote_addr or ""),
-                        referrer, request.user_agent.string[:300], now_iso(), user_id))
+                        referrer, request.user_agent.string[:300], now_iso()))
     except sqlite3.Error:
         app.logger.exception("Could not record visitor event")
 
@@ -501,6 +633,23 @@ def security_headers(response):
     if (request.method == "GET" and request.path in public_offline_pages and not request.query_string
             and not session.get("user_id") and not is_admin() and response.status_code == 200):
         response.headers["X-Offline-Cacheable"] = "public"
+    if request.path.startswith("/api/v1/barcode/"):
+        code = response.status_code
+        status_messages = {
+            200: "Barcode lookup succeeded",
+            401: "API key missing, invalid or revoked",
+            402: "API request blocked: no active subscription",
+            404: "Barcode not found in catalogue",
+            429: "API lookup limit reached",
+            503: "API disabled or temporarily unavailable",
+        }
+        message = status_messages.get(code, "API request returned an unexpected status" if code >= 400 else "API request completed")
+        log_system_event("api", "barcode_lookup", message, code,
+                         getattr(g, "api_user_id", None), request.path,
+                         "error" if code >= 500 else ("warning" if code >= 400 else "info"))
+    elif response.status_code >= 500:
+        log_system_event("system", "server_error", "Server returned an internal error response",
+                         response.status_code, getattr(g, "api_user_id", None), request.path, "error")
     return response
 
 
@@ -623,7 +772,6 @@ def privacy():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        visitor_id = session.get("visitor_id") or secrets.token_urlsafe(14)
         name = request.form.get("name", "").strip()[:100]
         email = request.form.get("email", "").strip().lower()[:254]
         password = request.form.get("password", "")
@@ -632,17 +780,16 @@ def register():
             return render_template("register.html")
         try:
             with connect_db() as db:
-                cursor = db.execute("INSERT INTO users(name,email,password_hash,created_at) VALUES(?,?,?,?)",
-                                    (name, email, generate_password_hash(password), now_iso()))
+                created = now_iso()
+                cursor = db.execute("INSERT INTO users(name,email,password_hash,created_at,password_changed_at) VALUES(?,?,?,?,?)",
+                                    (name, email, generate_password_hash(password), created, created))
                 user_id = cursor.lastrowid
-                db.execute("UPDATE visitor_events SET user_id=? WHERE visitor_id=? AND user_id IS NULL",
-                           (user_id, visitor_id))
         except sqlite3.IntegrityError:
             flash("An account with that email already exists.", "error")
             return render_template("register.html")
         session.clear()
-        session["visitor_id"] = visitor_id
         session["user_id"] = user_id
+        session["user_password_version"] = created
         csrf_token()
         flash("Your account is ready.", "success")
         target = request.args.get("next", "")
@@ -655,22 +802,24 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        visitor_id = session.get("visitor_id") or secrets.token_urlsafe(14)
         email = request.form.get("email", "").strip().lower()[:254]
         password = request.form.get("password", "")
         with connect_db() as db:
             user = db.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
         if not user or not check_password_hash(user["password_hash"], password):
+            log_system_event("authentication", "user_login_failed",
+                             "Customer sign-in rejected for " + mask_email(email), 401,
+                             user["id"] if user else None, request.path, "warning")
             time.sleep(0.25)
             flash("Email or password is incorrect.", "error")
             return render_template("login.html")
-        with connect_db() as db:
-            db.execute("UPDATE visitor_events SET user_id=? WHERE visitor_id=? AND (user_id IS NULL OR user_id=?)",
-                       (user["id"], visitor_id, user["id"]))
         session.clear()
         session["user_id"] = user["id"]
-        session["visitor_id"] = visitor_id
+        session["user_password_version"] = user["password_changed_at"] or user["created_at"]
+        session["visitor_id"] = secrets.token_urlsafe(14)
         csrf_token()
+        log_system_event("authentication", "user_login_succeeded", "Customer signed in successfully",
+                         200, user["id"], request.path, "info")
         target = request.args.get("next", "")
         if not target.startswith("/") or target.startswith("//") or target.startswith("/promise212324"):
             target = url_for("account")
@@ -710,6 +859,31 @@ def account():
             with connect_db() as db:
                 db.execute("UPDATE api_keys SET revoked=1 WHERE id=? AND user_id=?", (key_id, user["id"]))
             flash("API key revoked.", "success")
+        elif action == "change_password":
+            current_password = request.form.get("current_password", "")
+            new_password = request.form.get("new_password", "")
+            confirm_password = request.form.get("confirm_password", "")
+            password_changed = False
+            with connect_db() as db:
+                auth_user = db.execute("SELECT password_hash FROM users WHERE id=?", (user["id"],)).fetchone()
+                if not auth_user or not check_password_hash(auth_user["password_hash"], current_password):
+                    flash("Your current password was not correct.", "error")
+                elif len(new_password) < 10:
+                    flash("Choose a new password with at least 10 characters.", "error")
+                elif new_password != confirm_password:
+                    flash("The new passwords do not match.", "error")
+                elif new_password == current_password:
+                    flash("Choose a different new password.", "error")
+                else:
+                    changed_at = datetime.now(timezone.utc).isoformat()
+                    db.execute("UPDATE users SET password_hash=?,password_changed_at=? WHERE id=?",
+                               (generate_password_hash(new_password), changed_at, user["id"]))
+                    session["user_password_version"] = changed_at
+                    password_changed = True
+                    flash("Your password has been changed.", "success")
+            if password_changed:
+                log_system_event("authentication", "user_password_changed",
+                                 "Customer changed their password", 200, user["id"], request.path, "info")
         return render_template("account.html", user=user, subscription=active_subscription(user["id"]),
                                usage=monthly_usage(user["id"], active_subscription(user["id"])) if active_subscription(user["id"]) else 0,
                                keys=get_user_keys(user["id"]), orders=get_user_orders(user["id"]), new_api_key=new_api_key)
@@ -774,14 +948,41 @@ def checkout(slug):
 
 @app.route("/downloads/sample.csv")
 def sample_download():
-    flash("CSV downloads are currently unavailable. Use the developer API for structured product data.", "info")
-    return redirect(url_for("docs"))
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["barcode", "name", "brand", "pack_size", "category", "price_kes", "verified", "source", "image_url"])
+    # A header-only file avoids presenting made-up barcode data as real products.
+    data = io.BytesIO(output.getvalue().encode("utf-8-sig"))
+    return send_file(data, mimetype="text/csv", as_attachment=True, download_name="kenya-barcode-hub-sample-template.csv")
 
 
 @app.route("/downloads/catalogue.csv")
+@login_required
 def catalogue_download():
-    flash("Bulk CSV downloads are currently unavailable. Connect through the Barcode Hub API instead.", "info")
-    return redirect(url_for("docs"))
+    user = current_user()
+    sub = active_subscription(user["id"])
+    if not sub:
+        flash("An active plan is needed to download the full catalogue.", "info")
+        return redirect(url_for("pricing"))
+    image_access = bool(sub.get("image_access"))
+    with connect_db() as db:
+        if image_access:
+            rows = db.execute("SELECT barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at,image_url FROM products ORDER BY name COLLATE NOCASE").fetchall()
+        else:
+            rows = db.execute("SELECT barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at FROM products ORDER BY name COLLATE NOCASE").fetchall()
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["barcode", "name", "brand", "pack_size", "category", "price_kes", "verified", "source", "updated_at"] + (["image_url"] if image_access else []))
+    for row in rows:
+        values = list(row)
+        if image_access and values[-1] and str(values[-1]).startswith("/"):
+            values[-1] = request.url_root.rstrip("/") + str(values[-1])
+        writer.writerow(values)
+    response = make_response("\ufeff" + output.getvalue())
+    response.headers["Content-Type"] = "text/csv; charset=utf-8"
+    response.headers["Content-Disposition"] = 'attachment; filename="kenya-barcode-hub-catalogue.csv"'
+    response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 @app.route("/api/v1/barcode/<barcode>", methods=["GET"])
@@ -799,7 +1000,9 @@ def api_barcode(barcode):
         key = db.execute("SELECT id,user_id FROM api_keys WHERE token_hash=? AND revoked=0", (digest,)).fetchone()
         if not key:
             return jsonify({"error": "invalid_api_key", "message": "The API key is invalid or revoked."}), 401
-        sub_row = db.execute("""SELECT s.*,p.name AS plan_name,p.lookup_limit,p.active AS plan_active
+        g.api_user_id = key["user_id"]
+        sub_row = db.execute("""SELECT s.*,p.name AS plan_name,p.lookup_limit,p.active AS plan_active,
+                                       COALESCE(p.image_access,0) AS image_access
                                FROM subscriptions s JOIN plans p ON p.id=s.plan_id
                                WHERE s.user_id=? AND s.starts_at<=? AND s.expires_at>?
                                ORDER BY s.expires_at DESC LIMIT 1""", (key["user_id"], now_iso(), now_iso())).fetchone()
@@ -822,19 +1025,47 @@ def api_barcode(barcode):
         if not product:
             return jsonify({"error": "product_not_found", "barcode": code, "message": "No matching product was found."}), 404
         p = dict(product)
-    return jsonify({
+    result = {
         "barcode": p["barcode"], "name": p["name"], "brand": p["brand"],
         "pack_size": p["pack_size"], "category": p["category"],
         "price_kes": p["price_kes"], "verified": bool(p["verified"]),
         "source": p["source"], "updated_at": p["updated_at"],
         "usage": {"limit": int(sub["lookup_limit"]), "used": int(used) + 1,
                   "remaining": max(0, int(sub["lookup_limit"]) - int(used) - 1)}
-    })
+    }
+    if bool(sub.get("image_access")):
+        image_url = (p.get("image_url") or "").strip()
+        if image_url.startswith("/"):
+            image_url = request.url_root.rstrip("/") + image_url
+        result["image_url"] = image_url or None
+        result["image_available"] = bool(image_url)
+        result["image_source"] = (p.get("image_source") or None) if image_url else None
+    return jsonify(result)
 
 
 @app.route("/health")
 def health():
-    return jsonify({"status": "ok", "service": "Kenya Barcode Hub"})
+    try:
+        with connect_db() as db:
+            integrity = db.execute("PRAGMA quick_check").fetchone()[0]
+            products = int(db.execute("SELECT COUNT(*) FROM products").fetchone()[0])
+            images = int(db.execute("SELECT COUNT(*) FROM products WHERE COALESCE(TRIM(image_url),'')<>''").fetchone()[0])
+            settings = get_settings(db)
+        if integrity != "ok":
+            raise sqlite3.DatabaseError("SQLite quick check did not return ok")
+        return jsonify({"status": "ok", "service": "Kenya Barcode Hub", "database": "ok",
+                       "api": "enabled" if settings.get("api_enabled", "1") == "1" else "disabled",
+                       "products": products, "products_with_images": images}), 200
+    except Exception:
+        app.logger.exception("Health check failed")
+        return jsonify({"status": "degraded", "service": "Kenya Barcode Hub", "database": "error"}), 503
+
+
+@app.route("/media/products/<path:filename>")
+def product_image_file(filename):
+    if not re.fullmatch(r"[a-f0-9]{20}\.(?:jpg|png|webp|gif)", filename):
+        abort(404)
+    return send_from_directory(PRODUCT_IMAGE_DIR, filename, max_age=604800, conditional=True)
 
 
 @app.route("/offline")
@@ -901,6 +1132,8 @@ def admin_login():
     if request.method == "POST":
         ip = request.remote_addr or "unknown"
         if admin_rate_limited(ip):
+            log_system_event("admin_auth", "admin_login_rate_limited", "Admin sign-in throttled after repeated failed attempts",
+                             429, None, request.path, "warning")
             flash("Too many sign-in attempts. Wait 15 minutes and try again.", "error")
             return render_template("admin_login.html")
         username = request.form.get("username", "")
@@ -914,6 +1147,8 @@ def admin_login():
             csrf_token()
             return redirect(url_for("admin_dashboard"))
         admin_record_failure(ip)
+        log_system_event("admin_auth", "admin_login_failed", "Admin sign-in credentials were rejected",
+                         401, None, request.path, "warning")
         time.sleep(0.25)
         flash("Admin username or password is incorrect. Confirm ADMIN_USERNAME and ADMIN_PASSWORD in Render.", "error")
     return render_template("admin_login.html")
@@ -928,10 +1163,78 @@ def admin_logout():
 
 
 BACKUP_FORMAT = "kenya-barcode-hub-full-backup"
-BACKUP_VERSION = 1
-BACKUP_TABLES = ("users", "products", "posts", "settings", "plans", "orders", "subscriptions", "api_keys", "api_logs", "visitor_events")
-DELETE_ORDER = ("subscriptions", "api_keys", "api_logs", "orders", "visitor_events", "products", "posts", "settings", "plans", "users")
-INSERT_ORDER = ("users", "plans", "products", "posts", "settings", "orders", "subscriptions", "api_keys", "api_logs", "visitor_events")
+BACKUP_VERSION = 2
+LEGACY_BACKUP_TABLES = ("users", "products", "posts", "settings", "plans", "orders", "subscriptions", "api_keys", "api_logs", "visitor_events")
+BACKUP_TABLES = LEGACY_BACKUP_TABLES + ("system_events",)
+DELETE_ORDER = ("system_events", "subscriptions", "api_keys", "api_logs", "orders", "visitor_events", "products", "posts", "settings", "plans", "users")
+INSERT_ORDER = ("users", "plans", "products", "posts", "settings", "orders", "subscriptions", "api_keys", "api_logs", "visitor_events", "system_events")
+
+LEGACY_BACKUP_COLUMNS = {
+    "users": ["id", "name", "email", "password_hash", "created_at"],
+    "products": ["id", "barcode", "name", "brand", "pack_size", "category", "price_kes", "verified", "source", "updated_at"],
+    "posts": ["id", "title", "summary", "url", "kind", "premium", "active", "created_at"],
+    "settings": ["key", "value"],
+    "plans": ["id", "slug", "name", "price_kes", "lookup_limit", "duration_days", "description", "active"],
+    "orders": ["id", "user_id", "plan_id", "amount_kes", "payer_name", "payer_phone", "transaction_code", "status", "admin_note", "created_at", "reviewed_at"],
+    "subscriptions": ["id", "user_id", "plan_id", "starts_at", "expires_at", "order_id"],
+    "api_keys": ["id", "user_id", "label", "prefix", "token_hash", "created_at", "revoked"],
+    "api_logs": ["id", "user_id", "barcode", "status_code", "created_at"],
+    "visitor_events": ["id", "visitor_id", "path", "method", "ip_masked", "referrer", "user_agent", "created_at"],
+}
+
+# A later pre-image build also linked some visitor events to customer IDs. Accept
+# both older schemas so this field and those historical links are preserved.
+LEGACY_BACKUP_COLUMNS_WITH_VISITOR_USER = {
+    **LEGACY_BACKUP_COLUMNS,
+    "visitor_events": LEGACY_BACKUP_COLUMNS["visitor_events"] + ["user_id"],
+}
+
+
+def create_system_events_schema(db):
+    db.execute("""CREATE TABLE IF NOT EXISTS system_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        event_type TEXT NOT NULL,
+        severity TEXT NOT NULL DEFAULT 'info',
+        source TEXT NOT NULL,
+        message TEXT NOT NULL,
+        status_code INTEGER,
+        user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        path TEXT DEFAULT '',
+        created_at TEXT NOT NULL
+    )""")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_system_events_date ON system_events(created_at)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_system_events_source_status ON system_events(source,status_code)")
+
+
+def migrate_legacy_sqlite_backup(path: Path) -> None:
+    """Upgrade a known pre-image .sqlite3 backup in-place before strict validation."""
+    raw = sqlite3.connect(path, timeout=20)
+    try:
+        quick = raw.execute("PRAGMA quick_check").fetchone()
+        if not quick or quick[0] != "ok":
+            return
+        tables = {r[0] for r in raw.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
+        if tables != set(LEGACY_BACKUP_TABLES):
+            return
+        if raw.execute("SELECT 1 FROM sqlite_master WHERE type IN ('trigger','view') LIMIT 1").fetchone():
+            return
+        old_schema = {table: [r[1] for r in raw.execute(f'PRAGMA table_info("{table}")')] for table in LEGACY_BACKUP_TABLES}
+        if old_schema not in (LEGACY_BACKUP_COLUMNS, LEGACY_BACKUP_COLUMNS_WITH_VISITOR_USER):
+            return
+        raw.execute("ALTER TABLE products ADD COLUMN image_url TEXT DEFAULT ''")
+        raw.execute("ALTER TABLE products ADD COLUMN image_source TEXT DEFAULT ''")
+        raw.execute("ALTER TABLE products ADD COLUMN image_checked_at TEXT DEFAULT ''")
+        raw.execute("ALTER TABLE plans ADD COLUMN image_access INTEGER NOT NULL DEFAULT 0")
+        raw.execute("ALTER TABLE users ADD COLUMN password_changed_at TEXT DEFAULT ''")
+        raw.execute("CREATE INDEX IF NOT EXISTS idx_products_image_url ON products(image_url)")
+        visitor_columns = {r[1] for r in raw.execute("PRAGMA table_info(visitor_events)")}
+        if "user_id" not in visitor_columns:
+            raw.execute("ALTER TABLE visitor_events ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
+        raw.execute("CREATE INDEX IF NOT EXISTS idx_visitors_user ON visitor_events(user_id)")
+        create_system_events_schema(raw)
+        raw.commit()
+    finally:
+        raw.close()
 
 
 def database_columns(connection, table_name):
@@ -961,47 +1264,6 @@ def snapshot_database(source_path: Path, destination_path: Path):
     finally:
         target.close()
         source.close()
-
-
-def upgrade_compatible_sqlite_backup(path: Path):
-    """Migrate the previous visitor schema in an otherwise complete site backup."""
-    expected = live_database_schema()
-    if "user_id" not in expected["visitor_events"]:
-        return
-    db = sqlite3.connect(path, timeout=20)
-    try:
-        tables = {row[0] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
-        if tables != set(BACKUP_TABLES):
-            return
-        columns = database_columns(db, "visitor_events")
-        prior_columns = [column for column in expected["visitor_events"] if column != "user_id"]
-        if columns == prior_columns:
-            db.execute("ALTER TABLE visitor_events ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE SET NULL")
-            db.execute("CREATE INDEX IF NOT EXISTS idx_visitors_user ON visitor_events(user_id)")
-            db.commit()
-    finally:
-        db.close()
-
-
-def upgrade_compatible_json_backup(payload):
-    """Add the new nullable visitor identity field to a valid prior JSON backup."""
-    if not isinstance(payload, dict) or not isinstance(payload.get("tables"), dict):
-        return
-    if set(payload["tables"]) != set(BACKUP_TABLES):
-        return
-    expected = live_database_schema()
-    visitor_group = payload["tables"].get("visitor_events")
-    if not isinstance(visitor_group, dict):
-        return
-    columns = visitor_group.get("columns")
-    rows = visitor_group.get("rows")
-    prior_columns = [column for column in expected["visitor_events"] if column != "user_id"]
-    if columns != prior_columns or not isinstance(rows, list):
-        return
-    if any(not isinstance(row, list) or len(row) != len(prior_columns) for row in rows):
-        return
-    visitor_group["columns"] = list(columns) + ["user_id"]
-    visitor_group["rows"] = [list(row) + [None] for row in rows]
 
 
 def validate_sqlite_backup(path: Path):
@@ -1055,9 +1317,48 @@ def make_safety_backup() -> Path:
 
 
 def validate_json_backup(payload):
-    if not isinstance(payload, dict) or payload.get("format") != BACKUP_FORMAT or payload.get("version") != BACKUP_VERSION:
+    if not isinstance(payload, dict) or payload.get("format") != BACKUP_FORMAT:
         raise ValueError("This JSON file is not a supported full-site backup.")
+    version = payload.get("version")
     tables = payload.get("tables")
+    if version == 1:
+        if not isinstance(tables, dict) or set(tables) != set(LEGACY_BACKUP_TABLES):
+            raise ValueError("The legacy JSON backup is incomplete; all original site tables are required.")
+        upgraded_tables = {}
+        for table in LEGACY_BACKUP_TABLES:
+            group = tables.get(table)
+            incoming_columns = group.get("columns") if isinstance(group, dict) else None
+            allowed_columns = [LEGACY_BACKUP_COLUMNS[table]]
+            if table == "visitor_events":
+                allowed_columns.append(LEGACY_BACKUP_COLUMNS_WITH_VISITOR_USER[table])
+            if not isinstance(group, dict) or incoming_columns not in allowed_columns or not isinstance(group.get("rows"), list):
+                raise ValueError(f"The legacy JSON backup has an invalid {table} section.")
+            extended_rows = []
+            for row in group["rows"]:
+                if not isinstance(row, list) or len(row) != len(incoming_columns):
+                    raise ValueError(f"A legacy {table} row has the wrong number of fields.")
+                new_row = list(row)
+                if table == "products":
+                    new_row.extend(["", "", ""])
+                elif table == "plans":
+                    new_row.append(0)
+                elif table == "users":
+                    new_row.append("")
+                elif table == "visitor_events" and "user_id" not in incoming_columns:
+                    new_row.append(None)
+                extended_rows.append(new_row)
+            upgraded_columns = list(LEGACY_BACKUP_COLUMNS[table]) + (
+                ["image_url", "image_source", "image_checked_at"] if table == "products" else
+                ["image_access"] if table == "plans" else
+                ["password_changed_at"] if table == "users" else
+                ["user_id"] if table == "visitor_events" else [])
+            upgraded_tables[table] = {"columns": upgraded_columns, "rows": extended_rows}
+        upgraded_tables["system_events"] = {"columns": ["id", "event_type", "severity", "source", "message", "status_code", "user_id", "path", "created_at"], "rows": []}
+        payload = {"format": BACKUP_FORMAT, "version": BACKUP_VERSION,
+                   "created_at": payload.get("created_at", now_iso()), "tables": upgraded_tables}
+        tables = payload["tables"]
+    elif version != BACKUP_VERSION:
+        raise ValueError("This backup version is not supported.")
     if not isinstance(tables, dict) or set(tables) != set(BACKUP_TABLES):
         raise ValueError("The JSON backup is incomplete; all site tables are required.")
     expected = live_database_schema()
@@ -1192,7 +1493,6 @@ def admin_backups():
                 raise ValueError("The selected backup file is empty.")
             if suffix == ".json":
                 parsed_json = json.loads(raw.decode("utf-8-sig"), parse_constant=lambda value: (_ for _ in ()).throw(ValueError("Non-finite JSON numbers are not allowed.")))
-                upgrade_compatible_json_backup(parsed_json)
                 with database_file_lock(exclusive=False):
                     payload = validate_json_backup(parsed_json)
             else:
@@ -1200,8 +1500,8 @@ def admin_backups():
                 candidate_path = Path(filename)
                 with os.fdopen(fd, "wb") as handle:
                     handle.write(raw)
-                upgrade_compatible_sqlite_backup(candidate_path)
                 with database_file_lock(exclusive=False):
+                    migrate_legacy_sqlite_backup(candidate_path)
                     validate_sqlite_backup(candidate_path)
 
             # Lock out all other app DB connections while saving the safety copy
@@ -1247,20 +1547,24 @@ def admin_backups():
 @app.route(ADMIN_PREFIX + "/dashboard")
 @admin_required
 def admin_dashboard():
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(microsecond=0).isoformat()
     with connect_db() as db:
         stats = {
             "products": db.execute("SELECT COUNT(*) FROM products").fetchone()[0],
             "verified": db.execute("SELECT COUNT(*) FROM products WHERE verified=1").fetchone()[0],
+            "images": db.execute("SELECT COUNT(*) FROM products WHERE COALESCE(TRIM(image_url),'')<>''").fetchone()[0],
+            "missing_images": db.execute("SELECT COUNT(*) FROM products WHERE COALESCE(TRIM(image_url),'')=''").fetchone()[0],
             "users": db.execute("SELECT COUNT(*) FROM users").fetchone()[0],
             "pending": db.execute("SELECT COUNT(*) FROM orders WHERE status='pending'").fetchone()[0],
-            "visits_today": db.execute("SELECT COUNT(*) FROM visitor_events WHERE created_at >= ? AND path NOT LIKE '/promise212324%'", (datetime.now(timezone.utc).date().isoformat(),)).fetchone()[0],
-            "unique_today": db.execute("SELECT COUNT(DISTINCT visitor_id) FROM visitor_events WHERE created_at >= ? AND path NOT LIKE '/promise212324%'", (datetime.now(timezone.utc).date().isoformat(),)).fetchone()[0],
+            "api_calls_24h": db.execute("SELECT COUNT(*) FROM system_events WHERE source='api' AND created_at>=?", (since,)).fetchone()[0],
+            "api_errors_24h": db.execute("SELECT COUNT(*) FROM system_events WHERE source='api' AND status_code>=400 AND created_at>=?", (since,)).fetchone()[0],
+            # Dashboard traffic is session-based, not a raw request/ping count.
+            "visits_today": db.execute("SELECT COUNT(DISTINCT visitor_id) FROM visitor_events WHERE created_at >= ?", (datetime.now(timezone.utc).date().isoformat(),)).fetchone()[0],
+            "unique_today": db.execute("SELECT COUNT(DISTINCT visitor_id) FROM visitor_events WHERE created_at >= ?", (datetime.now(timezone.utc).date().isoformat(),)).fetchone()[0],
         }
         recent_orders = [dict(r) for r in db.execute("""SELECT o.*,u.name AS user_name,u.email,p.name AS plan_name FROM orders o
                     JOIN users u ON u.id=o.user_id JOIN plans p ON p.id=o.plan_id ORDER BY o.id DESC LIMIT 8""")]
-        recent_visitors = [dict(r) for r in db.execute("""SELECT ve.*,u.name AS visitor_name,u.email AS visitor_email
-                    FROM visitor_events ve LEFT JOIN users u ON u.id=ve.user_id
-                    WHERE ve.path NOT LIKE '/promise212324%' ORDER BY ve.id DESC LIMIT 10""")]
+        recent_visitors = [dict(r) for r in db.execute("SELECT * FROM visitor_events ORDER BY id DESC LIMIT 10")]
     return render_template("admin_dashboard.html", stats=stats, orders=recent_orders, visitors=recent_visitors,
                            persistent_storage=str(DB_PATH).startswith("/var/data/"), database_path=str(DB_PATH))
 
@@ -1287,7 +1591,7 @@ def admin_products():
                     reader = records
                 else:
                     reader = csv.DictReader(io.StringIO(content.decode("utf-8-sig", errors="replace")))
-                imported, updated, skipped = 0, 0, 0
+                imported, updated, skipped, invalid_images = 0, 0, 0, 0
                 with connect_db() as db:
                     for raw in reader:
                         if not isinstance(raw, dict):
@@ -1321,17 +1625,28 @@ def admin_products():
                         pack_size = pick("pack_size", "size", "amount", "quantity", "unit")
                         category = pick("category", "department", "group")
                         source = pick("source", "source_url", "supplier")
+                        image_url = pick("image_url", "image", "product_image", "image_link", "image_url_link")[:2000]
+                        if image_url and not valid_image_url(image_url):
+                            image_url = ""
+                            invalid_images += 1
                         exists = db.execute("SELECT id FROM products WHERE barcode=?", (barcode,)).fetchone()
-                        db.execute("""INSERT INTO products(barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at)
-                                      VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(barcode) DO UPDATE SET
+                        db.execute("""INSERT INTO products(barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at,image_url,image_source,image_checked_at)
+                                      VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(barcode) DO UPDATE SET
                                       name=excluded.name,brand=excluded.brand,pack_size=excluded.pack_size,category=excluded.category,
-                                      price_kes=COALESCE(excluded.price_kes, products.price_kes),verified=excluded.verified,source=excluded.source,updated_at=excluded.updated_at""",
-                                   (barcode, name[:200], brand[:120], pack_size[:100], category[:100], price, verified, source[:600], now_iso()))
+                                      price_kes=COALESCE(excluded.price_kes, products.price_kes),verified=excluded.verified,source=excluded.source,updated_at=excluded.updated_at,
+                                      image_url=CASE WHEN excluded.image_url<>'' THEN excluded.image_url ELSE products.image_url END,
+                                      image_source=CASE WHEN excluded.image_url<>'' THEN excluded.image_source ELSE products.image_source END,
+                                      image_checked_at=CASE WHEN excluded.image_url<>'' THEN excluded.image_checked_at ELSE products.image_checked_at END""",
+                                   (barcode, name[:200], brand[:120], pack_size[:100], category[:100], price, verified, source[:600], now_iso(),
+                                    image_url, "catalogue import" if image_url else "", now_iso() if image_url else ""))
                         if exists:
                             updated += 1
                         else:
                             imported += 1
-                flash(f"Import complete: {imported} new, {updated} updated, {skipped} skipped.", "success")
+                msg = f"Import complete: {imported} new, {updated} updated, {skipped} skipped."
+                if invalid_images:
+                    msg += f" {invalid_images} invalid image links were ignored."
+                flash(msg, "success")
             except Exception as exc:
                 app.logger.exception("Catalogue CSV import failed")
                 flash("The CSV could not be imported. Check its columns and encoding.", "error")
@@ -1343,6 +1658,8 @@ def admin_products():
         category = request.form.get("category", "").strip()[:100]
         price_text = request.form.get("price_kes", "").strip()
         source = request.form.get("source", "").strip()[:300]
+        image_url = request.form.get("image_url", "").strip()[:2000]
+        image_file = request.files.get("image_file")
         verified = 1 if request.form.get("verified") == "on" else 0
         try:
             price_match = re.search(r"-?\d+(?:\.\d+)?", price_text.replace(",", ""))
@@ -1355,15 +1672,32 @@ def admin_products():
             flash("Barcode and product name are required.", "error")
         elif len(barcode) > 50:
             flash("Barcode is too long.", "error")
+        elif image_url and not valid_image_url(image_url):
+            flash("Use a complete http/https image URL or upload a local image.", "error")
         else:
             try:
+                if image_file and image_file.filename:
+                    image_url = save_product_image(image_file, barcode)
+                    image_source = "admin upload"
+                    image_checked_at = now_iso()
+                elif image_url:
+                    image_source = "manual image URL"
+                    image_checked_at = now_iso()
+                else:
+                    image_source = ""
+                    image_checked_at = ""
                 with connect_db() as db:
-                    db.execute("""INSERT INTO products(barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at)
-                                  VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(barcode) DO UPDATE SET
+                    db.execute("""INSERT INTO products(barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at,image_url,image_source,image_checked_at)
+                                  VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(barcode) DO UPDATE SET
                                   name=excluded.name,brand=excluded.brand,pack_size=excluded.pack_size,category=excluded.category,
-                                  price_kes=excluded.price_kes,verified=excluded.verified,source=excluded.source,updated_at=excluded.updated_at""",
-                               (barcode, name, brand, pack_size, category, price, verified, source, now_iso()))
+                                  price_kes=excluded.price_kes,verified=excluded.verified,source=excluded.source,updated_at=excluded.updated_at,
+                                  image_url=CASE WHEN excluded.image_url<>'' THEN excluded.image_url ELSE products.image_url END,
+                                  image_source=CASE WHEN excluded.image_url<>'' THEN excluded.image_source ELSE products.image_source END,
+                                  image_checked_at=CASE WHEN excluded.image_url<>'' THEN excluded.image_checked_at ELSE products.image_checked_at END""",
+                               (barcode, name, brand, pack_size, category, price, verified, source, now_iso(), image_url, image_source, image_checked_at))
                 flash("Product saved.", "success")
+            except ValueError as exc:
+                flash(str(exc), "error")
             except sqlite3.Error:
                 flash("Could not save this product. Check the barcode and try again.", "error")
         return redirect(url_for("admin_products"))
@@ -1384,11 +1718,17 @@ def safe_csv_value(value):
 @admin_required
 def admin_export_products():
     with connect_db() as db:
-        rows = db.execute("SELECT barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at FROM products ORDER BY name COLLATE NOCASE").fetchall()
+        rows = db.execute("SELECT barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at,image_url,image_source,image_checked_at FROM products ORDER BY name COLLATE NOCASE").fetchall()
     output = io.StringIO(newline="")
     writer = csv.writer(output)
-    writer.writerow(["barcode", "name", "brand", "pack_size", "category", "price_kes", "verified", "source", "updated_at"])
-    writer.writerows([[safe_csv_value(v) for v in row] for row in rows])
+    writer.writerow(["barcode", "name", "brand", "pack_size", "category", "price_kes", "verified", "source", "updated_at", "image_url", "image_source", "image_checked_at"])
+    exported = []
+    for row in rows:
+        values = list(row)
+        if values[9] and str(values[9]).startswith("/"):
+            values[9] = request.url_root.rstrip("/") + str(values[9])
+        exported.append([safe_csv_value(v) for v in values])
+    writer.writerows(exported)
     response = make_response("\ufeff" + output.getvalue())
     response.headers["Content-Type"] = "text/csv; charset=utf-8"
     response.headers["Content-Disposition"] = 'attachment; filename="kenya-barcode-hub-catalogue-backup.csv"'
@@ -1400,9 +1740,485 @@ def admin_export_products():
 @admin_required
 def admin_delete_product(product_id):
     with connect_db() as db:
+        row = db.execute("SELECT image_url FROM products WHERE id=?", (product_id,)).fetchone()
+        if not row:
+            flash("Product was not found.", "error")
+            return redirect(url_for("admin_products"))
+        image_url = row["image_url"] or ""
         db.execute("DELETE FROM products WHERE id=?", (product_id,))
+        if image_url.startswith("/media/products/"):
+            filename = image_url.rsplit("/", 1)[-1]
+            still_used = db.execute("SELECT 1 FROM products WHERE image_url=? LIMIT 1", (image_url,)).fetchone()
+            if not still_used and re.fullmatch(r"[a-f0-9]{20}\.(?:jpg|png|webp|gif)", filename):
+                try:
+                    (PRODUCT_IMAGE_DIR / filename).unlink(missing_ok=True)
+                except OSError:
+                    app.logger.warning("Could not remove unreferenced product image %s", filename)
     flash("Product deleted.", "success")
     return redirect(url_for("admin_products"))
+
+
+def _image_url_from_public_product(product):
+    """Return an explicit product-front image URL from common OFF API response shapes."""
+    if not isinstance(product, dict):
+        return ""
+    for key in ("image_front_url", "image_url", "image_front_small_url", "image_small_url", "image_thumb_url"):
+        candidate = product.get(key)
+        if isinstance(candidate, str) and candidate.startswith(("https://", "http://")):
+            return candidate.strip()
+    selected = product.get("selected_images") or {}
+    if isinstance(selected, dict):
+        front = selected.get("front") or {}
+        if isinstance(front, dict):
+            for size in ("display", "small", "thumb"):
+                images = front.get(size)
+                if isinstance(images, str) and images.startswith(("https://", "http://")):
+                    return images.strip()
+                if isinstance(images, dict):
+                    # Prefer English, but support products indexed in other languages.
+                    ordered = [images.get("en")] + list(images.values())
+                    for candidate in ordered:
+                        if isinstance(candidate, str) and candidate.startswith(("https://", "http://")):
+                            return candidate.strip()
+    return ""
+
+
+def lookup_public_product_image(barcode):
+    """Search recognized public catalogues for an exact barcode; never guess by name."""
+    code = normalize_barcode(barcode)
+    catalogues = (
+        ("Open Food Facts", "https://world.openfoodfacts.org"),
+        ("Open Beauty Facts", "https://world.openbeautyfacts.org"),
+        ("Open Products Facts", "https://world.openproductsfacts.org"),
+    )
+    unavailable = []
+    for name, origin in catalogues:
+        url = origin + "/api/v2/product/" + quote(code, safe="") + ".json?fields=code,product_name,image_front_url,image_url,image_front_small_url,image_small_url,image_thumb_url,selected_images"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "KenyaBarcodeHub/1.2 (product-image discovery; https://trorinovationstech.co.ke/)"
+        })
+        try:
+            with urllib.request.urlopen(req, timeout=2.5) as remote:
+                payload = json.loads(remote.read(2 * 1024 * 1024).decode("utf-8", errors="replace"))
+            product = payload.get("product") if isinstance(payload, dict) else None
+            if not isinstance(product, dict) or payload.get("status") != 1:
+                continue
+            returned_code = normalize_barcode(str(product.get("code") or payload.get("code") or ""))
+            if not returned_code or returned_code != code:
+                # Some catalogues normalize GTINs differently; do not risk a false match.
+                continue
+            candidate = _image_url_from_public_product(product)
+            if candidate and valid_image_url(candidate):
+                return candidate, name + " — " + origin + " (check source license before redistribution)", unavailable
+        except urllib.error.HTTPError as exc:
+            # HTTP 404 means this catalogue has no product result; rate-limit/server
+            # responses are availability failures and should be shown to the admin.
+            if exc.code not in (404,):
+                unavailable.append(name)
+        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError, ValueError):
+            unavailable.append(name)
+    return "", "", unavailable
+
+
+@app.route(ADMIN_PREFIX + "/images", methods=["GET", "POST"])
+@admin_required
+def admin_images():
+    """Product-image coverage, manual linking, uploads and polite batch discovery."""
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        if action == "discover":
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).replace(microsecond=0).isoformat()
+            cooldown_active = False
+            retry_after = 0
+            with connect_db() as db:
+                # A small paced batch avoids hammering public product catalogues.
+                db.execute("BEGIN IMMEDIATE")
+                last_run = db.execute("SELECT value FROM settings WHERE key='_image_discovery_last_batch_at'").fetchone()
+                if last_run:
+                    try:
+                        previous = datetime.fromisoformat(last_run["value"].replace("Z", "+00:00"))
+                        elapsed = (datetime.now(timezone.utc) - previous).total_seconds()
+                        cooldown_active = elapsed < 22
+                        retry_after = max(1, int(22 - elapsed + 0.99)) if cooldown_active else 0
+                    except (ValueError, TypeError):
+                        cooldown_active = False
+                if not cooldown_active:
+                    db.execute("INSERT INTO settings(key,value) VALUES('_image_discovery_last_batch_at',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (now_iso(),))
+                    candidates = [dict(r) for r in db.execute("""SELECT id,barcode,name FROM products
+                        WHERE COALESCE(TRIM(image_url),'')=''
+                          AND (COALESCE(TRIM(image_checked_at),'')='' OR image_checked_at<?)
+                        ORDER BY CASE WHEN COALESCE(TRIM(image_checked_at),'')='' THEN 0 ELSE 1 END, id
+                        LIMIT 3""", (cutoff,))]
+                else:
+                    candidates = []
+
+            def discovery_result(status, message, found=0, checked=0, category="info", retry=0):
+                with connect_db() as db:
+                    total = int(db.execute("SELECT COUNT(*) FROM products").fetchone()[0])
+                    linked = int(db.execute("SELECT COUNT(*) FROM products WHERE COALESCE(TRIM(image_url),'')<>''").fetchone()[0])
+                    missing = max(0, total - linked)
+                    remaining = int(db.execute("""SELECT COUNT(*) FROM products
+                        WHERE COALESCE(TRIM(image_url),'')=''
+                          AND (COALESCE(TRIM(image_checked_at),'')='' OR image_checked_at<?)""", (cutoff,)).fetchone()[0])
+                if request.form.get("ajax") == "1":
+                    return jsonify({"status": status, "message": message, "found": found,
+                                    "checked": checked, "retry_after": retry,
+                                    "total": total, "with_images": linked, "missing": missing,
+                                    "remaining": remaining})
+                flash(message, category)
+                return redirect(url_for("admin_images", status="missing"))
+
+            if cooldown_active:
+                return discovery_result("cooldown", "Please wait before the next public-catalogue batch.", retry=retry_after)
+            if not candidates:
+                return discovery_result("complete", "The automatic pass has checked every queued record. Any remaining products need another source, an upload, or a trusted image URL.")
+
+            found = 0
+            checked = 0
+            network_problems = 0
+            outcomes = []
+            for item in candidates:
+                image_url, provider, incomplete_sources = lookup_public_product_image(item["barcode"])
+                checked_at = now_iso()
+                if image_url and valid_image_url(image_url):
+                    with connect_db() as db:
+                        db.execute("""UPDATE products SET image_url=?,image_source=?,image_checked_at=?,updated_at=?
+                                      WHERE id=? AND COALESCE(TRIM(image_url),'')=''""",
+                                   (image_url, provider, checked_at, checked_at, item["id"]))
+                    found += 1
+                    outcomes.append(f"{item['barcode']}: linked from {provider}")
+                else:
+                    # Keep unresolved records visible as missing. The check time means
+                    # this record was attempted, never that an image exists.
+                    status_note = ("Lookup incomplete: " + ", ".join(incomplete_sources)) if incomplete_sources else ""
+                    with connect_db() as db:
+                        db.execute("""UPDATE products SET image_checked_at=?,image_source=?,updated_at=?
+                                      WHERE id=? AND COALESCE(TRIM(image_url),'')=''""",
+                                   (checked_at, status_note, checked_at, item["id"]))
+                    if incomplete_sources:
+                        network_problems += 1
+                    outcomes.append(f"{item['barcode']}: " + ("some public sources unavailable" if incomplete_sources else "no exact-barcode image found"))
+                checked += 1
+
+            log_system_event("images", "image_discovery_batch",
+                             f"Image discovery checked {checked} records and linked {found} images; {network_problems} records had at least one unavailable source",
+                             502 if network_problems else 200, None, request.path,
+                             "warning" if network_problems else "info")
+            if network_problems:
+                message = f"Checked {checked}; linked {found} images. {network_problems} lookups had an unreachable public source and remain marked incomplete. Missing images are still counted as missing."
+                category = "warning"
+            else:
+                message = f"Checked {checked}; linked {found} verified exact-barcode images. No image was invented for unmatched products."
+                category = "success"
+            return discovery_result("ok", message, found=found, checked=checked, category=category)
+
+        if action == "retry_missing":
+            with connect_db() as db:
+                cursor = db.execute("UPDATE products SET image_checked_at='',image_source='' WHERE COALESCE(TRIM(image_url),'')=''")
+                reset_count = cursor.rowcount
+            log_system_event("images", "image_discovery_requeued", f"Requeued {reset_count} records for image discovery",
+                             200, None, request.path, "info")
+            flash(f"Requeued {reset_count} missing-image records. Start automatic image fill to check three records every 22 seconds.", "success")
+            return redirect(url_for("admin_images", status="missing"))
+
+        if action == "restore_assets":
+            upload = request.files.get("image_archive")
+            if not upload or not upload.filename or Path(upload.filename).suffix.lower() != ".zip":
+                flash("Choose a product-image ZIP backup.", "error")
+                return redirect(url_for("admin_images"))
+            try:
+                raw = upload.stream.read(128 * 1024 * 1024 + 1)
+                if not raw or len(raw) > 128 * 1024 * 1024:
+                    raise ValueError("The image archive is empty or exceeds the 128 MB upload limit.")
+                restored_files = []
+                total_bytes = 0
+                with zipfile.ZipFile(io.BytesIO(raw), "r") as archive:
+                    members = [info for info in archive.infolist() if not info.is_dir() and info.filename != "manifest.json"]
+                    if len(members) > 20000:
+                        raise ValueError("The archive contains too many image files.")
+                    for info in members:
+                        prefix, _, filename = info.filename.partition("/")
+                        if prefix != "product-images" or not re.fullmatch(r"[a-f0-9]{20}\.(?:jpg|png|webp|gif)", filename):
+                            raise ValueError("The archive contains an unexpected path or filename.")
+                        if info.file_size > MAX_PRODUCT_IMAGE_BYTES:
+                            raise ValueError("An image in the archive exceeds 8 MB.")
+                        total_bytes += info.file_size
+                        if total_bytes > 120 * 1024 * 1024:
+                            raise ValueError("The total uncompressed image archive exceeds 120 MB.")
+                        content = archive.read(info)
+                        valid_magic = (content.startswith(b"\xff\xd8\xff") if filename.endswith(".jpg") else
+                                       content.startswith(b"\x89PNG\r\n\x1a\n") if filename.endswith(".png") else
+                                       (len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP") if filename.endswith(".webp") else
+                                       content.startswith((b"GIF87a", b"GIF89a")))
+                        if not valid_magic:
+                            raise ValueError("An archived file failed image-content validation.")
+                        restored_files.append((filename, content))
+                PRODUCT_IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+                for filename, content in restored_files:
+                    (PRODUCT_IMAGE_DIR / filename).write_bytes(content)
+                log_system_event("images", "image_assets_restored", f"Restored {len(restored_files)} product image files",
+                                 200, None, request.path, "info")
+                flash(f"Image asset restore complete: {len(restored_files)} files restored. Existing linked URLs were preserved.", "success")
+            except (ValueError, zipfile.BadZipFile, OSError) as exc:
+                log_system_event("images", "image_assets_restore_failed", "Image asset archive was rejected", 400, None, request.path, "warning")
+                flash("Image restore stopped safely: " + str(exc)[:220], "error")
+            return redirect(url_for("admin_images"))
+
+        if action == "save_image":
+            try:
+                product_id = int(request.form.get("product_id", "0"))
+            except ValueError:
+                product_id = 0
+            with connect_db() as db:
+                row = db.execute("SELECT id,barcode,image_url FROM products WHERE id=?", (product_id,)).fetchone()
+            if not row:
+                flash("Product was not found.", "error")
+                return redirect(url_for("admin_images"))
+            old_url = row["image_url"] or ""
+            image_url = request.form.get("image_url", "").strip()[:2000]
+            upload = request.files.get("image_file")
+            try:
+                if request.form.get("clear_image") == "on":
+                    image_url = ""
+                    image_source = ""
+                elif upload and upload.filename:
+                    image_url = save_product_image(upload, row["barcode"])
+                    image_source = "admin upload"
+                elif image_url:
+                    if not valid_image_url(image_url):
+                        raise ValueError("Use a complete http/https image URL or upload a local image.")
+                    image_source = "manual image URL"
+                else:
+                    flash("No change made. Enter an image URL, upload a file or select Remove image.", "info")
+                    return redirect(url_for("admin_images", status=request.args.get("status", "missing"), q=request.args.get("q", ""), page=request.args.get("page", "1")))
+                checked_at = now_iso()
+                with connect_db() as db:
+                    db.execute("UPDATE products SET image_url=?,image_source=?,image_checked_at=?,updated_at=? WHERE id=?",
+                               (image_url, image_source, checked_at, checked_at, product_id))
+                    if old_url.startswith("/media/products/") and old_url != image_url:
+                        old_filename = old_url.rsplit("/", 1)[-1]
+                        used = db.execute("SELECT 1 FROM products WHERE image_url=? LIMIT 1", (old_url,)).fetchone()
+                        if not used and re.fullmatch(r"[a-f0-9]{20}\.(?:jpg|png|webp|gif)", old_filename):
+                            try:
+                                (PRODUCT_IMAGE_DIR / old_filename).unlink(missing_ok=True)
+                            except OSError:
+                                app.logger.warning("Could not delete replaced product image %s", old_filename)
+                log_system_event("images", "image_link_updated", "Admin updated a product image link", 200, None, request.path, "info")
+                flash("Product image updated.", "success")
+            except ValueError as exc:
+                flash(str(exc), "error")
+            except sqlite3.Error:
+                app.logger.exception("Could not update product image")
+                flash("The image link could not be saved. Try again.", "error")
+            return redirect(url_for("admin_images", status=request.args.get("status", "all"), q=request.args.get("q", ""), page=request.args.get("page", "1")))
+
+    q = request.args.get("q", "").strip()[:100]
+    status = request.args.get("status", "all")
+    if status not in ("all", "with", "missing"):
+        status = "all"
+    try:
+        page = max(1, min(100000, int(request.args.get("page", "1"))))
+    except ValueError:
+        page = 1
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).replace(microsecond=0).isoformat()
+    where, params = [], []
+    if q:
+        like = f"%{q}%"
+        where.append("(barcode LIKE ? OR name LIKE ? OR brand LIKE ?)")
+        params.extend((like, like, like))
+    if status == "with":
+        where.append("COALESCE(TRIM(image_url),'')<>''")
+    elif status == "missing":
+        where.append("COALESCE(TRIM(image_url),'')=''")
+    clause = " WHERE " + " AND ".join(where) if where else ""
+    with connect_db() as db:
+        totals = {
+            "products": int(db.execute("SELECT COUNT(*) FROM products").fetchone()[0]),
+            "with_images": int(db.execute("SELECT COUNT(*) FROM products WHERE COALESCE(TRIM(image_url),'')<>''").fetchone()[0]),
+            "missing": int(db.execute("SELECT COUNT(*) FROM products WHERE COALESCE(TRIM(image_url),'')=''").fetchone()[0]),
+            "unchecked": int(db.execute("SELECT COUNT(*) FROM products WHERE COALESCE(TRIM(image_url),'')='' AND (COALESCE(TRIM(image_checked_at),'')='' OR image_checked_at<?)", (cutoff,)).fetchone()[0]),
+        }
+        count = int(db.execute("SELECT COUNT(*) FROM products" + clause, params).fetchone()[0])
+        per_page = 40
+        total_pages = max(1, (count + per_page - 1) // per_page)
+        page = min(page, total_pages)
+        results = [dict(r) for r in db.execute("SELECT * FROM products" + clause + " ORDER BY CASE WHEN COALESCE(TRIM(image_url),'')='' THEN 0 ELSE 1 END, name COLLATE NOCASE LIMIT ? OFFSET ?",
+                                               params + [per_page, (page - 1) * per_page])]
+    return render_template("admin_images.html", results=results, totals=totals, q=q, status=status,
+                           page=page, total_pages=total_pages, result_count=count)
+
+
+@app.get(ADMIN_PREFIX + "/images/backup.zip")
+@admin_required
+def admin_images_backup():
+    fd, filename = tempfile.mkstemp(prefix="barcode-hub-images-", suffix=".zip")
+    os.close(fd)
+    archive_path = Path(filename)
+    try:
+        with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            manifest = {"format": "kenya-barcode-hub-product-images", "created_at": now_iso(), "files": []}
+            for image_file in PRODUCT_IMAGE_DIR.iterdir() if PRODUCT_IMAGE_DIR.exists() else []:
+                if image_file.is_file() and re.fullmatch(r"[a-f0-9]{20}\.(?:jpg|png|webp|gif)", image_file.name):
+                    archive.write(image_file, arcname="product-images/" + image_file.name)
+                    manifest["files"].append(image_file.name)
+            archive.writestr("manifest.json", json.dumps(manifest, separators=(",", ":")))
+        response = send_file(archive_path, mimetype="application/zip", as_attachment=True,
+                             download_name=f"barcode-hub-product-images-{datetime.now(timezone.utc).date().isoformat()}.zip", max_age=0)
+        response.headers["Cache-Control"] = "no-store"
+        response.call_on_close(lambda: archive_path.unlink(missing_ok=True))
+        return response
+    except Exception:
+        archive_path.unlink(missing_ok=True)
+        raise
+
+
+@app.route(ADMIN_PREFIX + "/users")
+@admin_required
+def admin_users():
+    q = request.args.get("q", "").strip()[:120]
+    try:
+        page = max(1, min(100000, int(request.args.get("page", "1"))))
+    except ValueError:
+        page = 1
+    where, params = "", []
+    if q:
+        like = f"%{q}%"
+        where = "WHERE u.name LIKE ? OR u.email LIKE ? OR CAST(u.id AS TEXT)=?"
+        params = [like, like, q]
+    with connect_db() as db:
+        total = int(db.execute("SELECT COUNT(*) FROM users u " + where, params).fetchone()[0])
+        per_page = 50
+        pages = max(1, (total + per_page - 1) // per_page)
+        page = min(page, pages)
+        now = now_iso()
+        users = [dict(r) for r in db.execute(f"""SELECT u.id,u.name,u.email,u.created_at,
+            (SELECT p.name FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+             WHERE s.user_id=u.id AND s.starts_at<=? AND s.expires_at>? ORDER BY s.expires_at DESC LIMIT 1) AS active_plan,
+            (SELECT s.expires_at FROM subscriptions s WHERE s.user_id=u.id AND s.starts_at<=? AND s.expires_at>? ORDER BY s.expires_at DESC LIMIT 1) AS plan_expires,
+            (SELECT COUNT(*) FROM api_keys k WHERE k.user_id=u.id AND k.revoked=0) AS active_keys,
+            (SELECT MAX(created_at) FROM system_events e WHERE e.user_id=u.id AND e.event_type='user_login_succeeded') AS last_login
+            FROM users u {where} ORDER BY u.id DESC LIMIT ? OFFSET ?""",
+            [now, now, now, now] + params + [per_page, (page-1)*per_page])]
+    return render_template("admin_users.html", users=users, q=q, page=page, total_pages=pages, total=total)
+
+
+@app.route(ADMIN_PREFIX + "/users/<int:user_id>", methods=["GET", "POST"])
+@admin_required
+def admin_user_detail(user_id):
+    temporary_password = None
+    new_api_key = None
+    if request.method == "POST":
+        action = request.form.get("action", "")
+        with connect_db() as db:
+            user_row = db.execute("SELECT id,name,email FROM users WHERE id=?", (user_id,)).fetchone()
+        if not user_row:
+            abort(404)
+        if action == "reset_password":
+            temporary_password = secrets.token_urlsafe(15)
+            changed_at = datetime.now(timezone.utc).isoformat()
+            with connect_db() as db:
+                db.execute("UPDATE users SET password_hash=?,password_changed_at=? WHERE id=?",
+                           (generate_password_hash(temporary_password), changed_at, user_id))
+            log_system_event("admin_support", "customer_password_reset", "Admin issued a temporary password shown once",
+                             200, user_id, request.path, "warning")
+        elif action == "issue_api_key":
+            label = request.form.get("label", "Admin-issued recovery key").strip()[:80] or "Admin-issued recovery key"
+            new_api_key = "kbh_" + secrets.token_urlsafe(32)
+            digest = hashlib.sha256(new_api_key.encode()).hexdigest()
+            with connect_db() as db:
+                db.execute("INSERT INTO api_keys(user_id,label,prefix,token_hash,created_at) VALUES(?,?,?,?,?)",
+                           (user_id, label, new_api_key[:12], digest, now_iso()))
+            log_system_event("admin_support", "admin_issued_api_key", "Admin issued a replacement API key; secret shown once",
+                             200, user_id, request.path, "warning")
+        elif action == "revoke_keys":
+            with connect_db() as db:
+                cursor = db.execute("UPDATE api_keys SET revoked=1 WHERE user_id=? AND revoked=0", (user_id,))
+                revoked_count = cursor.rowcount
+            log_system_event("admin_support", "admin_revoked_api_keys", f"Admin revoked {revoked_count} API keys",
+                             200, user_id, request.path, "warning")
+            flash(f"Revoked {revoked_count} active API keys.", "success")
+        elif action == "update_profile":
+            name = request.form.get("name", "").strip()[:100]
+            email = request.form.get("email", "").strip().lower()[:254]
+            if len(name) < 2 or not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+                flash("Enter a valid name and email address.", "error")
+            else:
+                try:
+                    with connect_db() as db:
+                        db.execute("UPDATE users SET name=?,email=? WHERE id=?", (name, email, user_id))
+                    log_system_event("admin_support", "admin_updated_profile", "Admin updated a customer profile",
+                                     200, user_id, request.path, "warning")
+                    flash("Customer account details updated.", "success")
+                except sqlite3.IntegrityError:
+                    flash("Another account already uses that email address.", "error")
+        else:
+            flash("Unknown support action.", "error")
+
+    with connect_db() as db:
+        user = db.execute("SELECT id,name,email,created_at FROM users WHERE id=?", (user_id,)).fetchone()
+        if not user:
+            abort(404)
+        user = dict(user)
+        now = now_iso()
+        sub = db.execute("""SELECT s.*,p.name AS plan_name,p.lookup_limit,p.image_access,p.price_kes
+                           FROM subscriptions s JOIN plans p ON p.id=s.plan_id
+                           WHERE s.user_id=? AND s.starts_at<=? AND s.expires_at>?
+                           ORDER BY s.expires_at DESC LIMIT 1""", (user_id, now, now)).fetchone()
+        active_plan = dict(sub) if sub else None
+        keys = [dict(r) for r in db.execute("SELECT id,label,prefix,created_at,revoked FROM api_keys WHERE user_id=? ORDER BY id DESC", (user_id,))]
+        orders = [dict(r) for r in db.execute("""SELECT o.*,p.name AS plan_name FROM orders o JOIN plans p ON p.id=o.plan_id
+                                               WHERE o.user_id=? ORDER BY o.id DESC LIMIT 30""", (user_id,))]
+        api_logs = [dict(r) for r in db.execute("SELECT barcode,status_code,created_at FROM api_logs WHERE user_id=? ORDER BY id DESC LIMIT 30", (user_id,))]
+        events = [dict(r) for r in db.execute("SELECT event_type,severity,source,message,status_code,path,created_at FROM system_events WHERE user_id=? ORDER BY id DESC LIMIT 40", (user_id,))]
+    response = make_response(render_template("admin_user_detail.html", user=user, subscription=active_plan,
+                                             keys=keys, orders=orders, api_logs=api_logs, events=events,
+                                             temporary_password=temporary_password, new_api_key=new_api_key))
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
+
+
+@app.route(ADMIN_PREFIX + "/api-monitor", methods=["GET", "POST"])
+@admin_required
+def admin_api_monitor():
+    if request.method == "POST":
+        try:
+            with connect_db() as db:
+                integrity = db.execute("PRAGMA quick_check").fetchone()[0]
+                products = int(db.execute("SELECT COUNT(*) FROM products").fetchone()[0])
+                images = int(db.execute("SELECT COUNT(*) FROM products WHERE COALESCE(TRIM(image_url),'')<>''").fetchone()[0])
+                api_status = get_settings(db).get("api_enabled", "1") == "1"
+            if integrity != "ok":
+                raise sqlite3.DatabaseError("SQLite integrity check failed")
+            log_system_event("system", "health_check_passed", "Admin health check passed: database and catalogue are readable",
+                             200, None, request.path, "info")
+            flash(f"Health check passed. Database OK; {products:,} products; {images:,} linked images; API {'enabled' if api_status else 'disabled by settings'}.", "success")
+        except Exception:
+            app.logger.exception("Admin-triggered health check failed")
+            log_system_event("system", "health_check_failed", "Admin health check could not validate the database",
+                             503, None, request.path, "error")
+            flash("Health check failed. Review the hosting logs and database connection.", "error")
+        return redirect(url_for("admin_api_monitor"))
+
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).replace(microsecond=0).isoformat()
+    with connect_db() as db:
+        settings = get_settings(db)
+        totals = {
+            "calls": int(db.execute("SELECT COUNT(*) FROM system_events WHERE source='api' AND created_at>=?", (since,)).fetchone()[0]),
+            "errors": int(db.execute("SELECT COUNT(*) FROM system_events WHERE source='api' AND status_code>=400 AND created_at>=?", (since,)).fetchone()[0]),
+            "server_errors": int(db.execute("SELECT COUNT(*) FROM system_events WHERE source='api' AND status_code>=500 AND created_at>=?", (since,)).fetchone()[0]),
+            "not_found": int(db.execute("SELECT COUNT(*) FROM system_events WHERE source='api' AND status_code=404 AND created_at>=?", (since,)).fetchone()[0]),
+            "auth_errors": int(db.execute("SELECT COUNT(*) FROM system_events WHERE source='api' AND status_code=401 AND created_at>=?", (since,)).fetchone()[0]),
+            "payment_errors": int(db.execute("SELECT COUNT(*) FROM system_events WHERE source='api' AND status_code=402 AND created_at>=?", (since,)).fetchone()[0]),
+            "limits": int(db.execute("SELECT COUNT(*) FROM system_events WHERE source='api' AND status_code=429 AND created_at>=?", (since,)).fetchone()[0]),
+            "login_failures": int(db.execute("SELECT COUNT(*) FROM system_events WHERE source='authentication' AND event_type='user_login_failed' AND created_at>=?", (since,)).fetchone()[0]),
+            "images": int(db.execute("SELECT COUNT(*) FROM products WHERE COALESCE(TRIM(image_url),'')<>''").fetchone()[0]),
+            "products": int(db.execute("SELECT COUNT(*) FROM products").fetchone()[0]),
+        }
+        events = [dict(r) for r in db.execute("""SELECT e.*,u.name AS user_name,u.email AS user_email
+            FROM system_events e LEFT JOIN users u ON u.id=e.user_id ORDER BY e.id DESC LIMIT 120""")]
+    return render_template("admin_api_monitor.html", totals=totals, events=events,
+                           api_enabled=settings.get("api_enabled", "1") == "1", since=since)
 
 
 @app.route(ADMIN_PREFIX + "/posts", methods=["GET", "POST"])
@@ -1512,24 +2328,18 @@ def admin_visitors():
     page = max(1, request.args.get("page", 1, type=int))
     per_page = 100
     like = f"%{q}%"
-    public_filter = "ve.path NOT LIKE '/promise212324%'"
     with connect_db() as db:
-        total = db.execute(f"SELECT COUNT(*) FROM visitor_events ve WHERE {public_filter}").fetchone()[0]
-        unique = db.execute(f"SELECT COUNT(DISTINCT ve.visitor_id) FROM visitor_events ve WHERE {public_filter}").fetchone()[0]
+        total = db.execute("SELECT COUNT(*) FROM visitor_events").fetchone()[0]
+        unique = db.execute("SELECT COUNT(DISTINCT visitor_id) FROM visitor_events").fetchone()[0]
         if q:
-            filter_sql = f"{public_filter} AND (ve.path LIKE ? OR ve.referrer LIKE ? OR ve.visitor_id LIKE ? OR u.name LIKE ? OR u.email LIKE ?)"
-            params = (like, like, like, like, like)
-            matched = db.execute(f"SELECT COUNT(*) FROM visitor_events ve LEFT JOIN users u ON u.id=ve.user_id WHERE {filter_sql}", params).fetchone()[0]
-            rows = db.execute(f"""SELECT ve.*,u.name AS visitor_name,u.email AS visitor_email
-                FROM visitor_events ve LEFT JOIN users u ON u.id=ve.user_id WHERE {filter_sql}
-                ORDER BY ve.id DESC LIMIT ? OFFSET ?""", params + (per_page, (page - 1) * per_page)).fetchall()
+            matched = db.execute("SELECT COUNT(*) FROM visitor_events WHERE path LIKE ? OR referrer LIKE ? OR visitor_id LIKE ?",
+                                 (like, like, like)).fetchone()[0]
+            rows = db.execute("SELECT * FROM visitor_events WHERE path LIKE ? OR referrer LIKE ? OR visitor_id LIKE ? ORDER BY id DESC LIMIT ? OFFSET ?",
+                              (like, like, like, per_page, (page - 1) * per_page)).fetchall()
         else:
             matched = total
-            rows = db.execute(f"""SELECT ve.*,u.name AS visitor_name,u.email AS visitor_email
-                FROM visitor_events ve LEFT JOIN users u ON u.id=ve.user_id WHERE {public_filter}
-                ORDER BY ve.id DESC LIMIT ? OFFSET ?""", (per_page, (page - 1) * per_page)).fetchall()
-        top_pages = [dict(r) for r in db.execute(f"""SELECT ve.path,COUNT(*) AS views,COUNT(DISTINCT ve.visitor_id) AS visitors
-            FROM visitor_events ve WHERE {public_filter} GROUP BY ve.path ORDER BY views DESC LIMIT 10""")]
+            rows = db.execute("SELECT * FROM visitor_events ORDER BY id DESC LIMIT ? OFFSET ?", (per_page, (page - 1) * per_page)).fetchall()
+        top_pages = [dict(r) for r in db.execute("SELECT path,COUNT(*) AS views,COUNT(DISTINCT visitor_id) AS visitors FROM visitor_events GROUP BY path ORDER BY views DESC LIMIT 10")]
     pages = max(1, (matched + per_page - 1) // per_page)
     return render_template("admin_visitors.html", events=[dict(r) for r in rows], total=total, unique=unique,
                            matched=matched, top_pages=top_pages, q=q, page=page, pages=pages)
@@ -1539,13 +2349,10 @@ def admin_visitors():
 @admin_required
 def admin_visitors_csv():
     with connect_db() as db:
-        rows = db.execute("""SELECT ve.created_at,ve.visitor_id,COALESCE(u.name,''),COALESCE(u.email,''),
-            ve.path,ve.method,ve.ip_masked,ve.referrer,ve.user_agent
-            FROM visitor_events ve LEFT JOIN users u ON u.id=ve.user_id
-            WHERE ve.path NOT LIKE '/promise212324%' ORDER BY ve.id DESC""").fetchall()
+        rows = db.execute("SELECT created_at,visitor_id,path,method,ip_masked,referrer,user_agent FROM visitor_events ORDER BY id DESC").fetchall()
     output = io.StringIO(newline="")
     writer = csv.writer(output)
-    writer.writerow(["visited_at_utc", "visitor_session_id", "visitor_name", "visitor_email", "path", "method", "masked_network", "referrer", "browser_user_agent"])
+    writer.writerow(["visited_at_utc", "visitor_session_id", "path", "method", "masked_network", "referrer", "browser_user_agent"])
     writer.writerows([[safe_csv_value(v) for v in row] for row in rows])
     response = make_response("\ufeff" + output.getvalue())
     response.headers["Content-Type"] = "text/csv; charset=utf-8"
@@ -1591,14 +2398,15 @@ def admin_plans():
             days = int(request.form.get("duration_days", "30"))
             description = request.form.get("description", "").strip()[:200]
             active = 1 if request.form.get("active") == "on" else 0
-            if not name or price < 0 or limit < 1 or days < 1 or days > 365:
+            image_access = 1 if request.form.get("image_access") == "on" else 0
+            if not name or price < 0 or limit < 1 or days < 1 or days > 365 or (active and image_access and price < 1):
                 raise ValueError
         except ValueError:
-            flash("Enter a valid plan name, price, lookup limit, and duration (1–365 days).", "error")
+            flash("Enter a valid plan name, price, lookup limit and duration (1–365 days). An active image plan must cost at least KSh 1.", "error")
             return redirect(url_for("admin_plans"))
         with connect_db() as db:
-            db.execute("UPDATE plans SET name=?,price_kes=?,lookup_limit=?,duration_days=?,description=?,active=? WHERE id=?",
-                       (name, price, limit, days, description, active, plan_id))
+            db.execute("UPDATE plans SET name=?,price_kes=?,lookup_limit=?,duration_days=?,description=?,active=?,image_access=? WHERE id=?",
+                       (name, price, limit, days, description, active, image_access, plan_id))
         flash("Plan updated.", "success")
         return redirect(url_for("admin_plans"))
     with connect_db() as db:

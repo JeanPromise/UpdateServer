@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Watch | MovieStream</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background-color: #0d0d0d;
+      color: #fff;
+      overflow-x: hidden;
+    }
+    header {
+      background: #111;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #e50914;
+    }
+    .logo {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: #e50914;
+    }
+    .nav-icons i {
+      margin-left: 1rem;
+      cursor: pointer;
+      font-size: 1.3rem;
+      color: white;
+    }
+    .sidebar {
+      position: fixed;
+      left: -240px;
+      top: 0;
+      width: 220px;
+      height: 100%;
+      background: #111;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      transition: left 0.3s ease;
+      z-index: 2000;
+    }
+    .sidebar.open { left: 0; }
+    .sidebar-item {
+      padding: 0.8rem;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .section {
+      padding: 1.5rem;
+    }
+    .autoplay-section {
+      margin-bottom: 2rem;
+    }
+    .autoplay-section h2 {
+      color: #e50914;
+      margin-bottom: 1rem;
+    }
+    .autoplay-container {
+      width: 100%;
+      max-height: 480px;
+      position: relative;
+    }
+    .autoplay-container video {
+      width: 100%;
+      border-radius: 10px;
+    }
+    .autoplay-title {
+      font-size: 1.2rem;
+      margin-top: 0.8rem;
+      color: #ccc;
+    }
+    .tv-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 1rem;
+    }
+    .tv-card {
+      background: #1c1c1c;
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+    .tv-card img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+    }
+    .tv-card .title {
+      text-align: center;
+      padding: 0.5rem;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">MovieStream</div>
+    <div class="nav-icons">
+      <i class="fas fa-search"></i>
+      <i class="fas fa-bars" onclick="toggleSidebar()"></i>
+    </div>
+  </header>
+
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-item" onclick="location.href='{{ url_for('home') }}'">Home</div>
+    <div class="sidebar-item" onclick="location.href='{{ url_for('movies') }}'">Movies</div>
+    <div class="sidebar-item" onclick="location.href='{{ url_for('games') }}'">Games</div>
+    <div class="sidebar-item" onclick="location.href='{{ url_for('watch') }}'">TV/Trending</div>
+    <div class="sidebar-item" onclick="location.href='{{ url_for('side') }}'">Billing/About</div>
+  </div>
+
+  <div class="section autoplay-section">
+    <h2>Now Playing</h2>
+    <div class="autoplay-container">
+      <video id="autoplay-video" src="{{ url_for('static', filename='media/uploads/red notice.mp4') }}" autoplay muted controls></video>
+      <div class="autoplay-title">Red Notice (Autoplay Preview)</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Trending Series</h2>
+    <div class="tv-grid">
+      <div class="tv-card" onclick="changeAutoplay('lupin')">
+        <img src="{{ url_for('static', filename='media/thumbs/lupin.png') }}" alt="Lupin">
+        <div class="title">Lupin</div>
+      </div>
+      <div class="tv-card" onclick="changeAutoplay('secretes of sulphur springs')">
+        <img src="{{ url_for('static', filename='media/thumbs/secretes of sulphur springs.png') }}" alt="Secrets of Sulphur Springs">
+        <div class="title">Secrets of Sulphur Springs</div>
+      </div>
+      <div class="tv-card" onclick="changeAutoplay('dark word')">
+        <img src="{{ url_for('static', filename='media/thumbs/dark word.png') }}" alt="Dark Word">
+        <div class="title">Dark Word</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+    }
+    function changeAutoplay(title) {
+      const src = `{{ url_for('static', filename='media/uploads') }}/${title}.mp4`;
+      const video = document.getElementById('autoplay-video');
+      video.src = src;
+      video.load();
+      video.play();
+      document.querySelector('.autoplay-title').innerText = title.charAt(0).toUpperCase() + title.slice(1);
+    }
+  </script>
+</body>
+</html>

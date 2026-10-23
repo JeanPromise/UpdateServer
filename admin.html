@@ -1,416 +1,190 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Admin — Users, Analytics & Sales</title>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Admin Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <style>
-  :root{--blue:#0b5cff;--green:#06ad5e;--red:#ff5757;--muted:#6b7280}
-  body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;background:#f5f7fb;color:#0b1220}
-  header{background:var(--blue);color:#fff;padding:14px}
-  .container{max-width:1200px;margin:18px auto;padding:18px}
-  .panel{background:#fff;border-radius:10px;padding:14px;margin-bottom:14px;box-shadow:0 6px 20px rgba(10,20,40,0.06)}
-  h1,h2{margin:0 0 8px 0}
-  .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-  input,select,button{padding:8px;border-radius:8px;border:1px solid #e6eefc}
-  button{cursor:pointer;background:var(--blue);color:#fff;border:0}
-  .btn-neutral{background:#64748b}
-  .btn-accept{background:var(--green)}
-  .btn-danger{background:var(--red)}
-  table{width:100%;border-collapse:collapse;margin-top:10px}
-  th,td{padding:8px;border-bottom:1px solid #f1f6ff;text-align:left}
-  .small{font-size:0.9rem;color:var(--muted)}
-  .status-pending{color:#c084fc;font-weight:600}
-  .status-approved{color:var(--green);font-weight:600}
-  .status-rejected{color:var(--red);font-weight:600}
-  .tag{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef6ff;color:var(--blue);font-weight:600}
-  .muted{color:var(--muted)}
-  .search{width:320px}
-  .section-title{display:flex;justify-content:space-between;align-items:center}
-  @media (max-width:900px){ .search{width:100%} .row{flex-direction:column;align-items:stretch} }
+    body { background:#141414; color:#fff; font-family: 'Segoe UI', sans-serif; }
+    header { background:#e50914; padding:1rem 2rem; display:flex; justify-content:space-between; align-items:center; }
+    header h1 { font-size:1.5rem; font-weight:bold; }
+    header a { background:#b0060f; padding:0.5rem 1rem; border-radius:4px; color:#fff; text-decoration:none; }
+    .container { max-width:1200px; margin:auto; padding:2rem; }
+    h2 { color:#e50914; margin-bottom:10px; font-size:1.3rem; font-weight:bold; }
+    .card { background:#1c1c1c; padding:1.5rem; border-radius:8px; margin-bottom:2rem; }
+    input, textarea, select {
+        background:#333; border:none; border-radius:4px; color:#fff; width:100%; padding:10px; margin-bottom:12px;
+    }
+    input:focus, textarea:focus, select:focus { outline:none; border:1px solid #e50914; }
+    button {
+        background:#e50914; padding:10px 20px; border:none; border-radius:4px; color:#fff; cursor:pointer; font-weight:bold; transition:0.3s;
+    }
+    button:hover { background:#b0060f; }
+    .item-card {
+        background:#222; padding:1rem; border-radius:6px; margin-bottom:1rem; display:flex; justify-content:space-between; align-items:center;
+    }
+    .progress-bar {
+        background:#333; border-radius:5px; overflow:hidden; margin-top:10px;
+    }
+    .progress { background:#e50914; height:8px; width:0%; transition:width 0.3s ease; }
 </style>
 </head>
 <body>
-  <header>
-    <div class="container">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <h1>Admin Dashboard</h1>
-          <div class="small muted">Users · Login analytics · Sales management</div>
-        </div>
-        <div>
-          <span class="tag">Admin</span>
-          <button id="logoutBtn" style="margin-left:12px;background:#ef4444;padding:8px 10px;border-radius:8px;border:0;color:white;cursor:pointer">Logout</button>
-        </div>
-      </div>
+
+<header>
+    <h1>Admin Dashboard</h1>
+    <a href="/logout">Logout</a>
+</header>
+
+<div class="container">
+
+    <!-- Upload Section -->
+    <div class="card">
+        <h2>Upload New Content</h2>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="text" name="title" placeholder="Title" required>
+            <input type="text" name="genre" placeholder="Genre" required>
+            <textarea name="description" placeholder="Description" required></textarea>
+            <select name="category" id="categorySelect" required onchange="toggleSeriesFields()">
+                <option value="">Select Category</option>
+                <option value="Movies">Movies</option>
+                <option value="Series">Series</option>
+                <option value="Documentaries">Documentaries</option>
+                <option value="Wrestling">Wrestling</option>
+                <option value="Asian">Asian</option>
+                <option value="Animation">Animation</option>
+            </select>
+            <div id="seriesFields" style="display:none;">
+                <input type="text" name="season" placeholder="Season (e.g., Season1)">
+                <input type="text" name="episode" placeholder="Episode Name (without extension)">
+                <span class="text-gray-500">* Optional: Fill only for series</span>
+            </div>
+            <label class="block mt-2">Video File:</label>
+            <input type="file" name="video" accept="video/*" required>
+            <label class="block mt-2">Thumbnail:</label>
+            <input type="file" name="thumb" accept="image/*" required>
+            <button type="submit" class="mt-3 w-full">Upload</button>
+            <div class="progress-bar"><div class="progress" id="progress"></div></div>
+        </form>
+        <span class="text-gray-500">* Title, Genre, Description, Video File, and Thumbnail are required. Season and Episode are optional for Series.</span>
     </div>
-  </header>
 
-  <main class="container">
-    <!-- USERS & ANALYTICS PANEL (restored original capabilities) -->
-    <section class="panel" id="usersPanel">
-      <div class="section-title">
-        <div>
-          <h2>Users & Login Analytics</h2>
-          <div class="small muted">View users, enable/disable accounts, and see login counts.</div>
-        </div>
-        <div class="row">
-          <input id="userSearch" class="search" placeholder="Search name or email...">
-          <button id="btnSearchUsers" class="btn-neutral">Search</button>
-          <button id="btnRefreshUsers" class="">Refresh</button>
-          <button id="btnEnableAll" class="btn-accept small">Enable all</button>
-          <button id="btnDisableAll" class="btn-danger small">Disable all</button>
-          <button id="btnExportUsers" class="btn-neutral small">Export CSV</button>
-        </div>
-      </div>
+    <!-- Global Payment -->
+    <div class="card">
+        <h2>Global Payment</h2>
+        <button onclick="toggleGlobal()">Toggle Global Payments</button>
+    </div>
 
-      <div style="margin-top:12px" id="usersSummary" class="small muted">Loading users...</div>
+    <!-- Manage Users -->
+    <div class="card">
+        <h2>Manage Users</h2>
+        <div id="userList"></div>
+    </div>
 
-      <div id="usersList" style="margin-top:12px" class="small">Loading users table...</div>
-    </section>
+    <!-- Most Viewed -->
+    <div class="card">
+        <h2>Most Viewed Movies</h2>
+        <div id="mostViewedList"></div>
+    </div>
 
-    <!-- LOGIN ANALYTICS PANEL -->
-    <section class="panel" id="analyticsPanel">
-      <div class="section-title">
-        <div>
-          <h2>Login Analytics</h2>
-          <div class="small muted">Recent login counts and last login per user.</div>
-        </div>
-        <div>
-          <button id="btnRefreshAnalytics" class="">Refresh</button>
-          <button id="btnExportAnalytics" class="btn-neutral">Export CSV</button>
-        </div>
-      </div>
+    <!-- Payments -->
+    <div class="card">
+        <h2>Payment History</h2>
+        <div id="paymentList"></div>
+    </div>
 
-      <div id="analyticsList" class="small" style="margin-top:12px">Loading analytics...</div>
-    </section>
+    <!-- Manage Movies -->
+    <div class="card">
+        <h2>Manage Movies</h2>
+        <div id="movieList"></div>
+    </div>
 
-    <!-- Additional system actions (if desired) -->
-    <section class="panel" id="systemActions" style="display:none">
-      <h2>System Actions</h2>
-      <div class="small muted">Reserved for future tools (e.g., enable maintenance mode)</div>
-    </section>
-
-    <!-- SALES PANEL (ADDITION) - appended below everything -->
-    <section class="panel" id="salesPanel">
-      <div class="section-title">
-        <div>
-          <h2>Sales Management</h2>
-          <div class="small muted">View and approve/reject sales submitted by users. Commission rules enforced on server.</div>
-        </div>
-        <div class="row">
-          <input id="salesSearch" class="search" placeholder="Search user email or product...">
-          <select id="salesFilterUser"><option value="">— All users —</option></select>
-          <button id="btnRefreshSales" class="">Refresh</button>
-          <button id="btnExportSales" class="btn-neutral">Export CSV</button>
-        </div>
-      </div>
-
-      <div id="salesOverview" class="small muted" style="margin-top:12px">Loading sales summary...</div>
-
-      <div style="margin-top:12px">
-        <h3 class="small muted">Pending</h3>
-        <div id="pendingList" class="small">Loading pending sales...</div>
-      </div>
-
-      <div style="margin-top:18px">
-        <h3 class="small muted">All sales</h3>
-        <div id="salesList" class="small">Loading sales table...</div>
-      </div>
-    </section>
-  </main>
+</div>
 
 <script>
-/* admin.html
-   - Place at project root; /admin-dashboard serves it (your app already does).
-   - Preserves & restores original user-management and analytics functionality,
-     and APPENDS sales management below (no replacement).
-   - Uses existing endpoints in your app.py:
-       GET  /get_users
-       GET  /login_analytics
-       POST /toggle_user         {email, enable}
-       POST /admin_delete_user   {email}
-       POST /enable_all
-       POST /disable_all
-       POST /register (not used here)
-       POST /login (not used here)
-       GET  /api/whoami
-       GET  /api/get_sales
-       POST /api/record_sale
-       POST /api/approve_sale   {id}
-       POST /api/reject_sale    {id}
-*/
-
-const $ = id => document.getElementById(id);
-
-// Utility - safe fetch JSON
-async function jfetch(path, opts){
-  const res = await fetch(path, opts);
-  const ct = res.headers.get('content-type') || '';
-  if(ct.includes('application/json')){
-    const j = await res.json();
-    if(!res.ok) throw new Error(j.message || 'API returned error');
-    return j;
-  }
-  if(!res.ok) throw new Error('Network error');
-  return res.text();
+function toggleSeriesFields() {
+    const category = document.getElementById('categorySelect').value;
+    document.getElementById('seriesFields').style.display = (category === 'Series') ? 'block' : 'none';
 }
 
-// ---------- USERS & ANALYTICS ----------
-let users = [];
-let analytics = [];
-let sales = [];
+document.getElementById('uploadForm').addEventListener('submit', function(e){
+    e.preventDefault();
+    const formData = new FormData(this);
+    const progressBar = document.getElementById('progress');
+    axios.post('/admin/upload', formData, {
+        onUploadProgress: function(e){
+            if(e.lengthComputable){
+                let percent = Math.round((e.loaded * 100) / e.total);
+                progressBar.style.width = percent + '%';
+            }
+        }
+    }).then(()=>{ 
+        alert('Upload successful!');
+        progressBar.style.width = '0%';
+        this.reset();
+        loadMovies();
+    }).catch(()=>alert('Upload failed!'));
+});
 
-async function loadUsers(q){
-  try{
-    if(q && q.trim()){
-      // use admin_search_users if available
-      const url = '/admin_search_users?q=' + encodeURIComponent(q.trim());
-      const j = await jfetch(url);
-      users = j || [];
-    } else {
-      users = await jfetch('/get_users');
-    }
-    renderUsers();
-    populateSalesUserFilter();
-  }catch(err){
-    console.error('loadUsers', err);
-    $('usersList').innerHTML = '<div class="small muted">Failed to load users</div>';
-  }
-}
-
-function renderUsers(){
-  if(!users || !users.length){ $('usersList').innerHTML = '<div class="small muted">No users</div>'; $('usersSummary').textContent = '0 users'; return; }
-  $('usersSummary').textContent = `${users.length} users — refreshed ${new Date().toLocaleString()}`;
-  let html = '<table><thead><tr><th>Email</th><th>Name</th><th>Enabled</th><th>Is Admin</th><th>Last action</th><th>Actions</th></tr></thead><tbody>';
-  for(const u of users){
-    html += `<tr>
-      <td>${escapeHtml(u.email)}</td>
-      <td>${escapeHtml(u.name||'')}</td>
-      <td>${u.enabled? 'YES' : 'NO'}</td>
-      <td>${u.is_admin? 'YES' : 'NO'}</td>
-      <td class="small muted">${(u.login_history && u.login_history.length)? 'Last login: '+escapeHtml((u.login_history.slice(-1)[0]||{}).timestamp || '') : ''}</td>
-      <td>
-        <button onclick="toggleEnable('${u.email}', ${!u.enabled})" style="margin-right:6px">${u.enabled? 'Disable':'Enable'}</button>
-        <button onclick="deleteUser('${u.email}')" class="btn-danger">Delete</button>
-      </td>
-    </tr>`;
-  }
-  html += '</tbody></table>';
-  $('usersList').innerHTML = html;
-}
-
-async function toggleEnable(email, enable){
-  try{
-    const j = await jfetch('/toggle_user', {
-      method: 'POST',
-      headers: {'content-type':'application/json'},
-      body: JSON.stringify({email, enable})
+function loadUsers(){
+    axios.get('/admin/users').then(res=>{
+        const container=document.getElementById('userList');
+        container.innerHTML='';
+        res.data.users.forEach(user=>{
+            container.innerHTML += `
+            <div class="item-card">
+                <span>${user.username}</span>
+                <div>
+                    <button onclick="toggleUser(${user.id})">${user.payments?'Disable':'Enable'} Payment</button>
+                    <button onclick="deleteUser(${user.id})">Delete</button>
+                </div>
+            </div>`;
+        });
     });
-    if(j && j.success){ await loadUsers(); alert('Updated user'); }
-  }catch(err){ alert('Failed to update user: '+err.message); }
 }
 
-async function deleteUser(email){
-  if(!confirm('Delete user ' + email + '? This cannot be undone.')) return;
-  try{
-    const j = await jfetch('/admin_delete_user', {
-      method: 'POST',
-      headers: {'content-type':'application/json'},
-      body: JSON.stringify({email})
+function toggleUser(id){ axios.post('/admin/toggle_user/'+id).then(()=>{ loadUsers(); }); }
+function deleteUser(id){ if(confirm('Delete user?')) axios.post('/admin/delete_user/'+id).then(()=>loadUsers()); }
+function toggleGlobal(){ axios.post('/admin/toggle_global_payment').then(()=>alert('Global payment toggled')); }
+
+function loadMostViewed(){
+    axios.get('/admin/most_viewed').then(res=>{
+        const container=document.getElementById('mostViewedList');
+        container.innerHTML='';
+        res.data.movies.forEach(m=>{
+            container.innerHTML+=`<div class="item-card"><strong>${m.title}</strong> — ${m.views} views
+            <button onclick="deleteMovie(${m.id})">Delete</button></div>`;
+        });
     });
-    if(j && j.success){ await loadUsers(); alert('User deleted'); }
-  }catch(err){ alert('Failed to delete user: '+err.message); }
 }
 
-document.getElementById('btnSearchUsers').addEventListener('click', ()=>loadUsers(document.getElementById('userSearch').value));
-document.getElementById('btnRefreshUsers').addEventListener('click', ()=>loadUsers());
-document.getElementById('btnEnableAll').addEventListener('click', async ()=>{
-  if(!confirm('Enable all users?')) return;
-  try{ await jfetch('/enable_all', {method:'POST'}); await loadUsers(); alert('All enabled'); } catch(e){ alert('Failed: '+e.message); }
-});
-document.getElementById('btnDisableAll').addEventListener('click', async ()=>{
-  if(!confirm('Disable all users?')) return;
-  try{ await jfetch('/disable_all', {method:'POST'}); await loadUsers(); alert('All disabled'); } catch(e){ alert('Failed: '+e.message); }
-});
-document.getElementById('btnExportUsers').addEventListener('click', ()=>{
-  exportCSV(users, ['email','name','enabled','is_admin']);
-});
-
-// Login analytics
-document.getElementById('btnRefreshAnalytics').addEventListener('click', loadAnalytics);
-document.getElementById('btnExportAnalytics').addEventListener('click', ()=>{
-  exportCSV(analytics, ['name','email','enabled','total_logins','last_login']);
-});
-
-async function loadAnalytics(){
-  try{
-    analytics = await jfetch('/login_analytics');
-    renderAnalytics();
-  }catch(err){
-    console.error('loadAnalytics', err);
-    $('analyticsList').innerHTML = '<div class="small muted">Failed to load analytics</div>';
-  }
-}
-
-function renderAnalytics(){
-  if(!analytics || !analytics.length){ $('analyticsList').innerHTML = '<div class="small muted">No analytics</div>'; return; }
-  let html = '<table><thead><tr><th>Name</th><th>Email</th><th>Enabled</th><th>Total logins</th><th>Last login</th></tr></thead><tbody>';
-  for(const a of analytics){
-    html += `<tr>
-      <td>${escapeHtml(a.name||'')}</td>
-      <td>${escapeHtml(a.email||'')}</td>
-      <td>${a.enabled? 'YES':'NO'}</td>
-      <td>${a.total_logins || 0}</td>
-      <td class="small muted">${escapeHtml((a.last_login && a.last_login.timestamp) || '')}</td>
-    </tr>`;
-  }
-  html += '</tbody></table>';
-  $('analyticsList').innerHTML = html;
-}
-
-// ---------- SALES SECTION (ADDED BELOW) ----------
-document.getElementById('btnRefreshSales').addEventListener('click', loadSales);
-document.getElementById('btnExportSales').addEventListener('click', ()=>exportCSV(sales, ['id','user_email','product','price','currency','usd_value','commission_rate','commission_amount','status','created_at','approved_at']));
-document.getElementById('salesSearch').addEventListener('input', renderSales);
-
-async function populateSalesUserFilter(){
-  const sel = document.getElementById('salesFilterUser');
-  sel.innerHTML = '<option value="">— All users —</option>';
-  (users||[]).forEach(u=>{
-    const opt = document.createElement('option'); opt.value = u.email; opt.textContent = u.email; sel.appendChild(opt);
-  });
-  sel.addEventListener('change', renderSales);
-}
-
-async function loadSales(){
-  try{
-    const j = await jfetch('/api/get_sales');
-    sales = j.sales || [];
-    renderSales();
-    renderPending();
-    renderSalesOverview();
-  }catch(err){
-    console.error('loadSales', err);
-    $('salesList').innerHTML = '<div class="small muted">Failed to load sales</div>';
-  }
-}
-
-function renderSalesOverview(){
-  const total = sales.length;
-  const approved = sales.filter(s=>s.status==='approved').length;
-  const pending = sales.filter(s=>s.status==='pending').length;
-  const usdTotal = sales.reduce((acc,s)=> acc + (s.usd_value? Number(s.usd_value) : 0), 0);
-  $('salesOverview').textContent = `Sales: ${total} — Approved: ${approved}, Pending: ${pending}. Cached USD total: ${usdTotal.toFixed(2)} USD.`;
-}
-
-function renderPending(){
-  const pending = sales.filter(s => s.status === 'pending');
-  if(!pending.length){ $('pendingList').innerHTML = '<div class="small muted">No pending sales</div>'; return; }
-  let html = '<table><thead><tr><th>ID</th><th>Date</th><th>User</th><th>Product</th><th>Price</th><th>Action</th></tr></thead><tbody>';
-  for(const p of pending){
-    html += `<tr>
-      <td>${p.id}</td>
-      <td>${escapeHtml(p.created_at)}</td>
-      <td>${escapeHtml(p.user_email)}</td>
-      <td>${escapeHtml(p.product)}</td>
-      <td>${Number(p.price).toLocaleString()} ${p.currency}</td>
-      <td>
-        <button onclick="approveSale(${p.id})" class="btn-accept">Approve</button>
-        <button onclick="rejectSale(${p.id})" class="btn-danger">Reject</button>
-      </td>
-    </tr>`;
-  }
-  html += '</tbody></table>';
-  $('pendingList').innerHTML = html;
-}
-
-function renderSales(){
-  const q = (document.getElementById('salesSearch').value || '').trim().toLowerCase();
-  const filterUser = document.getElementById('salesFilterUser').value;
-  const rows = sales.filter(s=>{
-    if(filterUser && s.user_email !== filterUser) return false;
-    if(!q) return true;
-    return (s.user_email||'').toLowerCase().includes(q) || (s.product||'').toLowerCase().includes(q);
-  });
-  if(!rows.length){ $('salesList').innerHTML = '<div class="small muted">No sales match</div>'; return; }
-  let html = '<table><thead><tr><th>ID</th><th>Date</th><th>User</th><th>Product</th><th>Price</th><th>Status</th><th>Commission</th></tr></thead><tbody>';
-  for(const s of rows){
-    const status = s.status==='pending' ? '<span class="status-pending">PENDING</span>' : s.status==='approved' ? '<span class="status-approved">APPROVED</span>' : '<span class="status-rejected">REJECTED</span>';
-    const comm = s.commission_rate ? ((s.commission_rate*100).toFixed(0) + '% — ' + (s.commission_amount!=null? s.commission_amount+' '+s.currency : '')) : '—';
-    html += `<tr>
-      <td>${s.id}</td>
-      <td>${escapeHtml(s.created_at)}</td>
-      <td>${escapeHtml(s.user_email)}</td>
-      <td>${escapeHtml(s.product)}</td>
-      <td>${Number(s.price).toLocaleString()} ${s.currency}</td>
-      <td>${status}</td>
-      <td>${comm}</td>
-    </tr>`;
-  }
-  html += '</tbody></table>';
-  $('salesList').innerHTML = html;
-}
-
-// Approve / reject actions
-async function approveSale(id){
-  if(!confirm('Approve sale #' + id + '?')) return;
-  try{
-    const j = await jfetch('/api/approve_sale', {
-      method:'POST',
-      headers:{'content-type':'application/json'},
-      body: JSON.stringify({id})
+function loadPayments(){
+    axios.get('/admin/payments').then(res=>{
+        const container=document.getElementById('paymentList');
+        container.innerHTML='';
+        res.data.payments.forEach(p=>{
+            container.innerHTML+=`<div class="item-card"><b>${p.username}</b> paid ${p.amount} <span>${p.time}</span></div>`;
+        });
     });
-    await loadSales();
-    alert('Sale approved. Commission calculated: ' + (j.commission_rate? (j.commission_rate*100).toFixed(0)+'%':'-'));
-  }catch(err){ alert('Approve failed: '+err.message); }
 }
-async function rejectSale(id){
-  if(!confirm('Reject sale #' + id + '?')) return;
-  try{
-    await jfetch('/api/reject_sale', {
-      method:'POST',
-      headers:{'content-type':'application/json'},
-      body: JSON.stringify({id})
+
+function loadMovies(){
+    axios.get('/admin/movies').then(res=>{
+        const container=document.getElementById('movieList');
+        container.innerHTML='';
+        res.data.movies.forEach(m=>{
+            container.innerHTML+=`<div class="item-card"><strong>${m.title}</strong> — ${m.category}
+            <button onclick="deleteMovie(${m.id})">Delete</button></div>`;
+        });
     });
-    await loadSales();
-    alert('Sale rejected.');
-  }catch(err){ alert('Reject failed: '+err.message); }
 }
 
-// ---------- Export helpers ----------
-function exportCSV(dataArray, headers){
-  if(!dataArray || !dataArray.length) return alert('Nothing to export');
-  const rows = [headers.join(',')];
-  for(const r of dataArray){
-    const line = headers.map(h => `"${String((r[h] !== undefined && r[h] !== null) ? r[h] : '').replace(/"/g,'""')}"`).join(',');
-    rows.push(line);
-  }
-  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-}
+function deleteMovie(id){ if(confirm('Delete movie?')) axios.post('/admin/delete_movie/'+id).then(()=>{ loadMovies(); loadMostViewed(); }); }
 
-// ---------- Misc helpers & init ----------
-function escapeHtml(s){ if(s==null) return ''; return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]); }
-
-document.getElementById('btnRefreshSales').addEventListener('click', loadSales);
-document.getElementById('btnRefreshUsers').addEventListener('click', ()=>loadUsers());
-document.getElementById('logoutBtn').addEventListener('click', async ()=>{
-  await fetch('/logout');
-  location.href = '/';
-});
-
-// initial load
-(async function init(){
-  try{
-    await loadUsers();
-    await loadAnalytics();
-    await loadSales();
-  }catch(e){
-    console.error('init error', e);
-  }
-})();
+window.onload=()=>{ loadUsers(); loadMostViewed(); loadPayments(); loadMovies(); }
 </script>
+
 </body>
 </html>

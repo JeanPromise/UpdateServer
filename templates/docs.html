@@ -21,10 +21,10 @@ const response = await fetch(
 );
 const product = await response.json();
 console.log(product);</code></pre></div><p class="small-note">Replace <code>YOUR-DOMAIN</code> with your deployed Render URL or custom domain.</p></section>
-<section id="response" class="docs-section"><h2>3. Response format</h2><div class="code-block"><div class="code-head"><span>JSON example</span></div><pre><code>{
+<section id="response" class="docs-section"><h2>3. Response format</h2><div class="code-block"><div class="code-head"><span>Standard-plan JSON example</span></div><pre><code>{
   "barcode": "your-product-barcode",
   "name": "Product name",
-  "brand": "Brand name",
+  "brand": "Brand",
   "pack_size": "500 ml",
   "category": "Dairy",
   "price_kes": null,
@@ -32,7 +32,11 @@ console.log(product);</code></pre></div><p class="small-note">Replace <code>YOUR
   "source": "",
   "updated_at": "timestamp",
   "usage": { "limit": 1000, "used": 1, "remaining": 999 }
-}</code></pre></div><p>The values above are illustrative. Actual fields and values come from the current catalogue; price may be empty where no reliable price is available.</p></section>
-<section id="errors" class="docs-section"><h2>4. Common errors</h2><div class="error-list"><div><code>401</code><span><strong>API key required or invalid</strong><small>Check the key header. A revoked key cannot be used.</small></span></div><div><code>402</code><span><strong>Subscription required</strong><small>Activate a plan or renew expired access.</small></span></div><div><code>404</code><span><strong>Product not found</strong><small>No catalogue record matched that barcode.</small></span></div><div><code>429</code><span><strong>Plan limit reached</strong><small>Upgrade or wait until the next paid period.</small></span></div></div></section>
-<section id="limits" class="docs-section"><h2>5. Usage and data quality</h2><p>Lookup limits are tied to your approved plan. The API does not invent missing data, and a syntactically valid barcode is not proof that a product is genuine. Treat the <code>verified</code> field and source information accordingly.</p><a class="button" href="{{ url_for('pricing') }}">View plans</a></section>
+}</code></pre></div><p>The values above are illustrative. Actual values come from the current catalogue; price may be empty where no reliable price is available.</p><div class="code-block"><div class="code-head"><span>Additional fields on image-enabled plans</span></div><pre><code>{
+  "image_url": "https://example.com/product-image.jpg",
+  "image_available": true,
+  "image_source": "Open Food Facts (verify source license before redistribution)"
+}</code></pre></div><p>Image-enabled plans receive <code>image_url</code>, <code>image_available</code>, and the available <code>image_source</code> attribution field. If a product has no linked image, <code>image_url</code> is <code>null</code> and <code>image_available</code> is <code>false</code>. Standard plans do not receive image URLs.</p></section>
+<section id="errors" class="docs-section"><h2>4. Common errors</h2><div class="error-list"><div><code>401</code><span><strong>API key required or invalid</strong><small>Check the key header. A revoked key cannot be used.</small></span></div><div><code>402</code><span><strong>Subscription required</strong><small>Activate a plan or renew expired access.</small></span></div><div><code>404</code><span><strong>Product not found</strong><small>No catalogue record matched that barcode.</small></span></div><div><code>429</code><span><strong>Plan limit reached</strong><small>Upgrade or wait until the next paid period.</small></span></div><div><code>503</code><span><strong>API temporarily unavailable</strong><small>Retry later and check service status if it continues.</small></span></div></div></section>
+<section id="limits" class="docs-section"><h2>5. Usage and data quality</h2><p>Lookup limits are tied to your approved plan. The API does not invent missing data, and a syntactically valid barcode is not proof that a product is genuine. Treat the <code>verified</code> field and source information accordingly. Product image availability is tracked separately from barcode coverage.</p><a class="button" href="{{ url_for('pricing') }}">View plans</a></section>
 </div></section>{% endblock %}

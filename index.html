@@ -1,567 +1,202 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Login · Final UI</title>
-<style>
-  /* ===========================
-     Final UI — single-file (yellow theme + white form)
-     =========================== */
-  :root{
-    /* nostalgic yellow theme */
-    --bg-1:#F5E08A; /* nostalgic yellow */
-    --bg-2:#FFF7D0; /* pale warm */
-    --bg-3:#EEF6FF; /* faint whitish-blue */
-    --glass-border: rgba(0,0,0,0.06);
-    --accent-yellow-start:#fff8d6;
-    --accent-yellow-end:  #fff2a0;
-    --accent-teal:#6ae3d7;
-    --thin-red:#cc2b2b;
-    --muted:#6b6b6b;
-    --max-width:440px;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html,body{height:100%}
-  body{
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-    /* soft nostalgic yellow gradient background */
-    background:
-      radial-gradient(60% 40% at 10% 10%, rgba(255,255,255,0.14) 0%, transparent 30%),
-      linear-gradient(180deg,var(--bg-1) 0%, var(--bg-2) 55%, var(--bg-3) 100%);
-    color:#072026;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    min-height:100vh;
-    overflow:hidden;
-    -webkit-font-smoothing:antialiased;
-    -moz-osx-font-smoothing:grayscale;
-  }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome | MovieStream</title>
 
-  /* -----------------------
-     Rising colorful stars
-     ----------------------- */
-  .star{ position:absolute; border-radius:50%; filter: drop-shadow(0 0 6px rgba(255,255,255,0.08)); pointer-events:none; opacity:0 }
-  @keyframes rise {
-    0% { transform: translateY(110vh) scale(.6); opacity:0; }
-    8% { opacity:1; }
-    82% { opacity:0.9; }
-    100% { transform: translateY(-30vh) scale(1.05); opacity:0; }
-  }
-
-  /* -----------------------
-     Container (white card)
-     ----------------------- */
-  .container {
-    width: min(94%, var(--max-width));
-    padding: 26px;
-    border-radius: 16px;
-    background: #ffffff; /* clean white form */
-    color: #052225; /* dark text */
-    border: 1px solid var(--glass-border);
-    box-shadow: 0 18px 48px rgba(7,26,34,0.12);
-    backdrop-filter: blur(6px) saturate(110%);
-    position:relative;
-    z-index:6;
-    transform: translateY(6px);
-    animation: entrance .5s cubic-bezier(.2,.9,.2,1);
-    overflow:hidden;
-    min-height: 420px; /* prevents layout jump when toggling register/login */
-  }
-  @keyframes entrance { from {opacity:0; transform: translateY(20px) scale(.995)} to {opacity:1; transform: translateY(0) scale(1)} }
-
-  /* tiny logo / badge */
-  .brand {
-    display:flex;
-    align-items:center;
-    gap:12px;
-    margin-bottom:10px;
-  }
-  .logo {
-    width:48px; height:48px; border-radius:10px;
-    background: linear-gradient(135deg,var(--accent-teal), #7daeff);
-    display:grid; place-items:center;
-    box-shadow: 0 6px 18px rgba(106,227,215,0.12), 0 1px 0 rgba(255,255,255,0.02) inset;
-    transform-origin:center;
-    transition: transform .18s ease;
-  }
-  .logo:active{transform:scale(.96)}
-  .logo-mark { font-weight:800; color:#052225; font-size:18px; letter-spacing:.6px; }
-
-  .brand h1 { font-size:18px; color:#052225; letter-spacing:.2px; margin:0 }
-  .brand p { font-size:12px; color:var(--muted); margin-top:2px }
-
-  h2 { text-align:center; font-size:22px; color:#052225; margin:6px 0 16px; }
-
-  form{ display:flex; flex-direction:column; gap:12px; }
-
-  label{ font-size:12px; color:var(--muted); margin-bottom:6px; display:block }
-
-  /* Inputs: white interior with thin red outline */
-  input[type="text"],
-  input[type="email"],
-  input[type="password"]{
-    background:#ffffff;
-    color:#072026;
-    padding:12px 14px;
-    border-radius:10px;
-    font-size:15px;
-    border: 1px solid var(--thin-red);
-    transition: box-shadow .16s ease; /* removed translate to avoid jumpiness */
-    box-shadow: 0 1px 0 rgba(0,0,0,0.04);
-    -webkit-appearance:none;
-    -moz-appearance:none;
-  }
-  input::placeholder{ color:#9b9b9b }
-  input:focus{
-    outline:none;
-    border-color:#ff7070;
-    box-shadow:0 10px 30px rgba(204,43,43,0.06);
-    /* no transform on focus — prevents jumpiness */
-  }
-
-  /* password row with toggle */
-  .password-row{ position:relative; display:flex; align-items:center; }
-  .toggle-eye{
-    position:absolute; right:10px; background:transparent; border:none; cursor:pointer;
-    height:36px; width:36px; display:grid; place-items:center; border-radius:8px;
-  }
-  .toggle-eye:active{ transform:scale(.97) }
-
-  /* strength bar */
-  .strength {
-    height:6px; border-radius:999px; background: rgba(0,0,0,0.06); overflow:hidden; margin-top:6px;
-  }
-  .strength > i{ display:block; height:100%; width:0%; background:linear-gradient(90deg,#ff7a7a,#ffd86b); transition:width .28s ease }
-
-  /* Login button: light yellow, smooth edges */
-  .btn {
-    padding:12px 14px;
-    border-radius:28px;
-    border:none;
-    font-weight:800;
-    font-size:15px;
-    cursor:pointer;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.06);
-    transition: transform .12s ease, box-shadow .18s ease;
-    display:inline-flex; align-items:center; justify-content:center; gap:10px;
-  }
-  .btn:active{ transform: translateY(1px) }
-  .btn-login{
-    background: linear-gradient(180deg,var(--accent-yellow-start), var(--accent-yellow-end));
-    color:#101010;
-    border:1px solid rgba(0,0,0,0.06);
-  }
-  .btn-login:hover{ transform: translateY(-2px); box-shadow:0 16px 36px rgba(0,0,0,0.08) }
-
-  /* subtle ripple effect (JS) */
-  .ripple { position:relative; overflow:hidden; }
-
-  /* secondary button (register) */
-  .btn-register{
-    background:transparent;
-    color:#052225;
-    border:1px solid rgba(0,0,0,0.06);
-    padding:10px 12px; border-radius:12px; font-weight:700;
-  }
-
-  /* toggle row + like button */
-  .toggle-row{
-    margin-top:12px; display:flex; align-items:center; justify-content:center; gap:10px; color:var(--muted); font-size:14px;
-  }
-  .toggle {
-    cursor:pointer; padding:6px 8px; border-radius:8px; transition:all .12s ease;
-  }
-  .toggle:hover{ color:#052225; background: rgba(0,0,0,0.02) }
-
-  .like-wrap{ display:flex; align-items:center; gap:8px; }
-  .like-btn{
-    width:36px; height:36px; display:grid; place-items:center; border-radius:50%;
-    border:1px solid rgba(0,0,0,0.06); background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.01));
-    cursor:pointer; transition:transform .12s ease, box-shadow .12s ease;
-  }
-  .like-btn:active{ transform:scale(.95) }
-  .like-btn.liked{ background: linear-gradient(180deg,#ffe8c0,#ffd69a); border-color: rgba(0,0,0,0.06) }
-  .like-count{ font-size:13px; color:#6b4b1f; font-weight:700; background: rgba(255,255,255,0.9); padding:5px 8px; border-radius:999px; border:1px solid rgba(0,0,0,0.04) }
-
-  /* version stamp */
-  .apk-version-stamp{
-    position:fixed; right:12px; bottom:10px; z-index:9; font-size:13px; color:#333;
-    background: rgba(255,255,255,0.92); padding:6px 8px; border-radius:8px; border:1px solid rgba(0,0,0,0.04);
-    box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-  }
-
-  /* explode animation used on successful login */
-  .explode { animation: explode .48s forwards }
-  @keyframes explode {
-    0% { transform:scale(1); opacity:1 }
-    100% { transform:scale(.02) rotate(12deg); opacity:0 }
-  }
-
-  /* responsive tweaks */
-  @media (max-width:420px) {
-    .container{ padding:18px; border-radius:14px; min-height:380px }
-    .logo { width:44px; height:44px }
-  }
-</style>
+  <!-- PWA manifest -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#e50914">
+  
+  <style>
+    body {
+      margin: 0;
+      background: #141414;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .container {
+      background: rgba(0,0,0,0.85);
+      padding: 2rem;
+      border-radius: 12px;
+      max-width: 420px;
+      width: 95%;
+      box-shadow: 0 0 20px rgba(255,0,0,0.2);
+      text-align: center;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 1rem;
+      color: #e50914;
+    }
+    .tab-select {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 1rem;
+    }
+    .tab-select button {
+      flex: 1;
+      padding: 10px;
+      background: #333;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .tab-select button.active {
+      background: #e50914;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: none;
+      border-radius: 6px;
+      background: #222;
+      color: #fff;
+    }
+    button.submit {
+      width: 100%;
+      padding: 12px;
+      background: #e50914;
+      border: none;
+      color: white;
+      font-size: 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-top: 1rem;
+    }
+    .toggle-btn {
+      margin-top: -8px;
+      background: none;
+      border: none;
+      color: #aaa;
+      cursor: pointer;
+      font-size: 0.9rem;
+      text-align: right;
+      width: 100%;
+    }
+    #message {
+      text-align: center;
+      margin-top: 10px;
+      color: #f44336;
+    }
+    /* Install button */
+    #installBtn {
+      margin-top: 1rem;
+      padding: 12px;
+      background: yellow;
+      color: black;
+      font-weight: bold;
+      font-size: 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+    }
+  </style>
 </head>
 <body>
-  <!-- stars appended by script -->
-  <div class="container" id="container" role="main" aria-labelledby="form-title">
-    <div class="brand">
-      <div class="logo" aria-hidden="true"><div class="logo-mark">JP</div></div>
-      <div>
-        <h1 style="margin:0">SaveSend UI</h1>
-        <p style="margin:0">Smooth login • low-data friendly</p>
-      </div>
+
+  <div class="container">
+    <h1>MovieStream</h1>
+    <div class="tab-select">
+      <button id="loginTab" class="active" onclick="switchTab('login')">Login</button>
+      <button id="registerTab" onclick="switchTab('register')">Register</button>
+      <button id="resetTab" onclick="switchTab('reset')">Reset</button>
     </div>
 
-    <h2 id="form-title">Login</h2>
+    <input type="text" id="username" placeholder="Username (or leave empty)" />
+    <input type="email" id="email" placeholder="Email" />
+    <input type="password" id="password" placeholder="Password" />
+    <input type="password" id="new_password" placeholder="New Password" style="display:none;" />
 
-    <form id="login-form" autocomplete="on" novalidate>
-      <div>
-        <label for="email">Email</label>
-        <input id="email" name="email" type="email" placeholder="you@example.com" required aria-required="true" />
-      </div>
-
-      <div>
-        <label for="password">Password</label>
-        <div class="password-row">
-          <input id="password" name="password" type="password" placeholder="Enter password" required aria-required="true" style="width:100%" />
-          <button type="button" class="toggle-eye" id="pw-toggle" aria-label="Toggle password visibility" title="Show / hide password">
-            <!-- eye icon -->
-            <svg id="eye-open" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
-              <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"></path>
-              <circle cx="12" cy="12" r="3"></circle>
-            </svg>
-            <svg id="eye-closed" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="display:none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.7 21.7 0 0 1 3.64-4.71"></path>
-              <path d="M1 1l22 22"></path>
-            </svg>
-          </button>
-        </div>
-        <div class="strength" aria-hidden="true"><i id="strength-bar"></i></div>
-      </div>
-
-      <button class="btn btn-login ripple" type="submit" aria-label="Login">Login</button>
-    </form>
-
-    <form id="register-form" style="display:none; margin-top:10px" autocomplete="on" novalidate>
-      <div><label for="fullname">Full Name</label><input id="fullname" name="fullname" type="text" placeholder="Your full name" /></div>
-      <div><label for="reg-email">Email</label><input id="reg-email" name="reg-email" type="email" placeholder="you@example.com" /></div>
-      <div><label for="reg-password">Password</label><input id="reg-password" name="reg-password" type="password" placeholder="Create a password" /></div>
-      <div><label for="reg-confirm">Confirm Password</label><input id="reg-confirm" name="reg-confirm" type="password" placeholder="Confirm password" /></div>
-      <button class="btn btn-register" type="submit">Register</button>
-    </form>
-
-    <div class="toggle-row" id="toggle-row" aria-hidden="false">
-      <div class="toggle" id="toggle-form">Don't have an account? Register</div>
-
-      <div class="like-wrap" title="Like this app" aria-label="Like widget">
-        <button class="like-btn" id="like-btn" aria-pressed="false" aria-label="Like">
-          <svg class="heart" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#052225" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">
-            <path id="heart-path" d="M20.8 7.6c0-2.4-2-4.4-4.4-4.4-1.4 0-2.7.7-3.4 1.8-.7-1.1-2-1.8-3.4-1.8C5.4 3.2 3.4 5.2 3.4 7.6 3.4 13 12 18 12 18s8.6-5 8.8-10.4z"/>
-          </svg>
-        </button>
-        <div id="like-count" class="like-count" aria-live="polite">0</div>
-      </div>
-    </div>
+    <button class="toggle-btn" onclick="togglePassword()">👁 Show/Hide Password</button>
+    <button class="submit" onclick="submitForm()">Continue</button>
+    <button id="installBtn" style="display:none;">⬇ Install App</button>
+    <p id="message"></p>
   </div>
 
-  <div class="apk-version-stamp" id="apk-version-stamp">App version: 0.0.0</div>
+  <script>
+    let currentAction = "login";
+    const tabs = {
+      login: document.getElementById("loginTab"),
+      register: document.getElementById("registerTab"),
+      reset: document.getElementById("resetTab")
+    };
 
-<script>
-/* ========================
-   Generate colorful rising stars
-   ======================== */
-(function createStars(){
-  const total = 140; // dense but pretty
-  const body = document.body;
-  for(let i=0;i<total;i++){
-    const s = document.createElement('div');
-    s.className = 'star';
-    const size = Math.random()*3.5 + 0.9;
-    s.style.width = size + 'px';
-    s.style.height = size + 'px';
-    s.style.left = (Math.random()*100) + 'vw';
-    const hue = Math.floor(Math.random()*360);
-    const sat = 70 + Math.floor(Math.random()*18);
-    const light = 60 + Math.floor(Math.random()*6);
-    s.style.background = `hsl(${hue} ${sat}% ${light}%)`;
-    s.style.boxShadow = `0 0 ${Math.max(6, size*3)}px hsla(${hue}, ${sat}%, ${light}%, .9)`;
-    const dur = (6 + Math.random()*12).toFixed(2) + 's';
-    const delay = (-Math.random()*18).toFixed(2) + 's';
-    s.style.animation = `rise ${dur} linear ${delay} infinite`;
-    body.appendChild(s);
-  }
-})();
-
-/* ========================
-   Toggle login/register
-   ======================== */
-const loginForm = document.getElementById('login-form');
-const registerForm = document.getElementById('register-form');
-const toggleForm = document.getElementById('toggle-form');
-const formTitle = document.getElementById('form-title');
-const container = document.getElementById('container');
-
-toggleForm.addEventListener('click', ()=>{
-  const isLoginVisible = loginForm.style.display !== 'none';
-  if(isLoginVisible){
-    loginForm.style.display = 'none';
-    registerForm.style.display = 'block';
-    formTitle.textContent = 'Register';
-    toggleForm.textContent = 'Already have an account? Login';
-    registerForm.querySelector('input')?.focus();
-  } else {
-    loginForm.style.display = 'flex';
-    registerForm.style.display = 'none';
-    formTitle.textContent = 'Login';
-    toggleForm.textContent = "Don't have an account? Register";
-    loginForm.querySelector('input')?.focus();
-  }
-});
-
-/* ========================
-   Like button (persisted)
-   ======================== */
-const likeBtn = document.getElementById('like-btn');
-const likeCountEl = document.getElementById('like-count');
-const LIKE_KEY = 'final_ui_like_v1';
-const LIKED_KEY = 'final_ui_liked_v1';
-let likeCount = parseInt(localStorage.getItem(LIKE_KEY) || '0', 10);
-let liked = localStorage.getItem(LIKED_KEY) === '1';
-likeCountEl.textContent = String(likeCount);
-updateLike();
-
-likeBtn.addEventListener('click', ()=>{
-  liked = !liked;
-  if(liked) likeCount++;
-  else likeCount = Math.max(0, likeCount-1);
-  localStorage.setItem(LIKE_KEY, String(likeCount));
-  localStorage.setItem(LIKED_KEY, liked ? '1' : '0');
-  likeCountEl.textContent = String(likeCount);
-  updateLike();
-});
-
-function updateLike(){
-  likeBtn.classList.toggle('liked', liked);
-  likeBtn.setAttribute('aria-pressed', liked ? 'true' : 'false');
-  const svg = likeBtn.querySelector('.heart');
-  const path = svg.querySelector('#heart-path');
-  if(liked){
-    path.setAttribute('fill', '#ff6b81');
-    svg.setAttribute('stroke', 'none');
-    svg.style.transform = 'scale(1.08)';
-    setTimeout(()=> svg.style.transform = 'scale(1)', 160);
-  } else {
-    path.setAttribute('fill', 'none');
-    svg.setAttribute('stroke', '#052225');
-    svg.style.transform = 'scale(1)';
-  }
-}
-
-/* ========================
-   Password toggle + strength meter
-   ======================== */
-const pw = document.getElementById('password');
-const pwToggle = document.getElementById('pw-toggle');
-const eyeOpen = document.getElementById('eye-open');
-const eyeClosed = document.getElementById('eye-closed');
-const strengthBar = document.getElementById('strength-bar');
-
-pwToggle.addEventListener('click', ()=>{
-  if(pw.type === 'password'){
-    pw.type = 'text';
-    eyeOpen.style.display = 'none';
-    eyeClosed.style.display = 'block';
-  } else {
-    pw.type = 'password';
-    eyeOpen.style.display = 'block';
-    eyeClosed.style.display = 'none';
-  }
-  pw.focus();
-});
-
-function passwordStrengthScore(s){
-  let score = 0;
-  if(!s) return 0;
-  if(s.length >= 8) score++;
-  if(/[A-Z]/.test(s)) score++;
-  if(/[0-9]/.test(s)) score++;
-  if(/[^A-Za-z0-9]/.test(s)) score++;
-  return score; // 0..4
-}
-pw.addEventListener('input', ()=>{
-  const sc = passwordStrengthScore(pw.value);
-  const pct = (sc/4)*100;
-  strengthBar.style.width = pct + '%';
-});
-
-/* ========================
-   Button ripple (login)
-   ======================== */
-document.querySelectorAll('.ripple').forEach(btn=>{
-  btn.addEventListener('click', function(e){
-    const rect = btn.getBoundingClientRect();
-    const ink = document.createElement('span');
-    const size = Math.max(rect.width, rect.height) * 1.6;
-    ink.style.position = 'absolute';
-    ink.style.left = (e.clientX - rect.left - size/2) + 'px';
-    ink.style.top = (e.clientY - rect.top - size/2) + 'px';
-    ink.style.width = size + 'px';
-    ink.style.height = size + 'px';
-    ink.style.borderRadius = '50%';
-    ink.style.background = 'rgba(0,0,0,0.06)';
-    ink.style.transform = 'scale(0.1)';
-    ink.style.opacity = '0.9';
-    ink.style.transition = 'transform .6s cubic-bezier(.2,.9,.2,1), opacity .6s';
-    ink.style.pointerEvents = 'none';
-    btn.appendChild(ink);
-    requestAnimationFrame(()=>{
-      ink.style.transform = 'scale(1)';
-      ink.style.opacity = '0';
-    });
-    setTimeout(()=> ink.remove(), 700);
-  });
-});
-
-/* ========================
-   Login & register submit logic (client)
-   - kept simple; preserves original server calls pattern
-   ======================== */
-let currentUserApkVersion = localStorage.getItem('installedApkVersion') || '0.0.0';
-document.getElementById('apk-version-stamp').textContent = 'App version: ' + currentUserApkVersion;
-
-function isVersionNewer(sv, lv){
-  const a = (sv||'').split('.').map(Number);
-  const b = (lv||'').split('.').map(Number);
-  for(let i=0;i<Math.max(a.length,b.length);i++){
-    const aa = a[i]||0, bb = b[i]||0;
-    if(aa>bb) return true;
-    if(aa<bb) return false;
-  }
-  return false;
-}
-
-const COUNTDOWN_END_KEY = 'apk_countdown_end';
-const COUNTDOWN_VERSION_KEY = 'apk_pending_version';
-
-async function checkUpdate(){
-  try{
-    const res = await fetch('/check_update');
-    if(!res.ok) return;
-    const data = await res.json();
-    const serverVer = data.apk_version;
-    if(!serverVer || !isVersionNewer(serverVer, currentUserApkVersion)){
-      resumeCountdownIfAny();
-      return;
+    function switchTab(tab) {
+      currentAction = tab;
+      for (const key in tabs) tabs[key].classList.remove("active");
+      tabs[tab].classList.add("active");
+      document.getElementById("new_password").style.display = (tab === "reset") ? "block" : "none";
+      document.getElementById("message").innerText = "";
     }
-    if(!document.getElementById('apk-update-note')){
-      const note = document.createElement('div');
-      note.id = 'apk-update-note';
-      Object.assign(note.style, { position:'fixed', left:'12px', bottom:'80px', background:'rgba(0,0,0,0.72)', color:'#fff', padding:'10px 12px', borderRadius:'8px', zIndex:9999 });
-      note.innerHTML = `<div style="margin-bottom:8px">New APK available: <b>${serverVer}</b></div><button id="startDownloadBtn" style="padding:8px 12px; border-radius:8px; cursor:pointer;">Download APK</button>`;
-      document.body.appendChild(note);
-      document.getElementById('startDownloadBtn').addEventListener('click', ()=> startDownloadAndSilentCount(serverVer));
+
+    function togglePassword() {
+      ["password", "new_password"].forEach(id => {
+        const input = document.getElementById(id);
+        if (input && input.offsetParent !== null) {
+          input.type = input.type === "password" ? "text" : "password";
+        }
+      });
     }
-  }catch(err){ console.warn('checkUpdate error', err); resumeCountdownIfAny(); }
-}
-function startDownloadAndSilentCount(serverVer){
-  const a = document.createElement('a'); a.href = '/download_apk'; a.download = 'app-latest.apk'; document.body.appendChild(a); a.click(); a.remove();
-  const existingEnd = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
-  const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
-  const now = Date.now();
-  if(pendingVer === serverVer && existingEnd && existingEnd > now){ startLocalTimer(); return; }
-  const endTs = now + 55*1000;
-  localStorage.setItem(COUNTDOWN_END_KEY, String(endTs));
-  localStorage.setItem(COUNTDOWN_VERSION_KEY, serverVer);
-  startLocalTimer();
-}
-let _timerInterval = null;
-function startLocalTimer(){
-  if(_timerInterval) return;
-  _timerInterval = setInterval(()=>{
-    const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
-    const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
-    if(!end || !pendingVer){ clearInterval(_timerInterval); _timerInterval = null; return; }
-    const now = Date.now();
-    if(now >= end){
-      localStorage.setItem('installedApkVersion', pendingVer);
-      currentUserApkVersion = pendingVer;
-      document.getElementById('apk-version-stamp').textContent = 'App version: ' + currentUserApkVersion;
-      localStorage.removeItem(COUNTDOWN_END_KEY); localStorage.removeItem(COUNTDOWN_VERSION_KEY);
-      const note = document.getElementById('apk-update-note'); if(note) note.remove();
-      clearInterval(_timerInterval); _timerInterval = null;
+
+    function submitForm() {
+      const data = new URLSearchParams();
+      data.append("action", currentAction);
+      data.append("username", document.getElementById("username").value.trim());
+      data.append("email", document.getElementById("email").value.trim());
+      data.append("password", document.getElementById("password").value.trim());
+      data.append("new_password", document.getElementById("new_password").value.trim());
+
+      fetch("{{ url_for('auth') }}", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: data
+      })
+      .then(res => res.json())
+      .then(res => {
+        if (res.status === "ok" && res.redirect) {
+          location.href = res.redirect;
+        } else {
+          document.getElementById("message").innerText = res.message || "Failed.";
+        }
+      })
+      .catch(() => document.getElementById("message").innerText = "Something went wrong.");
     }
-  }, 1000);
-}
-function resumeCountdownIfAny(){
-  const end = parseInt(localStorage.getItem(COUNTDOWN_END_KEY) || '0', 10);
-  const pendingVer = localStorage.getItem(COUNTDOWN_VERSION_KEY);
-  if(end && pendingVer){
-    if(Date.now() >= end){
-      localStorage.setItem('installedApkVersion', pendingVer);
-      currentUserApkVersion = pendingVer;
-      document.getElementById('apk-version-stamp').textContent = 'App version: ' + currentUserApkVersion;
-      localStorage.removeItem(COUNTDOWN_END_KEY); localStorage.removeItem(COUNTDOWN_VERSION_KEY);
-      const note = document.getElementById('apk-update-note'); if(note) note.remove();
-    } else startLocalTimer();
-  }
-}
 
-/* Login handler */
-loginForm.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const email = loginForm.email.value.trim();
-  const password = loginForm.password.value.trim();
-  if(!email || !password) return alert('Please fill both fields.');
-  try{
-    const res = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email,password,apk_version: currentUserApkVersion}) });
-    const data = await res.json();
-    if(data.success) doSuccessAnimation();
-    else alert(data.message || 'Login failed.');
-  }catch(err){ console.error(err); alert('Network error during login.'); }
-});
+    // PWA Install Button Logic
+    let deferredPrompt;
+    const installBtn = document.getElementById('installBtn');
 
-/* Register handler */
-registerForm.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const name = registerForm.fullname.value.trim();
-  const email = registerForm['reg-email'].value.trim();
-  const password = registerForm['reg-password'].value.trim();
-  const confirm = registerForm['reg-confirm'].value.trim();
-  if(password !== confirm) return alert('Passwords do not match!');
-  try{
-    const res = await fetch('/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name,email,password}) });
-    const data = await res.json();
-    if(data.success){ alert('Registration successful! Please log in.'); registerForm.style.display='none'; loginForm.style.display='flex'; formTitle.textContent='Login'; toggleForm.textContent="Don't have an account? Register"; }
-    else alert(data.message || 'Registration failed.');
-  }catch(err){ console.error(err); alert('Network error during registration.'); }
-});
-
-/* success explode -> proceed microflow */
-function doSuccessAnimation(){
-  container.classList.add('explode');
-  container.addEventListener('animationend', ()=>{
-    container.style.display = 'none';
-    const proceedBtn = document.createElement('button');
-    proceedBtn.textContent = 'Proceed to Shows';
-    Object.assign(proceedBtn.style, {
-      padding:'10px 20px', fontSize:'16px', background:'linear-gradient(90deg,#5b8cff,#6be3d7)', color:'#02121a', border:'none', borderRadius:'14px', cursor:'pointer', position:'fixed', top:'50%', left:'50%', transform:'translate(-50%,-50%)', boxShadow:'0 6px 26px rgba(70,120,255,0.18)'
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      installBtn.style.display = 'block';
     });
-    document.body.appendChild(proceedBtn);
-    proceedBtn.addEventListener('click', ()=>{
-      if(window.AndroidBridge && AndroidBridge.openGoojaraPage) AndroidBridge.openGoojaraPage();
-      else alert('Bridge not available.');
+
+    installBtn.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') console.log('PWA installed');
+        deferredPrompt = null;
+        installBtn.style.display = 'none';
+      }
     });
-  }, {once:true});
-}
 
-/* initialize */
-checkUpdate(); resumeCountdownIfAny();
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js').then(() => console.log('SW registered'));
+    }
+  </script>
 
-</script>
 </body>
 </html>

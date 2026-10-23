@@ -1,0 +1,74 @@
+{% extends 'admin_base.html' %}
+{% block title %}Product images{% endblock %}
+{% block header_title %}Product image library{% endblock %}
+{% block admin_content %}
+<section class="admin-page-heading"><div><span class="section-kicker">IMAGE COVERAGE</span><h1>Every barcode, a clear picture.</h1><p>Link a real product image to each barcode. Records without an image remain visible here until you attach one or a public catalogue has a match.</p></div><div class="admin-head-actions"><a class="button button-light" href="{{ url_for('admin_images_backup') }}">Download image files ZIP</a><a class="button button-light" href="{{ url_for('admin_export_products') }}">Export image links CSV</a></div></section>
+<div class="admin-stats-grid image-stats-grid"><article class="admin-stat-card"><span class="admin-stat-label">Total barcodes</span><strong>{{ '{:,}'.format(totals.products) }}</strong><small>All product records</small></article><article class="admin-stat-card"><span class="admin-stat-label">Images linked</span><strong>{{ '{:,}'.format(totals.with_images) }}</strong><small>Local uploads and image URLs</small></article><article class="admin-stat-card"><span class="admin-stat-label">Still missing</span><strong>{{ '{:,}'.format(totals.missing) }}</strong><small>Need a matching image</small></article><article class="admin-stat-card"><span class="admin-stat-label">Ready for image search</span><strong>{{ '{:,}'.format(totals.unchecked) }}</strong><small>Not checked recently</small></article></div>
+<div class="admin-panel"><div class="admin-panel-head"><div><h2>Populate images automatically</h2><p>Searches Open Food Facts, Open Beauty Facts and Open Products Facts. A photo is linked only when a public catalogue returns it for the exact barcode.</p></div></div><div class="image-tool-actions"><form method="post" id="image-autofill-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="discover"><input type="hidden" name="ajax" value="1"><button class="button" type="button" id="image-autofill-start">Start automatic image fill</button><button class="button button-light" type="button" id="image-autofill-stop" hidden>Stop after current batch</button></form><form method="post" onsubmit="return confirm('Queue all products without an image for another careful image-source check?');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="retry_missing"><button class="button button-light" type="submit">Recheck missing images</button></form><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="discover"><button class="button button-light" type="submit">Find next 3 manually</button></form></div><div id="image-autofill-status" role="status" aria-live="polite" class="small-note">Automatic fill is stopped. Press Start to work through the catalogue in safe batches; keep this admin page open.</div><div style="margin-top:10px"><progress id="image-autofill-progress" max="{{ totals.products or 1 }}" value="{{ totals.with_images }}" style="width:100%;height:12px"></progress><p class="small-note" id="image-autofill-counts">{{ '{:,}'.format(totals.with_images) }} images linked · {{ '{:,}'.format(totals.missing) }} still missing · {{ '{:,}'.format(totals.unchecked) }} not checked recently</p></div><p class="small-note">Not every Kenyan product appears in public databases. Those records remain clearly marked as missing and can be completed through image uploads or trusted URLs. Images from public catalogues carry their own terms; review license/attribution requirements before reselling access.</p></div>
+<script>
+(() => {
+  const form = document.getElementById('image-autofill-form');
+  const start = document.getElementById('image-autofill-start');
+  const stop = document.getElementById('image-autofill-stop');
+  const status = document.getElementById('image-autofill-status');
+  const progress = document.getElementById('image-autofill-progress');
+  const counts = document.getElementById('image-autofill-counts');
+  if (!form || !start || !stop) return;
+  let running = false;
+  let timer = null;
+  const csrf = form.querySelector('input[name="csrf_token"]').value;
+  const wait = ms => new Promise(resolve => { timer = setTimeout(resolve, ms); });
+  function update(data) {
+    if (Number.isFinite(data.total)) progress.max = Math.max(1, data.total);
+    if (Number.isFinite(data.with_images)) progress.value = data.with_images;
+    counts.textContent = `${Number(data.with_images || 0).toLocaleString()} images linked · ${Number(data.missing || 0).toLocaleString()} still missing · ${Number(data.remaining || 0).toLocaleString()} left to check`;
+  }
+  function stopped(message) {
+    running = false;
+    if (timer) clearTimeout(timer);
+    timer = null;
+    start.hidden = false;
+    stop.hidden = true;
+    start.disabled = false;
+    status.textContent = message;
+  }
+  async function run() {
+    running = true;
+    start.hidden = true;
+    stop.hidden = false;
+    start.disabled = true;
+    while (running) {
+      status.textContent = 'Checking up to three barcodes against public image catalogues…';
+      try {
+        const body = new URLSearchParams({csrf_token: csrf, action: 'discover', ajax: '1'});
+        const response = await fetch(window.location.pathname, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8', 'Accept':'application/json'}, body});
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (!running) break;
+        update(data);
+        if (data.status === 'ok') {
+          status.textContent = data.message + ' Next safe batch starts in about 22 seconds.';
+          await wait(22500);
+        } else if (data.status === 'cooldown') {
+          status.textContent = `Rate limit protection: continuing in ${data.retry_after || 22} seconds.`;
+          await wait(((data.retry_after || 22) * 1000) + 300);
+        } else if (data.status === 'complete') {
+          stopped(`${data.message} Review the “Missing” tab for items needing manual images.`);
+        } else {
+          stopped(data.message || 'Image discovery stopped because a source could not be reached. Missing counts were not presented as image coverage.');
+        }
+      } catch (error) {
+        stopped('Image discovery stopped because the request failed. Refresh the page, check API health, then start again.');
+      }
+    }
+  }
+  start.addEventListener('click', () => { if (!running) run(); });
+  stop.addEventListener('click', () => { running = false; start.hidden = false; start.disabled = false; stop.hidden = true; status.textContent = 'Stopped by admin. Any completed batch has been saved; refresh to see the latest counts.'; });
+})();
+</script>
+<div class="admin-panel"><div class="admin-panel-head"><div><h2>Image library</h2><p>{{ '{:,}'.format(result_count) }} matching records · page {{ page }} of {{ total_pages }}</p></div><form method="get" class="admin-search"><input name="q" value="{{ q }}" placeholder="Search name or barcode"><input type="hidden" name="status" value="{{ status }}"><button class="button button-light" type="submit">Search</button></form></div>
+<nav class="filter-tabs"><a class="{{ 'selected' if status=='all' else '' }}" href="{{ url_for('admin_images',status='all',q=q) }}">All ({{ '{:,}'.format(totals.products) }})</a><a class="{{ 'selected' if status=='with' else '' }}" href="{{ url_for('admin_images',status='with',q=q) }}">Has image ({{ '{:,}'.format(totals.with_images) }})</a><a class="{{ 'selected' if status=='missing' else '' }}" href="{{ url_for('admin_images',status='missing',q=q) }}">Missing ({{ '{:,}'.format(totals.missing) }})</a></nav>
+{% if results %}<div class="image-admin-grid">{% for p in results %}<article class="image-admin-card"><div class="image-admin-preview">{% if p.image_url %}<a href="{{ p.image_url }}" target="_blank" rel="noopener"><img src="{{ p.image_url }}" alt="{{ p.name }}" loading="lazy"></a>{% else %}<div class="image-placeholder"><span>▧</span><strong>No image yet</strong><small>{% if p.image_checked_at %}Checked {{ p.image_checked_at[:10] }}{% else %}Not checked{% endif %}</small></div>{% endif %}</div><div class="image-admin-info"><div class="image-product-heading"><div><strong>{{ p.name }}</strong><small>{{ p.brand or 'Brand not supplied' }} · {{ p.barcode }}</small></div><span class="status {{ 'status-good' if p.image_url else 'status-muted' }}">{{ 'Linked' if p.image_url else ('Check incomplete' if p.image_source and p.image_source.startswith('Lookup incomplete:') else ('Checked' if p.image_checked_at else 'Missing')) }}</span></div>{% if p.image_url %}<p class="image-source-line">Source: {{ p.image_source or 'Not recorded' }}</p>{% elif p.image_source and p.image_source.startswith('Lookup incomplete:') %}<p class="image-source-line">{{ p.image_source }}</p>{% endif %}<form method="post" enctype="multipart/form-data" class="image-link-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="save_image"><input type="hidden" name="product_id" value="{{ p.id }}"><label>Image URL<input type="url" name="image_url" value="{{ p.image_url if p.image_url and not p.image_url.startswith('/media/products/') else '' }}" placeholder="https://.../product-image.jpg"></label><label>Or upload image (JPG, PNG, WEBP, GIF)<input type="file" name="image_file" accept="image/jpeg,image/png,image/webp,image/gif"></label><label class="check-label"><input type="checkbox" name="clear_image"> Remove current image link</label><button class="button button-light" type="submit">Save image link</button></form></div></article>{% endfor %}</div>{% else %}<div class="empty-small">No product records match those filters.</div>{% endif %}
+{% if total_pages > 1 %}<div class="pagination-row"><span>Page {{ page }} of {{ total_pages }}</span><div>{% if page > 1 %}<a class="button button-light button-small" href="{{ url_for('admin_images',status=status,q=q,page=page-1) }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="button button-light button-small" href="{{ url_for('admin_images',status=status,q=q,page=page+1) }}">Next</a>{% endif %}</div></div>{% endif %}</div>
+<div class="admin-two-col"><section class="admin-panel"><div class="admin-panel-head"><div><h2>Restore uploaded image files</h2><p>Use a ZIP you previously downloaded. Database image links remain as they are.</p></div></div><form method="post" enctype="multipart/form-data" class="form-stack" onsubmit="return confirm('Restore image files from this ZIP? Matching files may be replaced.');"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="restore_assets"><label>Product image ZIP<input type="file" name="image_archive" accept=".zip,application/zip" required></label><button class="button button-light" type="submit">Validate and restore images</button></form></section><section class="admin-panel"><div class="admin-panel-head"><div><h2>Bring images in with a CSV</h2><p>Your catalogue import also accepts an <code>image_url</code> column.</p></div></div><p class="small-note">Use <code>barcode</code>, <code>name</code>, and <code>image_url</code>. URLs must be http/https links or image files already uploaded through this admin. Existing image links are preserved when the incoming CSV leaves the image field empty.</p><a class="button button-light" href="{{ url_for('admin_products') }}">Open catalogue importer</a></section></div>
+{% endblock %}

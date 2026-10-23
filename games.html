@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GameZone</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background-color: #0d0d0d; color: #fff; }
+    header {
+      background: #111;
+      padding: 1rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid #e50914;
+    }
+    .logo { font-size: 1.5rem; font-weight: bold; color: #e50914; }
+    .nav-icons i { margin-left: 1rem; cursor: pointer; font-size: 1.3rem; color: white; }
+    .sidebar {
+      position: fixed; left: -240px; top: 0; width: 220px; height: 100%;
+      background: #111; padding: 1rem; display: flex; flex-direction: column;
+      transition: left 0.3s ease; z-index: 2000;
+    }
+    .sidebar.open { left: 0; }
+    .sidebar-item { padding: 0.8rem; font-size: 1rem; cursor: pointer; }
+    .section { padding: 2rem; }
+    .grid, .channel-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 1.5rem;
+    }
+    .game-card, .channel-btn {
+      background: #1c1c1c; border-radius: 12px; overflow: hidden;
+      transition: transform 0.3s; cursor: pointer; text-align: center;
+    }
+    .game-card:hover, .channel-btn:hover { transform: scale(1.05); }
+    .game-card img { width: 100%; height: 200px; object-fit: cover; }
+    .game-card .title { padding: 0.8rem; background: #111; font-weight: bold; }
+    .channel-btn { padding: 1rem; font-size: 1rem; background: #222; border: 1px solid #333; }
+    .hidden { display: none; }
+    .back-btn {
+      margin-bottom: 1rem; background: #e50914; color: white; border: none;
+      padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer;
+    }
+    #video-player { margin-top: 2rem; text-align: center; }
+    video {
+      width: 100%; max-width: 900px; border-radius: 10px;
+      outline: none; background: black;
+    }
+    .now-playing { margin: 1rem 0; font-size: 1.2rem; font-weight: bold; }
+    .controls { margin-top: 1rem; display: flex; justify-content: center; gap: 1rem; }
+    .controls button {
+      padding: 0.5rem 1rem; background: #333; border: 1px solid #555;
+      color: white; cursor: pointer; border-radius: 4px;
+    }
+    .controls button:hover { background: #444; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">GameZone</div>
+    <div class="nav-icons">
+      <i class="fas fa-home" onclick="location.href='/home'"></i>
+      <i class="fas fa-bars" onclick="toggleSidebar()"></i>
+    </div>
+  </header>
+
+  <div class="sidebar" id="sidebar">
+    <div class="sidebar-item" onclick="location.href='/home'">Home</div>
+  </div>
+
+  <div class="section">
+    <div id="category-view">
+      <h2>Select a Category</h2>
+      <div class="grid">
+        <div class="game-card" onclick="showChannels('sports')">
+          <img src="static/media/thumbs/sports.jpg" alt="Sports">
+          <div class="title">Sports</div>
+        </div>
+        <div class="game-card" onclick="showChannels('news')">
+          <img src="static/media/thumbs/news.jpg" alt="News">
+          <div class="title">News</div>
+        </div>
+        <div class="game-card" onclick="showChannels('kids')">
+          <img src="static/media/thumbs/kids.jpg" alt="Kids">
+          <div class="title">Kids</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="channel-view" class="hidden">
+      <button class="back-btn" onclick="backToCategories()">← Back</button>
+      <h2 id="channel-title">Channels</h2>
+      <div class="channel-list" id="channel-buttons"></div>
+    </div>
+
+    <div id="video-player" class="hidden">
+      <div class="now-playing" id="now-playing"></div>
+      <video id="video" controls autoplay></video>
+      <div class="controls">
+        <button onclick="toggleMute()">🔇 Mute</button>
+        <button onclick="enterMini()">📺 Mini Player</button>
+        <button onclick="castVideo()">📡 Cast</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('open');
+    }
+
+    async function showChannels(category) {
+      document.getElementById("category-view").classList.add("hidden");
+      document.getElementById("channel-view").classList.remove("hidden");
+
+      const title = document.getElementById("channel-title");
+      const list = document.getElementById("channel-buttons");
+      const player = document.getElementById("video-player");
+
+      title.textContent = `Channels for ${capitalize(category)}`;
+      list.innerHTML = "";
+      player.classList.add("hidden");
+
+      // Static Example Channels
+      const staticChannels = [
+        { name: "Channel 1", url: "videos/sample1.mp4" },
+        { name: "Channel 2", url: "videos/sample2.mp4" }
+      ];
+
+      staticChannels.forEach(ch => {
+        const btn = document.createElement("div");
+        btn.className = "channel-btn";
+        btn.textContent = ch.name;
+        btn.onclick = () => playChannel(ch.name, ch.url);
+        list.appendChild(btn);
+      });
+    }
+
+    function playChannel(name, url) {
+      const video = document.getElementById("video");
+      const label = document.getElementById("now-playing");
+      const player = document.getElementById("video-player");
+
+      video.src = url;
+      label.textContent = `Now Playing: ${name}`;
+      player.classList.remove("hidden");
+      video.play();
+    }
+
+    function toggleMute() {
+      const video = document.getElementById("video");
+      video.muted = !video.muted;
+    }
+
+    function enterMini() {
+      const video = document.getElementById("video");
+      if (document.pictureInPictureEnabled) {
+        video.requestPictureInPicture().catch(() => alert("Mini player not supported."));
+      }
+    }
+
+    function castVideo() {
+      alert("Casting is not supported in this static demo.");
+    }
+
+    function backToCategories() {
+      document.getElementById("channel-view").classList.add("hidden");
+      document.getElementById("video-player").classList.add("hidden");
+      document.getElementById("category-view").classList.remove("hidden");
+    }
+
+    function capitalize(str) {
+      return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+  </script>
+</body>
+</html>
