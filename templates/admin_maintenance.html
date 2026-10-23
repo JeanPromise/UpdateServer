@@ -1,0 +1,48 @@
+{% extends 'admin_base.html' %}
+{% block title %}Database cleanup{% endblock %}
+{% block header_title %}Database cleanup{% endblock %}
+{% block admin_content %}
+<section class="admin-page-heading">
+  <div>
+    <span class="section-kicker">MAINTENANCE TOOLS</span>
+    <h1>Clean up old records safely.</h1>
+    <p>Review and remove old visitor activity, system warnings/errors, stale empty-image lookup results, and unused local image files.</p>
+  </div>
+</section>
+<section class="admin-notice">
+  <strong>Protected data:</strong> these tools do not delete products, users, payments, subscriptions, API keys, or the protected barcode-to-image registry. Empty-image cleanup only resets old failed lookup markers so those products can be checked again.
+</section>
+<section class="admin-panel">
+  <div class="admin-panel-head">
+    <div><h2>Choose the retention window</h2><p>The preview below counts records older than the chosen period. Refresh the preview before selecting cleanup tasks.</p></div>
+  </div>
+  <form method="get" class="admin-search">
+    <label for="retention-days">Keep the most recent</label>
+    <select id="retention-days" name="days">
+      {% for option in retention_options %}<option value="{{ option }}" {% if option == days %}selected{% endif %}>{{ option }} days</option>{% endfor %}
+    </select>
+    <button class="button button-light" type="submit">Preview selected age</button>
+  </form>
+</section>
+<div class="admin-stats-grid">
+  <article class="admin-stat-card"><span class="admin-stat-label">Old visitor activity</span><strong>{{ '{:,}'.format(counts.visitor_events) }}</strong><small>Entries older than {{ days }} days</small></article>
+  <article class="admin-stat-card"><span class="admin-stat-label">Old warnings and errors</span><strong>{{ '{:,}'.format(counts.system_errors) }}</strong><small>Diagnostic rows older than {{ days }} days</small></article>
+  <article class="admin-stat-card"><span class="admin-stat-label">Empty-image lookup cache</span><strong>{{ '{:,}'.format(counts.empty_image_checks) }}</strong><small>Unsuccessful checks older than {{ days }} days</small></article>
+  <article class="admin-stat-card"><span class="admin-stat-label">Unreferenced image files</span><strong>{{ '{:,}'.format(counts.orphan_image_files) }}</strong><small>Unused local files older than {{ days }} days</small></article>
+</div>
+<section class="admin-panel">
+  <div class="admin-panel-head"><div><h2>Run selected cleanup tasks</h2><p>Only checked items are changed. This action is limited to data older than {{ days }} days, except that successful images and active references remain protected.</p></div></div>
+  <form method="post" class="form-stack" onsubmit="return confirm('Run the selected cleanup tasks? Product records, successful image links and protected image mappings will be retained.');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="days" value="{{ days }}">
+    <label class="check-label"><input type="checkbox" name="visitor_events"> <strong>Delete old visitor activity</strong> — remove {{ '{:,}'.format(counts.visitor_events) }} old page-view records from the visitor history database.</label>
+    <label class="check-label"><input type="checkbox" name="system_errors"> <strong>Delete old system warnings and errors</strong> — remove {{ '{:,}'.format(counts.system_errors) }} old warning/error diagnostics while retaining informational events and newer diagnostics.</label>
+    <label class="check-label"><input type="checkbox" name="empty_image_checks"> <strong>Clear stale empty-image lookup cache</strong> — reset {{ '{:,}'.format(counts.empty_image_checks) }} old failed lookups for products that still have no image, making them eligible for another image search. Does not remove successful images.</label>
+    <label class="check-label"><input type="checkbox" name="orphan_image_files"> <strong>Remove unused local image files</strong> — remove up to {{ '{:,}'.format(counts.orphan_image_files) }} old local image files that are not linked by products or the protected image registry.</label>
+    <div><button class="button button-danger" type="submit">Run selected cleanup</button></div>
+  </form>
+</section>
+<section class="admin-notice">
+  <strong>Visitor session note:</strong> browser sign-in sessions use signed cookies; they are not stored as server-side session rows in this database. The visitor cleanup removes old visitor activity records only. It does not sign customers out or delete customer accounts. API usage logs are also retained to protect quota calculations and usage history.
+</section>
+{% endblock %}

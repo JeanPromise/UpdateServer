@@ -37,3 +37,11 @@ IMAGE RETENTION PATCH
 - The protected image ZIP now carries its barcode-to-image manifest and local upload files. Restoring it merges mappings and restores files.
 - Deleting a product retains its protected image mapping for a later re-import. Only the explicit admin Remove image action removes a registry mapping.
 - Keep the Render persistent disk attached at /var/data. This prevents ordinary redeploys from wiping the registry and local upload files. An off-site protected image ZIP is still necessary for disaster recovery.
+
+
+October 23, 2026 — public metrics and admin cleanup
+- Removed total product and verified-record counts from the public homepage; those totals remain in the administrator dashboard.
+- Bumped the service-worker shell cache to v4 so old cached homepage content is replaced on the next visit.
+- Added Admin → Database cleanup with age-limited visitor activity pruning, old warning/error cleanup, stale empty-image lookup reset for rediscovery, and safe removal of old unreferenced local image files.
+- Cleanup never deletes products, customer accounts, payments, API keys, successful image mappings, or the protected image registry. API usage logs are retained to protect quota history.
+- Visitor tracking is stored as page-view records; user sign-in uses signed browser cookies rather than a server-side sessions table.

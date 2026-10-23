@@ -928,15 +928,11 @@ def index():
         public_limit = 5
     results = query_products(q, public_limit) if q else []
     with connect_db() as db:
-        product_count = db.execute("SELECT COUNT(*) FROM products").fetchone()[0]
-        verified_count = db.execute("SELECT COUNT(*) FROM products WHERE verified=1").fetchone()[0]
-    with connect_db() as db:
         posts = [dict(r) for r in db.execute("SELECT * FROM posts WHERE active=1 ORDER BY id DESC LIMIT 6")]
     user = current_user()
     has_access = bool(user and active_subscription(user["id"]))
-    return render_template("index.html", q=q, results=results, product_count=product_count,
-                           verified_count=verified_count, plans=active_plans(), search_limit=public_limit,
-                           posts=posts, user_has_access=has_access)
+    return render_template("index.html", q=q, results=results, plans=active_plans(),
+                           search_limit=public_limit, posts=posts, user_has_access=has_access)
 
 
 @app.route("/catalogue")
@@ -2633,6 +2629,124 @@ def admin_visitors_csv():
     response.headers["Content-Disposition"] = 'attachment; filename="barcode-hub-visitors.csv"'
     response.headers["Cache-Control"] = "no-store"
     return response
+
+
+CLEANUP_RETENTION_DAYS = (7, 30, 90, 180, 365)
+
+
+def _maintenance_orphan_image_files(remove: bool = False, older_than_days: int = 90) -> int:
+    """Count/remove only local image files that are referenced nowhere.
+
+    A file is protected if either the active products table or the separate
+    image registry refers to it. This deliberately never deletes registry rows
+    or links to external images.
+    """
+    referenced_urls = set()
+    with connect_db() as db:
+        referenced_urls.update(str(r[0] or "") for r in db.execute(
+            "SELECT image_url FROM products WHERE COALESCE(TRIM(image_url),'')<>''"))
+    with image_registry_connection() as registry:
+        referenced_urls.update(str(r[0] or "") for r in registry.execute(
+            "SELECT image_url FROM image_registry WHERE COALESCE(TRIM(image_url),'')<>''"))
+    referenced_names = {
+        url.rsplit("/", 1)[-1] for url in referenced_urls
+        if url.startswith("/media/products/") and "/" in url
+    }
+    candidates = []
+    old_file_cutoff = time.time() - max(1, int(older_than_days)) * 86400
+    try:
+        for path in PRODUCT_IMAGE_DIR.iterdir():
+            if (path.is_file() and not path.is_symlink()
+                    and re.fullmatch(r"[a-f0-9]{20}\.(?:jpg|png|webp|gif)", path.name)
+                    and path.name not in referenced_names
+                    and path.stat().st_mtime < old_file_cutoff):
+                candidates.append(path)
+    except OSError:
+        return 0
+    if not remove:
+        return len(candidates)
+    deleted = 0
+    for path in candidates:
+        try:
+            path.unlink(missing_ok=True)
+            deleted += 1
+        except OSError:
+            app.logger.warning("Could not remove orphaned local product image %s", path.name)
+    return deleted
+
+
+def _maintenance_preview(days: int) -> tuple[str, dict[str, int]]:
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).replace(microsecond=0).isoformat()
+    with connect_db() as db:
+        counts = {
+            "visitor_events": int(db.execute(
+                "SELECT COUNT(*) FROM visitor_events WHERE created_at < ?", (cutoff,)).fetchone()[0]),
+            "system_errors": int(db.execute(
+                "SELECT COUNT(*) FROM system_events WHERE created_at < ? AND lower(severity) IN ('error','warning')",
+                (cutoff,)).fetchone()[0]),
+            "empty_image_checks": int(db.execute(
+                "SELECT COUNT(*) FROM products WHERE COALESCE(TRIM(image_url),'')='' "
+                "AND COALESCE(TRIM(image_checked_at),'')<>'' AND image_checked_at < ?", (cutoff,)).fetchone()[0]),
+        }
+    counts["orphan_image_files"] = _maintenance_orphan_image_files(remove=False, older_than_days=days)
+    return cutoff, counts
+
+
+@app.route(ADMIN_PREFIX + "/maintenance", methods=["GET", "POST"])
+@admin_required
+def admin_maintenance():
+    """Admin-only, age-limited cleanup for visitor analytics and stale diagnostics."""
+    try:
+        days = int(request.values.get("days", "90"))
+    except (TypeError, ValueError):
+        days = 90
+    if days not in CLEANUP_RETENTION_DAYS:
+        days = 90
+
+    if request.method == "POST":
+        selected = {key for key in (
+            "visitor_events", "system_errors", "empty_image_checks", "orphan_image_files"
+        ) if request.form.get(key) == "on"}
+        if not selected:
+            flash("Choose at least one cleanup task. Nothing was deleted.", "info")
+            return redirect(url_for("admin_maintenance", days=days))
+
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).replace(microsecond=0).isoformat()
+        outcomes = []
+        try:
+            with connect_db() as db:
+                if "visitor_events" in selected:
+                    cursor = db.execute("DELETE FROM visitor_events WHERE created_at < ?", (cutoff,))
+                    outcomes.append(f"{cursor.rowcount:,} old visitor activity records")
+                if "system_errors" in selected:
+                    cursor = db.execute(
+                        "DELETE FROM system_events WHERE created_at < ? AND lower(severity) IN ('error','warning')",
+                        (cutoff,))
+                    outcomes.append(f"{cursor.rowcount:,} old system warnings/errors")
+                if "empty_image_checks" in selected:
+                    cursor = db.execute(
+                        "UPDATE products SET image_checked_at='', image_source='' "
+                        "WHERE COALESCE(TRIM(image_url),'')='' "
+                        "AND COALESCE(TRIM(image_checked_at),'')<>'' AND image_checked_at < ?",
+                        (cutoff,))
+                    outcomes.append(f"{cursor.rowcount:,} stale empty-image lookup results reset for retry")
+            if "orphan_image_files" in selected:
+                removed = _maintenance_orphan_image_files(remove=True, older_than_days=days)
+                outcomes.append(f"{removed:,} unreferenced local image files removed")
+            log_system_event("maintenance", "admin_cleanup_completed",
+                             "Admin cleanup completed: " + "; ".join(outcomes),
+                             200, None, request.path, "info")
+            flash("Cleanup complete: " + "; ".join(outcomes) + ". Protected barcode images and image-registry mappings were not deleted.", "success")
+        except (sqlite3.Error, OSError) as exc:
+            app.logger.exception("Admin database cleanup failed")
+            log_system_event("maintenance", "admin_cleanup_failed", "Admin cleanup failed safely",
+                             500, None, request.path, "error")
+            flash("Cleanup did not complete. Check the hosting logs; protected image mappings were not intentionally removed.", "error")
+        return redirect(url_for("admin_maintenance", days=days))
+
+    cutoff, counts = _maintenance_preview(days)
+    return render_template("admin_maintenance.html", days=days, retention_options=CLEANUP_RETENTION_DAYS,
+                           cutoff=cutoff, counts=counts)
 
 
 @app.route(ADMIN_PREFIX + "/settings", methods=["GET", "POST"])
