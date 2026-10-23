@@ -1,4 +1,4 @@
-const CACHE_NAME = 'barcode-hub-shell-v4';
+const CACHE_NAME = 'barcode-hub-shell-v5';
 const PUBLIC_PAGES = new Set(['/', '/offline', '/pricing', '/docs', '/catalogue', '/privacy']);
 const SHELL = [
   '/', '/offline', '/pricing', '/docs', '/catalogue', '/privacy',

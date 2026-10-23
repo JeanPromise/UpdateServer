@@ -45,3 +45,12 @@ October 23, 2026 — public metrics and admin cleanup
 - Added Admin → Database cleanup with age-limited visitor activity pruning, old warning/error cleanup, stale empty-image lookup reset for rediscovery, and safe removal of old unreferenced local image files.
 - Cleanup never deletes products, customer accounts, payments, API keys, successful image mappings, or the protected image registry. API usage logs are retained to protect quota history.
 - Visitor tracking is stored as page-view records; user sign-in uses signed browser cookies rather than a server-side sessions table.
+
+
+API-only customer access update (2026-10-23)
+- Removed public CSV template and full-catalogue download routes. Requests to those removed endpoints now return 404.
+- Removed CSV template, bulk-download, and catalogue-CSV promotions from public homepage, catalogue, footer, account, and pricing pages.
+- Kept owner-only catalogue import/export and protected image backup tools for administration.
+- Added a confirmed, CSRF-protected admin action to permanently delete customer account data and linked activity.
+- Bumped the service-worker shell cache to v5 to replace stale homepage copies after deployment.
+- Admin screens send no-store headers; product-image library and image backup tools remain admin-authenticated.

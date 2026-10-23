@@ -130,7 +130,7 @@ DEFAULT_SETTINGS = {
     "description": "A practical barcode and product catalogue for Kenyan shops, POS builders, and developers.",
     "hero_title": "Product barcodes.",
     "hero_highlight": "Ready for your system.",
-    "hero_subtitle": "Search, download and connect to product records made for Kenyan retail.",
+    "hero_subtitle": "Search product barcodes and connect your application directly through the API.",
     "logo_url": "",
     "primary_color": "#2677e8",
     "support_email": "",
@@ -436,6 +436,9 @@ def init_db() -> None:
         db.execute("CREATE INDEX IF NOT EXISTS idx_visitors_user ON visitor_events(user_id)")
         for key, value in DEFAULT_SETTINGS.items():
             db.execute("INSERT OR IGNORE INTO settings(key, value) VALUES (?, ?)", (key, value))
+        # Replace the old stock copy on existing deployments; preserve admin-customized text.
+        db.execute("UPDATE settings SET value=? WHERE key='hero_subtitle' AND value=?",
+                   (DEFAULT_SETTINGS["hero_subtitle"], "Search, download and connect to product records made for Kenyan retail."))
         for slug, name, price, limit, days, description, active in DEFAULT_PLANS:
             db.execute("""INSERT OR IGNORE INTO plans(slug,name,price_kes,lookup_limit,duration_days,description,active)
                           VALUES (?,?,?,?,?,?,?)""", (slug, name, price, limit, days, description, active))
@@ -809,10 +812,15 @@ def log_page_view() -> None:
         referrer = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"[:400]
     try:
         with connect_db() as db:
-            db.execute("""INSERT INTO visitor_events(visitor_id,path,method,ip_masked,referrer,user_agent,created_at)
-                          VALUES(?,?,?,?,?,?,?)""",
+            # Tie signed-in browser activity to its account so account deletion can
+            # remove those linked records instead of leaving them behind anonymously.
+            linked_user_id = session.get("user_id")
+            if linked_user_id and not db.execute("SELECT 1 FROM users WHERE id=?", (linked_user_id,)).fetchone():
+                linked_user_id = None
+            db.execute("""INSERT INTO visitor_events(visitor_id,path,method,ip_masked,referrer,user_agent,created_at,user_id)
+                          VALUES(?,?,?,?,?,?,?,?)""",
                        (visitor_id, request.path[:300], request.method, mask_ip(request.remote_addr or ""),
-                        referrer, request.user_agent.string[:300], now_iso()))
+                        referrer, request.user_agent.string[:300], now_iso(), linked_user_id))
     except sqlite3.Error:
         app.logger.exception("Could not record visitor event")
 
@@ -834,7 +842,7 @@ def security_headers(response):
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-    if request.path.startswith("/promise212324") or request.path.startswith("/account") or request.path.startswith("/checkout") or request.path.startswith("/login") or request.path.startswith("/register") or request.path.startswith("/api/") or request.path.startswith("/downloads/"):
+    if request.path.startswith("/promise212324") or request.path.startswith("/admin") or request.path.startswith("/account") or request.path.startswith("/checkout") or request.path.startswith("/login") or request.path.startswith("/register") or request.path.startswith("/api/") or request.path.startswith("/downloads/"):
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
     # Only explicitly public, query-free anonymous pages may be cached offline.
@@ -925,7 +933,7 @@ def inject_context():
 @app.route("/")
 def index():
     q = request.args.get("q", "")[:100]
-    # Public lookup is deliberately limited; the paid API/full catalogue supplies bulk access.
+    # Public lookup is deliberately limited; paid plans provide higher-volume API access.
     settings = get_settings()
     try:
         public_limit = max(1, min(10, int(settings.get("public_search_limit", "5"))))
@@ -1154,45 +1162,6 @@ def checkout(slug):
         flash("Payment details submitted. Your access will unlock after an administrator verifies the transaction.", "success")
         return redirect(url_for("account"))
     return render_template("checkout.html", plan=plan, settings=settings)
-
-
-@app.route("/downloads/sample.csv")
-def sample_download():
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(["barcode", "name", "brand", "pack_size", "category", "price_kes", "verified", "source", "image_url"])
-    # A header-only file avoids presenting made-up barcode data as real products.
-    data = io.BytesIO(output.getvalue().encode("utf-8-sig"))
-    return send_file(data, mimetype="text/csv", as_attachment=True, download_name="kenya-barcode-hub-sample-template.csv")
-
-
-@app.route("/downloads/catalogue.csv")
-@login_required
-def catalogue_download():
-    user = current_user()
-    sub = active_subscription(user["id"])
-    if not sub:
-        flash("An active plan is needed to download the full catalogue.", "info")
-        return redirect(url_for("pricing"))
-    image_access = bool(sub.get("image_access"))
-    with connect_db() as db:
-        if image_access:
-            rows = db.execute("SELECT barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at,image_url FROM products ORDER BY name COLLATE NOCASE").fetchall()
-        else:
-            rows = db.execute("SELECT barcode,name,brand,pack_size,category,price_kes,verified,source,updated_at FROM products ORDER BY name COLLATE NOCASE").fetchall()
-    output = io.StringIO(newline="")
-    writer = csv.writer(output)
-    writer.writerow(["barcode", "name", "brand", "pack_size", "category", "price_kes", "verified", "source", "updated_at"] + (["image_url"] if image_access else []))
-    for row in rows:
-        values = list(row)
-        if image_access and values[-1] and str(values[-1]).startswith("/"):
-            values[-1] = request.url_root.rstrip("/") + str(values[-1])
-        writer.writerow(values)
-    response = make_response("\ufeff" + output.getvalue())
-    response.headers["Content-Type"] = "text/csv; charset=utf-8"
-    response.headers["Content-Disposition"] = 'attachment; filename="kenya-barcode-hub-catalogue.csv"'
-    response.headers["Cache-Control"] = "no-store"
-    return response
 
 
 @app.route("/api/v1/barcode/<barcode>", methods=["GET"])
@@ -2451,6 +2420,30 @@ def admin_user_detail(user_id):
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Robots-Tag"] = "noindex, nofollow"
     return response
+
+
+@app.route(ADMIN_PREFIX + "/users/<int:user_id>/delete", methods=["POST"])
+@admin_required
+def admin_delete_user(user_id):
+    """Permanently remove a customer account and account-linked records."""
+    with connect_db() as db:
+        user_row = db.execute("SELECT id FROM users WHERE id=?", (user_id,)).fetchone()
+        if not user_row:
+            abort(404)
+        # Remove user-linked activity first so logs do not retain a deleted account ID.
+        db.execute("DELETE FROM visitor_events WHERE user_id=?", (user_id,))
+        db.execute("DELETE FROM system_events WHERE user_id=?", (user_id,))
+        db.execute("DELETE FROM subscriptions WHERE user_id=?", (user_id,))
+        db.execute("DELETE FROM api_logs WHERE user_id=?", (user_id,))
+        db.execute("DELETE FROM api_keys WHERE user_id=?", (user_id,))
+        db.execute("DELETE FROM orders WHERE user_id=?", (user_id,))
+        db.execute("DELETE FROM users WHERE id=?", (user_id,))
+    # Keep only a non-identifying operational audit entry; no email or customer ID.
+    log_system_event("admin_user_management", "customer_account_deleted",
+                     "A customer account and its linked personal records were permanently deleted",
+                     200, None, ADMIN_PREFIX + "/users/delete", "warning")
+    flash("Customer account and linked data permanently deleted.", "success")
+    return redirect(url_for("admin_users"))
 
 
 @app.route(ADMIN_PREFIX + "/api-monitor", methods=["GET", "POST"])
