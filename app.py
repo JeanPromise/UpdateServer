@@ -898,9 +898,14 @@ def query_products(term: str, limit: int = 20):
             rows = db.execute("SELECT * FROM products ORDER BY name COLLATE NOCASE LIMIT ?", (limit,)).fetchall()
         else:
             like = f"%{term}%"
-            rows = db.execute("""SELECT * FROM products WHERE barcode=? OR name LIKE ? OR brand LIKE ? OR category LIKE ?
-                              ORDER BY CASE WHEN barcode=? THEN 0 ELSE 1 END, name COLLATE NOCASE LIMIT ?""",
-                              (normalize_barcode(term), like, like, like, normalize_barcode(term), limit)).fetchall()
+            normalized = normalize_barcode(term)
+            # Exact barcode first, then partial barcode matches, then text matches.
+            # This helps users who enter only part of a barcode or paste one with separators.
+            rows = db.execute("""SELECT * FROM products
+                              WHERE barcode=? OR barcode LIKE ? OR name LIKE ? OR brand LIKE ? OR category LIKE ?
+                              ORDER BY CASE WHEN barcode=? THEN 0 WHEN barcode LIKE ? THEN 1 ELSE 2 END,
+                                       name COLLATE NOCASE LIMIT ?""",
+                              (normalized, f"%{normalized}%", like, like, like, normalized, f"{normalized}%", limit)).fetchall()
     return [product_from_row(r) for r in rows]
 
 
